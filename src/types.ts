@@ -136,7 +136,7 @@ export interface SriMessage {
 }
 
 // Simple User and Role Management Systems
-export type UserRole = 'ADMIN' | 'USER';
+export type UserRole = 'ADMIN' | 'USER' | 'SUPERADMIN';
 
 export interface PortalUser {
   id: string;

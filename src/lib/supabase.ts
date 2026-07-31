@@ -63,6 +63,10 @@ export async function testSupabaseConnection(): Promise<{ success: boolean; tabl
       error = res.error;
     }
 
+    // Ensure storage buckets exist
+    ensureSupabaseBucketsExist().catch(e => console.warn('Bucket check notice:', e));
+    ensureSuperAdminInSupabase().catch(e => console.warn('Superadmin user sync notice:', e));
+
     if (error) {
       if (isTableMissingError(error)) {
         return { 
@@ -81,13 +85,13 @@ export async function testSupabaseConnection(): Promise<{ success: boolean; tabl
       return { success: false, tablesExist: false, message: `Aviso Supabase: ${error.message}` };
     }
 
-    return { success: true, tablesExist: true, message: '¡Conexión exitosa y tablas verificadas en Supabase!' };
+    return { success: true, tablesExist: true, message: '¡Conexión exitosa, tablas y buckets verificados en Supabase!' };
   } catch (err: any) {
     return { success: false, tablesExist: false, message: `Error al conectar con Supabase: ${err.message || 'Error de red'}` };
   }
 }
 
-export const SUPABASE_SQL_SCRIPT = `-- SCRIPT DE CREACIÓN DE TABLAS SUPABASE - JOLUS SERVICES PORTAL SRI
+export const SUPABASE_SQL_SCRIPT = `-- SCRIPT DE CREACIÓN DE TABLAS Y BUCKETS EN SUPABASE - JOLUS SERVICES PORTAL SRI
 -- Copie y pegue este código completo en el "SQL Editor" de su panel de Supabase y haga clic en "Run".
 
 -- 1. TABLA DE CLIENTES
@@ -153,15 +157,68 @@ CREATE TABLE IF NOT EXISTS public.proformas (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Deshabilitar RLS para permitir lectura y escritura mediante anon_key (tanto en español como en inglés)
+-- 5. TABLA DE USUARIOS DEL PORTAL
+CREATE TABLE IF NOT EXISTS public.usuarios_portal (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    usuario TEXT,
+    correo VARCHAR(255) NOT NULL UNIQUE,
+    clave_hash TEXT NOT NULL DEFAULT 'admin123',
+    role VARCHAR(20) NOT NULL DEFAULT 'USER',
+    nombre TEXT,
+    is_temp BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Deshabilitar RLS en tablas para permitir acceso directo vía anon_key
 ALTER TABLE IF EXISTS public.clientes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.productos DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.facturas DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.proformas DISABLE ROW LEVEL SECURITY;
-
 ALTER TABLE IF EXISTS public.clients DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.products DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.invoices DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.usuarios_portal DISABLE ROW LEVEL SECURITY;
+
+-- REGISTRO DE USUARIO SUPERADMIN SOLICITADO
+INSERT INTO public.usuarios_portal (usuario, correo, clave_hash, role, nombre, is_temp)
+VALUES (
+    'Anibal Joel Gualoto Indacochea',
+    'jolusservices@gmail.com',
+    'admin123',
+    'SUPERADMIN',
+    'Anibal Joel Gualoto Indacochea',
+    false
+)
+ON CONFLICT (correo) DO UPDATE SET 
+    usuario = EXCLUDED.usuario,
+    role = 'SUPERADMIN',
+    nombre = EXCLUDED.nombre;
+
+-- ==============================================================================
+-- 5. CREACIÓN DE BUCKETS DE ALMACENAMIENTO DE ARCHIVOS (SUPABASE STORAGE)
+-- ==============================================================================
+INSERT INTO storage.buckets (id, name, public) VALUES
+    ('facturas-pdf', 'facturas-pdf', true),
+    ('facturas-xml-sin-firmar', 'facturas-xml-sin-firmar', true),
+    ('facturas-xml-firmados', 'facturas-xml-firmados', true),
+    ('notas-credito-pdf', 'notas-credito-pdf', true),
+    ('notas-credito-xml-firmados', 'notas-credito-xml-firmados', true),
+    ('notas-credito-xml-sin-firmar', 'notas-credito-xml-sin-firmar', true),
+    ('proformas-pdf', 'proformas-pdf', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Políticas permisivas de lectura y escritura para almacenamiento público
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE policyname = 'Permitir lectura y escritura publica en buckets'
+    ) THEN
+        CREATE POLICY "Permitir lectura y escritura publica en buckets"
+        ON storage.objects FOR ALL
+        USING (true)
+        WITH CHECK (true);
+    END IF;
+END $$;
 `;
 
 /* ========================================================================
@@ -480,4 +537,208 @@ export async function saveProformaToSupabase(proforma: Proforma): Promise<boolea
   const { error } = await supabase.from('proformas').upsert(payload);
   return !error;
 }
+
+/* ========================================================================
+   SUPABASE STORAGE BUCKETS (7 BUCKETS IMPLEMENTATION & FILE NAMING)
+   ======================================================================== */
+
+export const SUPABASE_BUCKETS = {
+  FACTURAS_PDF: 'facturas-pdf',
+  FACTURAS_XML_SIN_FIRMAR: 'facturas-xml-sin-firmar',
+  FACTURAS_XML_FIRMADOS: 'facturas-xml-firmados',
+  NOTAS_CREDITO_PDF: 'notas-credito-pdf',
+  NOTAS_CREDITO_XML_FIRMADOS: 'notas-credito-xml-firmados',
+  NOTAS_CREDITO_XML_SIN_FIRMAR: 'notas-credito-xml-sin-firmar',
+  PROFORMAS_PDF: 'proformas-pdf',
+} as const;
+
+/**
+ * Helper to ensure all 7 buckets exist in Supabase Storage
+ */
+export async function ensureSupabaseBucketsExist(): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
+
+  const buckets = Object.values(SUPABASE_BUCKETS);
+  for (const bucket of buckets) {
+    try {
+      await supabase.storage.createBucket(bucket, { public: true });
+    } catch {
+      // Bucket already exists or created via SQL
+    }
+  }
+}
+
+/**
+ * Upload raw content (XML string or PDF Blob/File) to a Supabase bucket
+ */
+export async function uploadToSupabaseBucket(
+  bucketName: string,
+  fileName: string,
+  content: string | Blob | File,
+  contentType: string = 'text/plain'
+): Promise<{ success: boolean; publicUrl?: string; error?: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { success: false, error: 'Supabase no inicializado.' };
+
+  try {
+    let payload: Blob | File;
+    if (typeof content === 'string') {
+      payload = new Blob([content], { type: contentType });
+    } else {
+      payload = content;
+    }
+
+    const { data, error } = await supabase.storage
+      .from(bucketName)
+      .upload(fileName, payload, {
+        upsert: true,
+        contentType
+      });
+
+    if (error) {
+      console.warn(`[Supabase Storage] Error al subir ${fileName} a ${bucketName}:`, error.message);
+      return { success: false, error: error.message };
+    }
+
+    const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
+    return { success: true, publicUrl: publicUrlData.publicUrl };
+  } catch (err: any) {
+    console.error(`[Supabase Storage] Excepción al subir a ${bucketName}:`, err);
+    return { success: false, error: err.message || 'Error de red en almacenamiento' };
+  }
+}
+
+// --- 1. FACTURA PDF ("FAC establecimiento-punto de emision-secuencial factura") ---
+export async function uploadInvoicePdf(
+  estab: string = '001',
+  ptoEmi: string = '001',
+  secuencial: string,
+  pdfContent: Blob | File
+) {
+  const cleanEstab = String(estab).padStart(3, '0');
+  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
+  const cleanSeq = String(secuencial).padStart(9, '0');
+  const fileName = `FAC ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.pdf`;
+
+  return uploadToSupabaseBucket(SUPABASE_BUCKETS.FACTURAS_PDF, fileName, pdfContent, 'application/pdf');
+}
+
+// --- 2. FACTURA XML SIN FIRMAR ("FAC establecimiento-punto de emision-secuencial factura") ---
+export async function uploadInvoiceXmlSinFirmar(
+  estab: string = '001',
+  ptoEmi: string = '001',
+  secuencial: string,
+  xmlContent: string
+) {
+  const cleanEstab = String(estab).padStart(3, '0');
+  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
+  const cleanSeq = String(secuencial).padStart(9, '0');
+  const fileName = `FAC ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.xml`;
+
+  return uploadToSupabaseBucket(SUPABASE_BUCKETS.FACTURAS_XML_SIN_FIRMAR, fileName, xmlContent, 'application/xml');
+}
+
+// --- 3. FACTURA XML FIRMADO ("FAC establecimiento-punto de emision-secuencial factura_firmado") ---
+export async function uploadInvoiceXmlFirmado(
+  estab: string = '001',
+  ptoEmi: string = '001',
+  secuencial: string,
+  xmlContent: string
+) {
+  const cleanEstab = String(estab).padStart(3, '0');
+  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
+  const cleanSeq = String(secuencial).padStart(9, '0');
+  const fileName = `FAC ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}_firmado.xml`;
+
+  return uploadToSupabaseBucket(SUPABASE_BUCKETS.FACTURAS_XML_FIRMADOS, fileName, xmlContent, 'application/xml');
+}
+
+// --- 4. NOTA DE CRÉDITO PDF ("NCT establecimiento-punto de emision-secuencial (nota nc)") ---
+export async function uploadCreditNotePdf(
+  estab: string = '001',
+  ptoEmi: string = '001',
+  secuencial: string,
+  pdfContent: Blob | File
+) {
+  const cleanEstab = String(estab).padStart(3, '0');
+  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
+  const cleanSeq = String(secuencial).padStart(9, '0');
+  const fileName = `NCT ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.pdf`;
+
+  return uploadToSupabaseBucket(SUPABASE_BUCKETS.NOTAS_CREDITO_PDF, fileName, pdfContent, 'application/pdf');
+}
+
+// --- 5. NOTA DE CRÉDITO XML FIRMADO ("NCT establecimiento-punto de emision-secuencial (nota nc)_firmado") ---
+export async function uploadCreditNoteXmlFirmado(
+  estab: string = '001',
+  ptoEmi: string = '001',
+  secuencial: string,
+  xmlContent: string
+) {
+  const cleanEstab = String(estab).padStart(3, '0');
+  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
+  const cleanSeq = String(secuencial).padStart(9, '0');
+  const fileName = `NCT ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}_firmado.xml`;
+
+  return uploadToSupabaseBucket(SUPABASE_BUCKETS.NOTAS_CREDITO_XML_FIRMADOS, fileName, xmlContent, 'application/xml');
+}
+
+// --- 6. NOTA DE CRÉDITO XML SIN FIRMAR ("NCT establecimiento-punto de emision-secuencial (nota nc)") ---
+export async function uploadCreditNoteXmlSinFirmar(
+  estab: string = '001',
+  ptoEmi: string = '001',
+  secuencial: string,
+  xmlContent: string
+) {
+  const cleanEstab = String(estab).padStart(3, '0');
+  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
+  const cleanSeq = String(secuencial).padStart(9, '0');
+  const fileName = `NCT ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.xml`;
+
+  return uploadToSupabaseBucket(SUPABASE_BUCKETS.NOTAS_CREDITO_XML_SIN_FIRMAR, fileName, xmlContent, 'application/xml');
+}
+
+// --- 7. PROFORMA PDF ("Proforma_NombreClienteOEmpresa_fecha") ---
+export async function uploadProformaPdf(
+  clienteOEmpresa: string,
+  fecha: string,
+  pdfContent: Blob | File
+) {
+  const cleanName = (clienteOEmpresa || 'Cliente').trim().replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const cleanFecha = fecha || new Date().toISOString().split('T')[0];
+  const fileName = `Proforma_${cleanName}_${cleanFecha}.pdf`;
+
+  return uploadToSupabaseBucket(SUPABASE_BUCKETS.PROFORMAS_PDF, fileName, pdfContent, 'application/pdf');
+}
+
+/**
+ * Ensure superadmin user is registered in Supabase usuarios_portal table
+ */
+export async function ensureSuperAdminInSupabase(): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
+
+  try {
+    const superAdminUser = {
+      usuario: 'Anibal Joel Gualoto Indacochea',
+      correo: 'jolusservices@gmail.com',
+      role: 'SUPERADMIN',
+      nombre: 'Anibal Joel Gualoto Indacochea',
+      clave_hash: 'admin123',
+      is_temp: false
+    };
+
+    const { error } = await supabase
+      .from('usuarios_portal')
+      .upsert([superAdminUser], { onConflict: 'correo' });
+
+    if (error && !isTableMissingError(error)) {
+      console.warn('[Supabase] Aviso usuarios_portal superadmin:', error.message);
+    }
+  } catch (err) {
+    console.warn('[Supabase] Excepción en usuarios_portal superadmin:', err);
+  }
+}
+
 

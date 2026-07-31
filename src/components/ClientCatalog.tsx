@@ -332,8 +332,9 @@ export default function ClientCatalog({
 
             <button
               type="submit"
-              className="w-full py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white font-bold rounded-xl transition shadow-sm cursor-pointer text-xs"
+              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold rounded-xl transition shadow-md hover:shadow-indigo-500/20 cursor-pointer text-xs flex items-center justify-center gap-2"
             >
+              <UserPlus className="w-4 h-4" />
               Registrar Cliente
             </button>
           </form>

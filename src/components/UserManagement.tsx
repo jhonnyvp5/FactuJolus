@@ -275,6 +275,7 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
                 >
                   <option value="USER">USER (Acceso restringido: Solo Historial, Facturar y Productos)</option>
                   <option value="ADMIN">ADMIN (Acceso total: Configuración SRI, Cuentas, Notas de Crédito, Perfiles)</option>
+                  <option value="SUPERADMIN">SUPERADMIN (Superadministrador: Acceso total + Configuración Base de Datos Cloud Supabase)</option>
                 </select>
                 <p className="text-[10px] text-gray-450 mt-1.5 leading-relaxed">
                   * Los usuarios de tipo <strong>USER</strong> no pueden ver la configuración del SRI (pág. de llaves o .p12), no pueden emitir Notas de Crédito y no editan el Perfil.

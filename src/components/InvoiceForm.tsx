@@ -3,6 +3,7 @@ import { EmitterConfig, Invoice, Client, Product, InvoiceDetail, AdicionalInfo }
 import { generateClaveAcceso, formatSequential, METODOS_PAGO, IVA_TARIFAS, IDENTIFICACIONES } from '../sri/utils';
 import { Plus, Trash2, ShieldAlert, Sparkles, User, ShoppingBag, FileSpreadsheet, CheckCircle, FileText, Download, Loader2 } from 'lucide-react';
 import { generateInvoiceXml } from '../sri/xmlTemplates';
+import { uploadInvoiceXmlSinFirmar, uploadInvoiceXmlFirmado } from '../lib/supabase';
 import RideViewer from './RideViewer';
 
 interface InvoiceFormProps {
@@ -474,6 +475,13 @@ export default function InvoiceForm({
       const rawXml = generateInvoiceXml(newInvoice, config);
       newInvoice.xml = rawXml;
 
+      // Backup unsigned XML to Supabase Storage
+      uploadInvoiceXmlSinFirmar(config.codEstablecimiento, config.codPuntoEmision, secuencialVal, rawXml)
+        .then(res => {
+          if (res.success) setSriLogs(prev => [...prev, '☁️ XML sin firmar guardado en Supabase Storage (facturas-xml-sin-firmar)']);
+        })
+        .catch(() => {});
+
       // 2. Electronic signature via XAdES-BES
       setSriLogs(prev => [...prev, '✍️ Conectando con Servicio de Firma Electrónica (XAdES-BES)...']);
       const signRes = await fetch('/api/sign-xml', {
@@ -496,6 +504,13 @@ export default function InvoiceForm({
       newInvoice.xmlFirmado = signedXml;
       newInvoice.estado = 'Firmado';
       setSriLogs(prev => [...prev, '✓ Documento firmado exitosamente con firma .p12 para Ecuador.']);
+
+      // Backup signed XML to Supabase Storage
+      uploadInvoiceXmlFirmado(config.codEstablecimiento, config.codPuntoEmision, secuencialVal, signedXml)
+        .then(res => {
+          if (res.success) setSriLogs(prev => [...prev, '☁️ XML firmado guardado en Supabase Storage (facturas-xml-firmados)']);
+        })
+        .catch(() => {});
 
       if (electAction === 'firmar') {
         newInvoice.mensajesSRI = [{ mensaje: 'DOCUMENTO FIRMADO LOCALMENTE', tipo: 'INFORMATIVO' }];
