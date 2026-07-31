@@ -32,26 +32,37 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
     let uList: PortalUser[] = [];
     if (savedUsers) {
       uList = JSON.parse(savedUsers);
-      
-      // Seed provisional USER demo operator if not exists
-      const hasProvisional = uList.some(u => u.correo.toLowerCase() === 'user@sri.com');
-      if (!hasProvisional) {
-        uList.push({
-          id: 'usr-provisional-user',
-          correo: 'user@sri.com',
-          clave: 'sriuser123',
-          role: 'USER',
-          nombre: 'Mariana Delgado',
-          fechaRegistro: new Date().toISOString()
-        });
-        localStorage.setItem('sri_portal_users', JSON.stringify(uList));
-      }
     } else {
-      const initial: PortalUser[] = [];
       if (currentUser) {
-        initial.push(currentUser);
+        uList.push(currentUser);
       }
-      initial.push({
+    }
+
+    // Ensure SUPERADMIN Anibal Joel Gualoto Indacochea exists as Principal Administrator
+    const superAdminIndex = uList.findIndex(u => u.correo.toLowerCase() === 'jolusservices@gmail.com');
+    const superAdminUser: PortalUser = {
+      id: 'superadmin-jolusservices',
+      correo: 'jolusservices@gmail.com',
+      clave: 'admin123',
+      role: 'SUPERADMIN',
+      nombre: 'Anibal Joel Gualoto Indacochea',
+      fechaRegistro: new Date().toISOString()
+    };
+
+    if (superAdminIndex >= 0) {
+      uList[superAdminIndex] = {
+        ...uList[superAdminIndex],
+        role: 'SUPERADMIN',
+        nombre: 'Anibal Joel Gualoto Indacochea'
+      };
+    } else {
+      uList.unshift(superAdminUser);
+    }
+
+    // Seed provisional USER demo operator if not exists
+    const hasProvisional = uList.some(u => u.correo.toLowerCase() === 'user@sri.com');
+    if (!hasProvisional) {
+      uList.push({
         id: 'usr-provisional-user',
         correo: 'user@sri.com',
         clave: 'sriuser123',
@@ -59,9 +70,9 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
         nombre: 'Mariana Delgado',
         fechaRegistro: new Date().toISOString()
       });
-      localStorage.setItem('sri_portal_users', JSON.stringify(initial));
-      uList = initial;
     }
+
+    localStorage.setItem('sri_portal_users', JSON.stringify(uList));
     setUsers(uList);
 
     // 2. Invitations
@@ -101,6 +112,16 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
     e.preventDefault();
     setErrorMessage(null);
     setGeneratedInvite(null);
+
+    if (currentUser?.role === 'USER') {
+      setErrorMessage('Un usuario con rol USER no tiene permisos para crear o gestionar nuevas invitaciones.');
+      return;
+    }
+
+    if (currentUser?.role === 'ADMIN' && newRole === 'SUPERADMIN') {
+      setErrorMessage('Un usuario con rol ADMIN solo tiene disponible la asignación de roles USER o ADMIN.');
+      return;
+    }
 
     const email = newEmail.trim().toLowerCase();
     if (!email) {
@@ -148,6 +169,12 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
   const handleDeleteUser = (userId: string, email: string) => {
     if (userId === currentUser.id || email === currentUser.correo) {
       alert('No puedes eliminar tu propia sesión activa.');
+      return;
+    }
+
+    const targetUser = users.find(u => u.id === userId);
+    if (targetUser?.role === 'SUPERADMIN' && currentUser?.role !== 'SUPERADMIN') {
+      alert('No tienes permisos suficientes para eliminar a un usuario con rol SUPERADMIN.');
       return;
     }
 
@@ -225,70 +252,84 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
               </div>
             )}
 
-            <form onSubmit={handleCreateInvitationSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
-                  Nombre y Apellido del Invitado
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <User className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    required
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    placeholder="ej. Juan Pérez"
-                    className="block w-full pl-9 pr-3 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs font-medium"
-                  />
+            {currentUser?.role === 'USER' ? (
+              <div className="bg-amber-50 text-amber-900 dark:bg-amber-950/20 dark:text-amber-300 p-4 rounded-xl border border-amber-200 dark:border-amber-900/30 text-xs font-semibold space-y-1.5">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                  Acceso Restringido
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
-                  Correo del Invitado
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Mail className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    type="email"
-                    required
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                    placeholder="ej. operador_ventas@empresa.com"
-                    className="block w-full pl-9 pr-3 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs font-medium"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
-                  Rol Asignado
-                </label>
-                <select
-                  value={newRole}
-                  onChange={(e) => setNewRole(e.target.value as UserRole)}
-                  className="block w-full px-3 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs font-medium"
-                >
-                  <option value="USER">USER (Acceso restringido: Solo Historial, Facturar y Productos)</option>
-                  <option value="ADMIN">ADMIN (Acceso total: Configuración SRI, Cuentas, Notas de Crédito, Perfiles)</option>
-                  <option value="SUPERADMIN">SUPERADMIN (Superadministrador: Acceso total + Configuración Base de Datos Cloud Supabase)</option>
-                </select>
-                <p className="text-[10px] text-gray-450 mt-1.5 leading-relaxed">
-                  * Los usuarios de tipo <strong>USER</strong> no pueden ver la configuración del SRI (pág. de llaves o .p12), no pueden emitir Notas de Crédito y no editan el Perfil.
+                <p className="text-[11px] text-amber-800 dark:text-amber-300 font-normal leading-relaxed">
+                  Un usuario con rol <strong className="font-bold underline">USER</strong> no dispone de permisos para gestionar o crear nuevas invitaciones en el portal.
                 </p>
               </div>
+            ) : (
+              <form onSubmit={handleCreateInvitationSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
+                    Nombre y Apellido del Invitado
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <User className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      placeholder="ej. Juan Pérez"
+                      className="block w-full pl-9 pr-3 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs font-medium"
+                    />
+                  </div>
+                </div>
 
-              <button
-                type="submit"
-                className="w-full flex justify-center py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/10 focus:outline-none transition cursor-pointer"
-              >
-                Generar Clave Temporal
-              </button>
-            </form>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
+                    Correo del Invitado
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Mail className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <input
+                      type="email"
+                      required
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      placeholder="ej. operador_ventas@empresa.com"
+                      className="block w-full pl-9 pr-3 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
+                    Rol Asignado
+                  </label>
+                  <select
+                    value={newRole}
+                    onChange={(e) => setNewRole(e.target.value as UserRole)}
+                    className="block w-full px-3 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs font-medium"
+                  >
+                    <option value="USER">USER (Acceso restringido: Solo Historial, Facturar y Productos)</option>
+                    <option value="ADMIN">ADMIN (Acceso total: Configuración SRI, Cuentas, Notas de Crédito, Perfiles)</option>
+                    {currentUser?.role === 'SUPERADMIN' && (
+                      <option value="SUPERADMIN">SUPERADMIN (Superadministrador: Acceso total + Configuración Base de Datos Cloud Supabase)</option>
+                    )}
+                  </select>
+                  <p className="text-[10px] text-gray-450 mt-1.5 leading-relaxed">
+                    * Los usuarios de tipo <strong>USER</strong> no pueden ver la configuración del SRI (pág. de llaves o .p12), no pueden emitir Notas de Crédito y no editan el Perfil.
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full flex justify-center py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/10 focus:outline-none transition cursor-pointer"
+                >
+                  Generar Clave Temporal
+                </button>
+              </form>
+            )}
 
             {/* Generated results box */}
             {generatedInvite && (

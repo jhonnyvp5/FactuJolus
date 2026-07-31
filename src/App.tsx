@@ -40,7 +40,7 @@ const DEFAULT_CONFIG: EmitterConfig = {
   regimen: 'RIMPE_EMPRENDEDOR',
   ambiente: '1', // Pruebas
   isDemoMode: true, // Default to demo simulator mode is perfect
-  correo: 'jhonnyVP5@gmail.com',
+  correo: 'jolusservices@gmail.com',
   ultimoSecuencialFactura: '000000002',
 };
 
@@ -497,7 +497,7 @@ export default function App() {
             <div className="flex flex-col gap-1.5 flex-grow">
               <div className="text-[10px] font-black text-gray-400 dark:text-zinc-500 uppercase tracking-widest pl-2 mb-1">Navegación del Portal</div>
               
-              {(currentUser?.role === 'ADMIN' || userPermissions.includes('history')) && (
+              {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('history')) && (
                 <button
                   onClick={() => {
                     setActiveTab('history');
@@ -510,7 +510,7 @@ export default function App() {
                 </button>
               )}
 
-              {(currentUser?.role === 'ADMIN' || userPermissions.includes('new-invoice')) && (
+              {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('new-invoice')) && (
                 <button
                   onClick={() => {
                     setActiveTab('new-invoice');
@@ -523,7 +523,7 @@ export default function App() {
                 </button>
               )}
 
-              {(currentUser?.role === 'ADMIN' || userPermissions.includes('proformas')) && (
+              {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('proformas')) && (
                 <button
                   onClick={() => {
                     setActiveTab('proformas');
@@ -536,7 +536,7 @@ export default function App() {
                 </button>
               )}
 
-              {(currentUser?.role === 'ADMIN' || userPermissions.includes('new-nc')) && (
+              {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('new-nc')) && (
                 <button
                   onClick={() => {
                     setActiveTab('new-nc');
@@ -549,7 +549,7 @@ export default function App() {
                 </button>
               )}
 
-              {(currentUser?.role === 'ADMIN' || userPermissions.includes('products')) && (
+              {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('products')) && (
                 <button
                   onClick={() => {
                     setActiveTab('products');
@@ -562,7 +562,7 @@ export default function App() {
                 </button>
               )}
 
-              {(currentUser?.role === 'ADMIN' || userPermissions.includes('clients')) && (
+              {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('clients')) && (
                 <button
                   onClick={() => {
                     setActiveTab('clients');
@@ -575,7 +575,7 @@ export default function App() {
                 </button>
               )}
 
-              {(currentUser?.role === 'ADMIN' || userPermissions.includes('profile')) && (
+              {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('profile')) && (
                 <button
                   onClick={() => {
                     setActiveTab('profile');
@@ -588,7 +588,7 @@ export default function App() {
                 </button>
               )}
 
-              {(currentUser?.role === 'ADMIN' || userPermissions.includes('settings')) && (
+              {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('settings')) && (
                 <button
                   onClick={() => {
                     setActiveTab('settings');
@@ -601,7 +601,7 @@ export default function App() {
                 </button>
               )}
 
-              {currentUser?.role === 'ADMIN' && (
+              {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN') && (
                 <button
                   onClick={() => {
                     setActiveTab('users');
@@ -641,7 +641,7 @@ export default function App() {
         {/* DESKTOP TABS NAVBAR (HIDDEN ON TABLET/MOBILE IN FAVOR OF COLLAPSIBLE SIDE DRAWER) */}
         <div className="hidden lg:flex flex-wrap bg-white dark:bg-zinc-900 p-1 rounded-2xl border border-gray-100 dark:border-zinc-850 shadow-xs max-w-6xl mx-auto print:hidden gap-1 justify-center animate-fade-in">
           
-          {(currentUser?.role === 'ADMIN' || userPermissions.includes('history')) && (
+          {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('history')) && (
             <button
                onClick={() => setActiveTab('history')}
                className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'history' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
@@ -651,7 +651,7 @@ export default function App() {
             </button>
           )}
 
-          {(currentUser?.role === 'ADMIN' || userPermissions.includes('new-invoice')) && (
+          {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('new-invoice')) && (
             <button
               onClick={() => setActiveTab('new-invoice')}
               className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'new-invoice' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
@@ -661,7 +661,7 @@ export default function App() {
             </button>
           )}
 
-          {(currentUser?.role === 'ADMIN' || userPermissions.includes('proformas')) && (
+          {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('proformas')) && (
             <button
               onClick={() => setActiveTab('proformas')}
               className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'proformas' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
@@ -671,7 +671,7 @@ export default function App() {
             </button>
           )}
 
-          {(currentUser?.role === 'ADMIN' || userPermissions.includes('new-nc')) && (
+          {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('new-nc')) && (
             <button
               onClick={() => setActiveTab('new-nc')}
               className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'new-nc' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
@@ -681,7 +681,7 @@ export default function App() {
             </button>
           )}
 
-          {(currentUser?.role === 'ADMIN' || userPermissions.includes('products')) && (
+          {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('products')) && (
             <button
               onClick={() => setActiveTab('products')}
               className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'products' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
@@ -691,7 +691,7 @@ export default function App() {
             </button>
           )}
 
-          {(currentUser?.role === 'ADMIN' || userPermissions.includes('clients')) && (
+          {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('clients')) && (
             <button
               onClick={() => setActiveTab('clients')}
               className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'clients' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
@@ -701,7 +701,7 @@ export default function App() {
             </button>
           )}
 
-          {(currentUser?.role === 'ADMIN' || userPermissions.includes('profile')) && (
+          {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('profile')) && (
             <button
               onClick={() => setActiveTab('profile')}
               className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'profile' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
@@ -711,7 +711,7 @@ export default function App() {
             </button>
           )}
 
-          {(currentUser?.role === 'ADMIN' || userPermissions.includes('settings')) && (
+          {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('settings')) && (
             <button
               onClick={() => setActiveTab('settings')}
               className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
@@ -721,7 +721,7 @@ export default function App() {
             </button>
           )}
 
-          {currentUser?.role === 'ADMIN' && (
+          {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN') && (
             <button
               onClick={() => setActiveTab('users')}
               className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'users' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
@@ -834,10 +834,11 @@ export default function App() {
             <SettingsForm
               config={config}
               onSave={handleSaveConfig}
+              currentUser={currentUser}
             />
           )}
 
-          {activeTab === 'users' && currentUser?.role === 'ADMIN' && (
+          {activeTab === 'users' && (currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN') && (
             <UserManagement
               currentUser={currentUser}
               userPermissions={userPermissions}

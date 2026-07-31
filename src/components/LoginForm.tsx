@@ -51,7 +51,7 @@ export default function LoginForm({ onLoginSuccess, adminEmail }: LoginFormProps
     }
 
     // 2. If not registered, check if this is the default admin or superadmin login
-    if (cleanEmail === 'jolusservices@gmail.com') {
+    if (cleanEmail === 'jolusservices@gmail.com' || cleanEmail === adminEmail.toLowerCase()) {
       const superAdmin: PortalUser = {
         id: 'superadmin-jolusservices',
         correo: 'jolusservices@gmail.com',
@@ -68,26 +68,8 @@ export default function LoginForm({ onLoginSuccess, adminEmail }: LoginFormProps
         registeredUsers.push(superAdmin);
       }
       localStorage.setItem('sri_portal_users', JSON.stringify(registeredUsers));
-      logActivity(superAdmin, 'Inicio de Sesión', 'Acceso al portal con cuenta SUPERADMIN.');
+      logActivity(superAdmin, 'Inicio de Sesión', 'Acceso al portal con cuenta SUPERADMIN de Administrador Principal.');
       onLoginSuccess(superAdmin);
-      return;
-    }
-
-    if (cleanEmail === adminEmail.toLowerCase() && password === 'admin123') {
-      const defaultAdmin: PortalUser = {
-        id: 'admin-default',
-        correo: adminEmail,
-        clave: 'admin123',
-        role: 'ADMIN',
-        nombre: 'Administrador Principal',
-        fechaRegistro: new Date().toISOString()
-      };
-      
-      // Save user as persistent
-      registeredUsers.push(defaultAdmin);
-      localStorage.setItem('sri_portal_users', JSON.stringify(registeredUsers));
-      logActivity(defaultAdmin, 'Inicio de Sesión', 'Acceso al portal con cuenta predeterminada de administrador.');
-      onLoginSuccess(defaultAdmin);
       return;
     }
 

@@ -169,15 +169,36 @@ CREATE TABLE IF NOT EXISTS public.usuarios_portal (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Deshabilitar RLS en tablas para permitir acceso directo vía anon_key
-ALTER TABLE IF EXISTS public.clientes DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.productos DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.facturas DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.proformas DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.clients DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.products DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.invoices DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.usuarios_portal DISABLE ROW LEVEL SECURITY;
+-- Habilitar RLS y crear políticas de acceso público/anon para todas las tablas
+DO $$
+DECLARE
+    t text;
+    tables text[] := ARRAY[
+        'clientes',
+        'productos',
+        'facturas',
+        'proformas',
+        'bitacoras_actividades',
+        'emisor_config',
+        'factura_detalles',
+        'invitaciones',
+        'notas_credito',
+        'notas_credito_detalles',
+        'proforma_detalles',
+        'usuarios_portal',
+        'clients',
+        'products',
+        'invoices'
+    ];
+BEGIN
+    FOREACH t IN ARRAY tables LOOP
+        IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = t) THEN
+            EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', t);
+            EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I;', 'Permitir anon ' || t, t);
+            EXECUTE format('CREATE POLICY %I ON public.%I FOR ALL USING (true) WITH CHECK (true);', 'Permitir anon ' || t, t);
+        END IF;
+    END LOOP;
+END $$;
 
 -- REGISTRO DE USUARIO SUPERADMIN SOLICITADO
 INSERT INTO public.usuarios_portal (usuario, correo, clave_hash, role, nombre, is_temp)
