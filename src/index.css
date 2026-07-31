@@ -1,0 +1,75 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* Font Family definitions */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "Fira Code", ui-monospace, SFMono-Regular, monospace;
+
+  /* Redefine 'indigo' to be the vibrant electric cyan-blue scale from the Jolus Services logo */
+  --color-indigo-50: #eef9ff;
+  --color-indigo-100: #d8f2ff;
+  --color-indigo-200: #b9e7ff;
+  --color-indigo-300: #88d7ff;
+  --color-indigo-400: #50beff;
+  --color-indigo-500: #0ea5e9; /* Light Cyan Blue */
+  --color-indigo-600: #0084d6; /* Core Jolus Electric Blue */
+  --color-indigo-700: #026bb4; /* Deeper logo blue */
+  --color-indigo-800: #075892;
+  --color-indigo-900: #0b4977;
+  --color-indigo-950: #072a48;
+
+  /* Redefine 'purple' to follow the same electric theme so Proforma & Notes are perfectly consistent */
+  --color-purple-50: #f0f7ff;
+  --color-purple-100: #e0effe;
+  --color-purple-200: #badfff;
+  --color-purple-300: #7cc3ff;
+  --color-purple-400: #38a3ff;
+  --color-purple-500: #0081f5;
+  --color-purple-600: #0060d0;
+  --color-purple-700: #004eb1;
+  --color-purple-800: #004294;
+  --color-purple-900: #06387a;
+  --color-purple-950: #05234f;
+
+  /* Redefine 'zinc' (neutral dark background) to be the deep midnight navy of the Jolus logo background */
+  --color-zinc-50: #f4f7fa;
+  --color-zinc-100: #e9eff5;
+  --color-zinc-200: #cfe0ef;
+  --color-zinc-300: #a7c6e0;
+  --color-zinc-400: #76a4cb;
+  --color-zinc-500: #4a7db0;
+  --color-zinc-600: #386494;
+  --color-zinc-700: #2c4e75;
+  --color-zinc-800: #1b324f; /* Accent dark box */
+  --color-zinc-850: #10233b; /* Medium dark navy */
+  --color-zinc-900: #071526; /* Beautiful midnight-navy background of JOLUS logo! */
+  --color-zinc-950: #030d1a; /* Solid deep dark blue-black core background */
+
+  /* Customize 'gray' scale for soft Slate-Blueish tones to keep light mode premium and modern */
+  --color-gray-50: #f8fafc;
+  --color-gray-100: #f1f5f9;
+  --color-gray-200: #e2e8f0;
+  --color-gray-300: #cbd5e1;
+  --color-gray-400: #94a3b8;
+  --color-gray-500: #64748b;
+  --color-gray-650: #475569;
+  --color-gray-800: #1e293b;
+  --color-gray-900: #0f172a;
+}
+
+/* Scrollbar customizations using Jolus Theme colors */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-zinc-800);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-indigo-600);
+}
