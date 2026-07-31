@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Client, TipoIdentificacion } from '../types';
-import { Trash2, UserPlus, Users, Search, Sparkles, AlertCircle, Phone, Mail, MapPin, CreditCard } from 'lucide-react';
+import { Trash2, UserPlus, Users, Search, Sparkles, AlertCircle, Phone, Mail, MapPin, CreditCard, Database, Check, Copy, AlertTriangle } from 'lucide-react';
+import { saveClientToSupabase, deleteClientFromSupabase, SUPABASE_SQL_SCRIPT, testSupabaseConnection } from '../lib/supabase';
 
 interface ClientCatalogProps {
   clients: Client[];
@@ -27,8 +28,30 @@ export default function ClientCatalog({
   const [searchTerm, setSearchTerm] = useState('');
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState(false);
+  const [sbStatus, setSbStatus] = useState<{ synced: boolean; message: string } | null>(null);
+  const [copiedSql, setCopiedSql] = useState(false);
+  const [showSqlHelp, setShowSqlHelp] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    // Check initial connection status on mount
+    testSupabaseConnection().then(res => {
+      if (!res.tablesExist) {
+        setSbStatus({
+          synced: false,
+          message: 'Atención: La tabla "clients" no existe aún en Supabase. Ejecute el script SQL en Supabase.'
+        });
+        setShowSqlHelp(true);
+      }
+    });
+  }, []);
+
+  const copySql = () => {
+    navigator.clipboard.writeText(SUPABASE_SQL_SCRIPT);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 3000);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess(false);
@@ -66,6 +89,25 @@ export default function ClientCatalog({
 
     onAddClient(newClient);
 
+    // Sync to Supabase
+    const resSb = await saveClientToSupabase(newClient);
+    const isOk = typeof resSb === 'boolean' ? resSb : resSb.success;
+
+    if (isOk) {
+      setSbStatus({ synced: true, message: '¡Cliente guardado exitosamente en la base de datos de Supabase!' });
+      setShowSqlHelp(false);
+    } else {
+      const errDetail = typeof resSb === 'object' && resSb.errorDetails ? resSb.errorDetails : '';
+      let msg = 'Cliente guardado localmente, pero ocurrió un aviso en Supabase.';
+      if (errDetail.includes('row-level security') || errDetail.includes('42501')) {
+        msg = 'Error RLS en Supabase: Las políticas impiden que la clave pública anon guarde registros. Ejecute los comandos SQL RLS a continuación.';
+      } else if (errDetail) {
+        msg = `Supabase: ${errDetail}`;
+      }
+      setSbStatus({ synced: false, message: msg });
+      setShowSqlHelp(true);
+    }
+
     // Reset Form
     setName('');
     setIdType('05');
@@ -75,7 +117,7 @@ export default function ClientCatalog({
     setAddress('');
 
     setFormSuccess(true);
-    setTimeout(() => setFormSuccess(false), 3000);
+    setTimeout(() => setFormSuccess(false), 4000);
   };
 
   const loadDefaults = () => {
@@ -254,8 +296,37 @@ export default function ClientCatalog({
             )}
 
             {formSuccess && (
-              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30 rounded-xl">
-                ¡Cliente registrado exitosamente en la base de datos local!
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30 rounded-xl font-medium">
+                ¡Cliente registrado exitosamente!
+              </div>
+            )}
+
+            {sbStatus && (
+              <div className={`p-3 rounded-xl border text-[11px] space-y-2 ${
+                sbStatus.synced
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300'
+                  : 'bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-300'
+              }`}>
+                <div className="flex items-center gap-1.5 font-semibold">
+                  {sbStatus.synced ? <Check className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />}
+                  <span>{sbStatus.message}</span>
+                </div>
+
+                {!sbStatus.synced && showSqlHelp && (
+                  <div className="pt-1.5 border-t border-amber-200/60 dark:border-amber-800/60 space-y-2">
+                    <p className="text-[10px] text-amber-800 dark:text-amber-300">
+                      Copia este código y ejecútalo en el <strong>SQL Editor</strong> de Supabase para activar el guardado automático de tablas:
+                    </p>
+                    <button
+                      type="button"
+                      onClick={copySql}
+                      className="w-full py-1.5 px-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg transition text-[11px] flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      {copiedSql ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedSql ? '¡Código SQL Copiado al Portapapeles!' : 'Copiar SQL para crear Tablas Supabase'}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

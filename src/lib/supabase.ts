@@ -55,14 +55,27 @@ export async function testSupabaseConnection(): Promise<{ success: boolean; tabl
     const supabase = getSupabase();
     if (!supabase) return { success: false, tablesExist: false, message: 'No se pudo instanciar el cliente de Supabase.' };
 
-    const { error } = await supabase.from('clients').select('id').limit(1);
+    // Try 'clientes' (Spanish) first, then 'clients' (English)
+    let { data, error } = await supabase.from('clientes').select('id').limit(1);
+
+    if (error && isTableMissingError(error)) {
+      const res = await supabase.from('clients').select('id').limit(1);
+      error = res.error;
+    }
 
     if (error) {
-      if (error.message.includes('schema cache') || error.message.includes('does not exist') || error.code === '42P01' || error.code === 'PGRST204') {
+      if (isTableMissingError(error)) {
         return { 
           success: true, 
           tablesExist: false, 
-          message: 'Conexión REST exitosa, pero las tablas aún no existen en Supabase. Copie y ejecute el código SQL proporcionado en el SQL Editor de Supabase.' 
+          message: 'Conexión REST exitosa, pero la tabla "clientes" o "clients" aún no existe en Supabase.' 
+        };
+      }
+      if (error.message.includes('row-level security') || error.code === '42501') {
+        return {
+          success: false,
+          tablesExist: true,
+          message: 'Tabla encontrada, pero las políticas de seguridad RLS bloquean la clave pública anon. Ejecute el comando SQL para permitir RLS en anon.'
         };
       }
       return { success: false, tablesExist: false, message: `Aviso Supabase: ${error.message}` };
@@ -140,11 +153,15 @@ CREATE TABLE IF NOT EXISTS public.proformas (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Deshabilitar RLS para permitir lectura y escritura mediante anon_key
-ALTER TABLE public.clients DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.products DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.invoices DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.proformas DISABLE ROW LEVEL SECURITY;
+-- Deshabilitar RLS para permitir lectura y escritura mediante anon_key (tanto en español como en inglés)
+ALTER TABLE IF EXISTS public.clientes DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.productos DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.facturas DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.proformas DISABLE ROW LEVEL SECURITY;
+
+ALTER TABLE IF EXISTS public.clients DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.products DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.invoices DISABLE ROW LEVEL SECURITY;
 `;
 
 /* ========================================================================
@@ -158,34 +175,48 @@ function isTableMissingError(error: any): boolean {
   return msg.includes('schema cache') || msg.includes('does not exist') || error.code === '42P01' || error.code === 'PGRST204';
 }
 
-// --- CLIENTS ---
+function isValidUuid(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
+// --- CLIENTS / CLIENTES ---
 export async function fetchClientsFromSupabase(): Promise<Client[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
-  const { data, error } = await supabase.from('clients').select('*');
+
+  // Try Spanish table 'clientes' first
+  let { data, error } = await supabase.from('clientes').select('*');
+  
+  if (error && isTableMissingError(error)) {
+    const fallback = await supabase.from('clients').select('*');
+    data = fallback.data;
+    error = fallback.error;
+  }
+
   if (error) {
     if (!isTableMissingError(error)) {
       console.warn('Aviso Supabase clientes:', error.message);
     }
     return null;
   }
+
   return data ? data.map(item => ({
     id: item.id,
-    tipoIdentificacion: item.tipo_identificacion || item.tipoIdentificacion,
+    tipoIdentificacion: item.tipo_identificacion || item.tipoIdentificacion || '05',
     identificacion: item.identificacion,
     nombre: item.nombre,
-    direccion: item.direccion,
-    telefono: item.telefono,
-    correo: item.correo
+    direccion: item.direccion || '',
+    telefono: item.telefono || '',
+    correo: item.correo || ''
   })) : [];
 }
 
-export async function saveClientToSupabase(client: Client): Promise<boolean> {
+export async function saveClientToSupabase(client: Client): Promise<{ success: boolean; errorDetails?: string }> {
   const supabase = getSupabase();
-  if (!supabase) return false;
-  
-  const payload = {
-    id: client.id,
+  if (!supabase) return { success: false, errorDetails: 'Cliente de Supabase no inicializado.' };
+
+  // Prepare Spanish table payload ('clientes')
+  const spanishPayload: Record<string, any> = {
     tipo_identificacion: client.tipoIdentificacion,
     identificacion: client.identificacion,
     nombre: client.nombre,
@@ -194,36 +225,69 @@ export async function saveClientToSupabase(client: Client): Promise<boolean> {
     correo: client.correo
   };
 
-  const { error } = await supabase.from('clients').upsert(payload);
-  if (error) {
-    if (!isTableMissingError(error)) {
-      console.warn('No se pudo sincronizar cliente en Supabase:', error.message);
-    }
-    return false;
+  if (isValidUuid(client.id)) {
+    spanishPayload.id = client.id;
   }
-  return true;
+
+  // First try 'clientes' table
+  let { error } = await supabase.from('clientes').upsert(spanishPayload, { onConflict: 'identificacion' });
+
+  if (error && isTableMissingError(error)) {
+    // Fallback to 'clients' table
+    const englishPayload = {
+      id: client.id,
+      tipo_identificacion: client.tipoIdentificacion,
+      identificacion: client.identificacion,
+      nombre: client.nombre,
+      direccion: client.direccion,
+      telefono: client.telefono,
+      correo: client.correo
+    };
+    const res = await supabase.from('clients').upsert(englishPayload);
+    error = res.error;
+  }
+
+  if (error) {
+    console.warn('Error al guardar cliente en Supabase:', error.message, error);
+    return { success: false, errorDetails: error.message };
+  }
+
+  return { success: true };
 }
 
-export async function deleteClientFromSupabase(id: string): Promise<boolean> {
+export async function deleteClientFromSupabase(id: string, identificacion?: string): Promise<boolean> {
   const supabase = getSupabase();
   if (!supabase) return false;
-  const { error } = await supabase.from('clients').delete().eq('id', id);
+
+  let { error } = await supabase.from('clientes').delete().eq('identificacion', identificacion || id);
+  if (error && isTableMissingError(error)) {
+    const res = await supabase.from('clients').delete().eq('id', id);
+    error = res.error;
+  }
   return !error;
 }
 
-// --- PRODUCTS ---
+// --- PRODUCTS / PRODUCTOS ---
 export async function fetchProductsFromSupabase(): Promise<Product[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
-  const { data, error } = await supabase.from('products').select('*');
+
+  let { data, error } = await supabase.from('productos').select('*');
+  if (error && isTableMissingError(error)) {
+    const fallback = await supabase.from('products').select('*');
+    data = fallback.data;
+    error = fallback.error;
+  }
+
   if (error) return null;
+
   return data ? data.map(item => ({
     id: item.id,
     codigo: item.codigo,
     nombre: item.nombre,
-    precio: item.precio,
+    precio: Number(item.precio) || 0,
     ivaTipo: item.iva_tipo || item.ivaTipo || '4',
-    descuentoDefault: item.descuento_default ?? item.descuentoDefault ?? 0
+    descuentoDefault: Number(item.descuento_default ?? item.descuentoDefault ?? 0)
   })) : [];
 }
 
@@ -231,8 +295,7 @@ export async function saveProductToSupabase(product: Product): Promise<boolean> 
   const supabase = getSupabase();
   if (!supabase) return false;
 
-  const payload = {
-    id: product.id,
+  const spanishPayload: Record<string, any> = {
     codigo: product.codigo,
     nombre: product.nombre,
     precio: product.precio,
@@ -240,32 +303,60 @@ export async function saveProductToSupabase(product: Product): Promise<boolean> 
     descuento_default: product.descuentoDefault
   };
 
-  const { error } = await supabase.from('products').upsert(payload);
-  if (error && !isTableMissingError(error)) {
-    console.warn('No se pudo sincronizar producto en Supabase:', error.message);
+  if (isValidUuid(product.id)) {
+    spanishPayload.id = product.id;
+  }
+
+  let { error } = await supabase.from('productos').upsert(spanishPayload, { onConflict: 'codigo' });
+
+  if (error && isTableMissingError(error)) {
+    const englishPayload = {
+      id: product.id,
+      codigo: product.codigo,
+      nombre: product.nombre,
+      precio: product.precio,
+      iva_tipo: product.ivaTipo,
+      descuento_default: product.descuentoDefault
+    };
+    const res = await supabase.from('products').upsert(englishPayload);
+    error = res.error;
+  }
+
+  return !error;
+}
+
+export async function deleteProductFromSupabase(id: string, codigo?: string): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+
+  let { error } = await supabase.from('productos').delete().eq('codigo', codigo || id);
+  if (error && isTableMissingError(error)) {
+    const res = await supabase.from('products').delete().eq('id', id);
+    error = res.error;
   }
   return !error;
 }
 
-export async function deleteProductFromSupabase(id: string): Promise<boolean> {
-  const supabase = getSupabase();
-  if (!supabase) return false;
-  const { error } = await supabase.from('products').delete().eq('id', id);
-  return !error;
-}
-
-// --- INVOICES ---
+// --- INVOICES / FACTURAS ---
 export async function fetchInvoicesFromSupabase(): Promise<Invoice[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
-  const { data, error } = await supabase.from('invoices').select('*').order('created_at', { ascending: false });
+
+  let { data, error } = await supabase.from('facturas').select('*').order('created_at', { ascending: false });
+  if (error && isTableMissingError(error)) {
+    const fallback = await supabase.from('invoices').select('*').order('created_at', { ascending: false });
+    data = fallback.data;
+    error = fallback.error;
+  }
+
   if (error) return null;
+
   return data ? data.map(item => ({
     id: item.id,
     secuencial: item.secuencial,
     fechaEmision: item.fecha_emision || item.fechaEmision,
-    cliente: typeof item.cliente === 'string' ? JSON.parse(item.cliente) : item.cliente,
-    detalles: typeof item.detalles === 'string' ? JSON.parse(item.detalles) : item.detalles,
+    cliente: typeof item.cliente_datos === 'string' ? JSON.parse(item.cliente_datos) : (typeof item.cliente === 'string' ? JSON.parse(item.cliente) : (item.cliente_datos || item.cliente)),
+    detalles: typeof item.detalles === 'string' ? JSON.parse(item.detalles) : (item.detalles || []),
     formaPago: item.forma_pago || item.formaPago,
     plazo: item.plazo,
     unidadTiempo: item.unidad_tiempo || item.unidadTiempo,
@@ -286,19 +377,17 @@ export async function saveInvoiceToSupabase(invoice: Invoice): Promise<boolean> 
   const supabase = getSupabase();
   if (!supabase) return false;
 
-  const payload = {
-    id: invoice.id,
+  const spanishPayload: Record<string, any> = {
     secuencial: invoice.secuencial,
-    fecha_emision: invoice.fechaEmision,
-    cliente: invoice.cliente,
-    detalles: invoice.detalles,
-    forma_pago: invoice.formaPago,
-    plazo: invoice.plazo,
-    unidad_tiempo: invoice.unidadTiempo,
+    fecha_emision: invoice.fechaEmision || new Date().toISOString().split('T')[0],
+    cliente_datos: invoice.cliente,
+    forma_pago: invoice.formaPago || '01',
+    plazo: invoice.plazo || 0,
+    unidad_tiempo: invoice.unidadTiempo || 'dias',
     clave_acceso: invoice.claveAcceso,
     xml: invoice.xml,
     xml_firmado: invoice.xmlFirmado,
-    estado: invoice.estado,
+    estado: invoice.estado || 'Borrador',
     mensajes_sri: invoice.mensajesSRI,
     fecha_autorizacion: invoice.fechaAutorizacion,
     numero_autorizacion: invoice.numeroAutorizacion,
@@ -307,10 +396,37 @@ export async function saveInvoiceToSupabase(invoice: Invoice): Promise<boolean> 
     creador_nombre: invoice.creadorNombre
   };
 
-  const { error } = await supabase.from('invoices').upsert(payload);
-  if (error && !isTableMissingError(error)) {
-    console.warn('No se pudo sincronizar factura en Supabase:', error.message);
+  if (isValidUuid(invoice.id)) {
+    spanishPayload.id = invoice.id;
   }
+
+  let { error } = await supabase.from('facturas').upsert(spanishPayload, { onConflict: 'clave_acceso' });
+
+  if (error && isTableMissingError(error)) {
+    const englishPayload = {
+      id: invoice.id,
+      secuencial: invoice.secuencial,
+      fecha_emision: invoice.fechaEmision,
+      cliente: invoice.cliente,
+      detalles: invoice.detalles,
+      forma_pago: invoice.formaPago,
+      plazo: invoice.plazo,
+      unidad_tiempo: invoice.unidadTiempo,
+      clave_acceso: invoice.claveAcceso,
+      xml: invoice.xml,
+      xml_firmado: invoice.xmlFirmado,
+      estado: invoice.estado,
+      mensajes_sri: invoice.mensajesSRI,
+      fecha_autorizacion: invoice.fechaAutorizacion,
+      numero_autorizacion: invoice.numeroAutorizacion,
+      info_adicional: invoice.infoAdicional,
+      resumen_impuestos: invoice.resumenImpuestos,
+      creador_nombre: invoice.creadorNombre
+    };
+    const res = await supabase.from('invoices').upsert(englishPayload);
+    error = res.error;
+  }
+
   return !error;
 }
 
@@ -318,14 +434,16 @@ export async function saveInvoiceToSupabase(invoice: Invoice): Promise<boolean> 
 export async function fetchProformasFromSupabase(): Promise<Proforma[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
+
   const { data, error } = await supabase.from('proformas').select('*').order('created_at', { ascending: false });
   if (error) return null;
+
   return data ? data.map(item => ({
     id: item.id,
     secuencial: item.secuencial,
     fechaEmision: item.fecha_emision || item.fechaEmision,
-    cliente: typeof item.cliente === 'string' ? JSON.parse(item.cliente) : item.cliente,
-    detalles: typeof item.detalles === 'string' ? JSON.parse(item.detalles) : item.detalles,
+    cliente: typeof item.cliente_datos === 'string' ? JSON.parse(item.cliente_datos) : (typeof item.cliente === 'string' ? JSON.parse(item.cliente) : item.cliente),
+    detalles: typeof item.detalles === 'string' ? JSON.parse(item.detalles) : (item.detalles || []),
     resumenImpuestos: typeof item.resumen_impuestos === 'string' ? JSON.parse(item.resumen_impuestos) : item.resumen_impuestos,
     informacionPago: item.informacion_pago || item.informacionPago,
     notaDudas: item.nota_dudas || item.notaDudas,
@@ -340,25 +458,26 @@ export async function saveProformaToSupabase(proforma: Proforma): Promise<boolea
   const supabase = getSupabase();
   if (!supabase) return false;
 
-  const payload = {
-    id: proforma.id,
+  const payload: Record<string, any> = {
     secuencial: proforma.secuencial,
     fecha_emision: proforma.fechaEmision,
-    cliente: proforma.cliente,
-    detalles: proforma.detalles,
+    cliente_datos: proforma.cliente,
     resumen_impuestos: proforma.resumenImpuestos,
     informacion_pago: proforma.informacionPago,
     nota_dudas: proforma.notaDudas,
-    empresa_nombre: proforma.empresaNombre,
-    empresa_direccion: proforma.empresaDireccion,
-    empresa_telefono: proforma.empresaTelefono,
-    empresa_correo: proforma.empresaCorreo
+    empresa_datos: {
+      nombre: proforma.empresaNombre,
+      direccion: proforma.empresaDireccion,
+      telefono: proforma.empresaTelefono,
+      correo: proforma.empresaCorreo
+    }
   };
 
-  const { error } = await supabase.from('proformas').upsert(payload);
-  if (error && !isTableMissingError(error)) {
-    console.warn('No se pudo sincronizar proforma en Supabase:', error.message);
+  if (isValidUuid(proforma.id)) {
+    payload.id = proforma.id;
   }
+
+  const { error } = await supabase.from('proformas').upsert(payload);
   return !error;
 }
 
