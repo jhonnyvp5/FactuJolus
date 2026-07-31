@@ -12,6 +12,11 @@ import UserManagement from './components/UserManagement';
 import ProformaForm from './components/ProformaForm';
 import ClientCatalog from './components/ClientCatalog';
 import { logActivity } from './lib/activityLogger';
+import { 
+  fetchClientsFromSupabase, saveClientToSupabase, 
+  fetchProductsFromSupabase, saveProductToSupabase, 
+  fetchInvoicesFromSupabase, saveInvoiceToSupabase 
+} from './lib/supabase';
 import { ShieldCheck, Send, Settings, History, Plus, Layers, ArrowLeftRight, FileCheck2, CloudLightning, Package, User, Users, Menu, X, FileText } from 'lucide-react';
 
 const STORAGE_KEYS = {
@@ -235,6 +240,7 @@ export default function App() {
     setClients(updated);
     const key = getUserStorageKey(STORAGE_KEYS.CLIENTS, currentUser?.correo);
     localStorage.setItem(key, JSON.stringify(updated));
+    saveClientToSupabase(client);
   };
 
   const handleAddProduct = (product: Product) => {
@@ -242,6 +248,7 @@ export default function App() {
     setProducts(updated);
     const key = getUserStorageKey(STORAGE_KEYS.PRODUCTS, currentUser?.correo);
     localStorage.setItem(key, JSON.stringify(updated));
+    saveProductToSupabase(product);
   };
 
   const handleAddInvoice = (invoice: Invoice) => {
@@ -254,6 +261,7 @@ export default function App() {
     setInvoices(updated);
     const invoicesKey = getUserStorageKey(STORAGE_KEYS.INVOICES, currentUser?.correo);
     localStorage.setItem(invoicesKey, JSON.stringify(updated));
+    saveInvoiceToSupabase(invoiceWithCreator);
 
     // Log the event
     if (currentUser) {
