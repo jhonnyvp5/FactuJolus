@@ -1,13 +1,24 @@
 import { ActivityLog, PortalUser } from '../types';
 import { saveActivityLogToSupabase } from './supabase';
 
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 export function logActivity(user: PortalUser, action: string, detalles: string) {
   try {
     const logsRaw = localStorage.getItem('sri_portal_activity_logs');
     const logs: ActivityLog[] = logsRaw ? JSON.parse(logsRaw) : [];
     
     const newLog: ActivityLog = {
-      id: 'log-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+      id: generateUUID(),
       usuarioCorreo: user.correo,
       usuarioNombre: user.nombre || user.correo.split('@')[0].toUpperCase(),
       usuarioRol: user.role,
