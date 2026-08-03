@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PortalUser, EmitterConfig, RegimenTributario } from '../types';
 import { validateRuc, REGIMENES } from '../sri/utils';
 import { getCertificateInfo } from '../sri/signer';
-import { CheckCircle2, AlertCircle, Key, FileCode, Shield, RefreshCw, Database, Globe, Check, AlertTriangle, Copy, Code } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Key, FileCode, Shield, RefreshCw, Database, Globe, Check, AlertTriangle, Copy, Code, Trash2, Sparkles } from 'lucide-react';
 import { getSupabaseConfig, saveSupabaseConfig, testSupabaseConnection, SUPABASE_SQL_SCRIPT, saveEmitterConfigToSupabase } from '../lib/supabase';
 import { SupabaseExplorer } from './SupabaseExplorer';
 
@@ -55,30 +55,66 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
     setTimeout(() => setCopiedSql(false), 3000);
   };
 
-  // Sync internal state when external config prop changes (e.g. user changes)
+  // Sync internal state ONLY when external config prop deeply changes
+  const configKeyStr = JSON.stringify(config);
   React.useEffect(() => {
-    setRuc(config.ruc);
-    setRazonSocial(config.razonSocial);
+    setRuc(config.ruc || '');
+    setRazonSocial(config.razonSocial || '');
     setNombreComercial(config.nombreComercial || '');
-    setDirMatriz(config.dirMatriz);
+    setDirMatriz(config.dirMatriz || '');
     setDirEstablecimiento(config.dirEstablecimiento || '');
-    setCodEstablecimiento(config.codEstablecimiento);
-    setCodPuntoEmision(config.codPuntoEmision);
+    setCodEstablecimiento(config.codEstablecimiento || '001');
+    setCodPuntoEmision(config.codPuntoEmision || '001');
     setCorreo(config.correo || '');
     setTelefono(config.telefono || '');
-    setObligadoContabilidad(config.obligadoContabilidad);
+    setObligadoContabilidad(config.obligadoContabilidad ?? true);
     setContribuyenteEspecial(config.contribuyenteEspecial || '');
     setAgenteRetencion(config.agenteRetencion || '');
-    setRegimen(config.regimen);
-    setAmbiente(config.ambiente);
-    setIsDemoMode(config.isDemoMode);
-    setUltimoSecuencialFactura(config.ultimoSecuencialFactura || '000000002');
+    setRegimen(config.regimen || 'RIMPE_EMPRENDEDOR');
+    setAmbiente(config.ambiente || '1');
+    setIsDemoMode(config.isDemoMode ?? true);
+    setUltimoSecuencialFactura(config.ultimoSecuencialFactura || '000000001');
     setPassword(config.p12Password || '');
     setSignatureB64(config.p12FirmaB64 || '');
     setSignatureName(config.p12Nombre || '');
     setSigDetails(null);
     setSigError(null);
-  }, [config]);
+  }, [configKeyStr]);
+
+  const handleClearExampleData = () => {
+    setRuc('');
+    setRazonSocial('');
+    setNombreComercial('');
+    setDirMatriz('');
+    setDirEstablecimiento('');
+    setCodEstablecimiento('001');
+    setCodPuntoEmision('001');
+    setCorreo('');
+    setTelefono('');
+    setContribuyenteEspecial('');
+    setAgenteRetencion('');
+    setPassword('');
+    setSignatureB64('');
+    setSignatureName('');
+    setSigDetails(null);
+    setSigError(null);
+  };
+
+  const handleLoadExampleData = () => {
+    setRuc('1792451083001');
+    setRazonSocial('VALLE PLUA JHONNY ALEXIS');
+    setNombreComercial('JOLUS SERVICES');
+    setDirMatriz('Av. Amazonas N21-147 y Av. Colón, Quito');
+    setDirEstablecimiento('Matriz - Oficinas Administrativas 3B');
+    setCodEstablecimiento('001');
+    setCodPuntoEmision('001');
+    setCorreo('jolusservices@gmail.com');
+    setTelefono('0995831920');
+    setObligadoContabilidad(true);
+    setRegimen('RIMPE_EMPRENDEDOR');
+    setAmbiente('1');
+    setIsDemoMode(true);
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -200,14 +236,36 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
   return (
     <form onSubmit={handleSubmit} id="settings-form" className="space-y-8 max-w-4xl mx-auto">
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 space-y-6">
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50 flex items-center gap-2">
-            <Shield className="w-5 h-5 text-indigo-600" />
-            Configuración del Emisor
-          </h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Configure sus datos fiscales para el cálculo de claves de acceso y estructuración de los comprobantes XML del SRI.
-          </p>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50 flex items-center gap-2">
+              <Shield className="w-5 h-5 text-indigo-600" />
+              Configuración del Emisor
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Configure sus datos fiscales para el cálculo de claves de acceso y estructuración de los comprobantes XML del SRI.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleClearExampleData}
+              className="px-3 py-1.5 text-xs font-medium text-red-650 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-900/50 dark:text-red-300 rounded-lg border border-red-200 dark:border-red-800/40 transition flex items-center gap-1.5 cursor-pointer"
+              title="Borra todos los datos de ejemplo del formulario para escribir sus nuevos datos"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Borrar Datos de Ejemplo
+            </button>
+            <button
+              type="button"
+              onClick={handleLoadExampleData}
+              className="px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:hover:bg-indigo-900/50 dark:text-indigo-300 rounded-lg border border-indigo-200 dark:border-indigo-800/40 transition flex items-center gap-1.5 cursor-pointer"
+              title="Cargar datos de prueba de ejemplo"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Cargar Ejemplo
+            </button>
+          </div>
         </div>
 
         {/* MODO DE TRABAJO */}
