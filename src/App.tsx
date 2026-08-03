@@ -518,7 +518,16 @@ export default function App() {
       <header className="bg-white border-b border-gray-100 dark:bg-zinc-900 dark:border-zinc-850 px-4 sm:px-6 py-4 sticky top-0 z-40 shadow-xs print:hidden">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            {/* BUTTON HAMBURGER MENU (LEFT SIDE) */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="lg:hidden p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition border border-gray-150 dark:border-zinc-805 cursor-pointer shrink-0"
+              aria-label="Toggle menu"
+            >
+              {isMobileMenuOpen ? <X className="w-5 h-5 text-indigo-600" /> : <Menu className="w-5 h-5" />}
+            </button>
+
             <div className="relative cursor-pointer group transition-transform duration-300 hover:scale-105 shrink-0">
               <svg viewBox="0 0 100 100" className="w-9 h-9 animate-[spin_50s_linear_infinite]" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <defs>
@@ -591,13 +600,6 @@ export default function App() {
             <span className={`text-[10px] font-mono font-bold px-2 py-1 rounded bg-gray-50 dark:bg-zinc-850 ${config.isDemoMode ? 'text-indigo-600 border border-indigo-150' : 'text-emerald-500 border border-emerald-500/20 animate-pulse'}`}>
               ● {config.isDemoMode ? 'SIM' : 'SRI'}
             </span>
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition border border-gray-150 dark:border-zinc-805 cursor-pointer"
-              aria-label="Toggle menu"
-            >
-              {isMobileMenuOpen ? <X className="w-5 h-5 text-indigo-600" /> : <Menu className="w-5 h-5" />}
-            </button>
           </div>
 
         </div>
