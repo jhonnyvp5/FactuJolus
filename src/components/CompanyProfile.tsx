@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { EmitterConfig, Invoice, Client, Product } from '../types';
 import { User, Image, FileText, CheckCircle, ShieldCheck, Landmark, Palette, Check } from 'lucide-react';
 import RideViewer from './RideViewer';
+import { saveEmitterLogoToSupabase } from '../lib/supabase';
 
 const TEMPLATES = [
   { id: 'oficial', name: 'Oficial SRI (Clásico)', desc: 'Diseño clásico estandarizado idéntico al PDF del SRI con columnas alternadas', color: 'from-gray-700 to-gray-800' },
@@ -74,13 +75,15 @@ export default function CompanyProfile({ config, onSaveConfig, currentUserEmail 
     }
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const b64 = reader.result as string;
       setLogoPreview(b64);
-      onSaveConfig({
+      const updated = {
         ...config,
         logoB64: b64
-      });
+      };
+      onSaveConfig(updated);
+      await saveEmitterLogoToSupabase(config.ruc, b64);
       setUploadSuccess(true);
       setTimeout(() => setUploadSuccess(false), 3000);
     };
@@ -90,12 +93,13 @@ export default function CompanyProfile({ config, onSaveConfig, currentUserEmail 
     reader.readAsDataURL(file);
   };
 
-  const handleRemoveLogo = () => {
+  const handleRemoveLogo = async () => {
     setLogoPreview(null);
     onSaveConfig({
       ...config,
       logoB64: undefined
     });
+    await saveEmitterLogoToSupabase(config.ruc, '');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }

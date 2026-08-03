@@ -442,13 +442,21 @@ export async function deleteProductFromSupabase(id: string, codigo?: string): Pr
 // ==========================================
 // 3. EMISOR CONFIG (emisor_config)
 // ==========================================
-export async function fetchEmitterConfigFromSupabase(): Promise<EmitterConfig | null> {
+export async function fetchEmitterConfigFromSupabase(ruc?: string): Promise<EmitterConfig | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
   try {
-    const { data, error } = await supabase.from('emisor_config').select('*').limit(1).maybeSingle();
-    if (error || !data) return null;
+    let data: any = null;
+    if (ruc) {
+      const res = await supabase.from('emisor_config').select('*').eq('ruc', ruc).maybeSingle();
+      data = res.data;
+    }
+    if (!data) {
+      const res = await supabase.from('emisor_config').select('*').limit(1).maybeSingle();
+      data = res.data;
+    }
+    if (!data) return null;
 
     return {
       ruc: data.ruc || '',
@@ -478,27 +486,110 @@ export async function saveEmitterConfigToSupabase(config: EmitterConfig): Promis
   if (!supabase) return false;
 
   try {
-    const payload = {
-      id: 'default',
-      ruc: config.ruc,
-      razon_social: config.razonSocial,
-      nombre_comercial: config.nombreComercial,
-      direccion_matriz: config.dirMatriz,
-      direccion_establecimiento: config.dirEstablecimiento,
-      establecimiento: config.codEstablecimiento,
-      punto_emision: config.codPuntoEmision,
+    const targetRuc = config.ruc || '';
+
+    // 1. Check if record exists for this RUC or default
+    let existing: any = null;
+    if (targetRuc) {
+      const { data } = await supabase.from('emisor_config').select('*').eq('ruc', targetRuc).maybeSingle();
+      existing = data;
+    }
+
+    if (!existing) {
+      const { data } = await supabase.from('emisor_config').select('*').limit(1).maybeSingle();
+      existing = data;
+    }
+
+    const payload: Record<string, any> = {
+      ruc: config.ruc || '',
+      razon_social: config.razonSocial || '',
+      nombre_comercial: config.nombreComercial || '',
+      direccion_matriz: config.dirMatriz || '',
+      direccion_establecimiento: config.dirEstablecimiento || '',
+      establecimiento: config.codEstablecimiento || '001',
+      punto_emision: config.codPuntoEmision || '001',
       lleva_contabilidad: config.obligadoContabilidad ? 'SI' : 'NO',
-      contribuyente_especial: config.contribuyenteEspecial,
-      regimen_tributario: config.regimen,
-      ambiente: config.ambiente,
-      logo_url: config.logoB64,
-      ultimo_secuencial_factura: config.ultimoSecuencialFactura,
-      clave_firma: config.p12Password,
-      correo: config.correo
+      contribuyente_especial: config.contribuyenteEspecial || '',
+      regimen_tributario: config.regimen || 'GENERAL',
+      ambiente: config.ambiente || '1',
+      logo_url: config.logoB64 !== undefined ? config.logoB64 : (existing?.logo_url || ''),
+      ultimo_secuencial_factura: config.ultimoSecuencialFactura || '000000001',
+      clave_firma: config.p12Password !== undefined ? config.p12Password : (existing?.clave_firma || ''),
+      correo: config.correo || existing?.correo || ''
     };
-    const { error } = await supabase.from('emisor_config').upsert(payload, { onConflict: 'id' });
-    return !error;
-  } catch {
+
+    if (!existing) {
+      // Create new record
+      payload.id = targetRuc || 'default';
+      const { error } = await supabase.from('emisor_config').insert(payload);
+      if (error) {
+        const { error: upsertErr } = await supabase.from('emisor_config').upsert(payload, { onConflict: 'id' });
+        return !upsertErr;
+      }
+      return true;
+    } else {
+      // Record exists: update ONLY fields that changed
+      const changesOnly: Record<string, any> = {};
+
+      if (payload.ruc !== undefined && payload.ruc !== existing.ruc) changesOnly.ruc = payload.ruc;
+      if (payload.razon_social !== undefined && payload.razon_social !== existing.razon_social) changesOnly.razon_social = payload.razon_social;
+      if (payload.nombre_comercial !== undefined && payload.nombre_comercial !== existing.nombre_comercial) changesOnly.nombre_comercial = payload.nombre_comercial;
+      if (payload.direccion_matriz !== undefined && payload.direccion_matriz !== existing.direccion_matriz) changesOnly.direccion_matriz = payload.direccion_matriz;
+      if (payload.direccion_establecimiento !== undefined && payload.direccion_establecimiento !== existing.direccion_establecimiento) changesOnly.direccion_establecimiento = payload.direccion_establecimiento;
+      if (payload.establecimiento !== undefined && payload.establecimiento !== existing.establecimiento) changesOnly.establecimiento = payload.establecimiento;
+      if (payload.punto_emision !== undefined && payload.punto_emision !== existing.punto_emision) changesOnly.punto_emision = payload.punto_emision;
+      if (payload.lleva_contabilidad !== undefined && payload.lleva_contabilidad !== existing.lleva_contabilidad) changesOnly.lleva_contabilidad = payload.lleva_contabilidad;
+      if (payload.contribuyente_especial !== undefined && payload.contribuyente_especial !== existing.contribuyente_especial) changesOnly.contribuyente_especial = payload.contribuyente_especial;
+      if (payload.regimen_tributario !== undefined && payload.regimen_tributario !== existing.regimen_tributario) changesOnly.regimen_tributario = payload.regimen_tributario;
+      if (payload.ambiente !== undefined && payload.ambiente !== existing.ambiente) changesOnly.ambiente = payload.ambiente;
+      if (config.logoB64 !== undefined && config.logoB64 !== existing.logo_url) changesOnly.logo_url = config.logoB64;
+      if (payload.ultimo_secuencial_factura !== undefined && payload.ultimo_secuencial_factura !== existing.ultimo_secuencial_factura) changesOnly.ultimo_secuencial_factura = payload.ultimo_secuencial_factura;
+      if (config.p12Password !== undefined && config.p12Password !== existing.clave_firma) changesOnly.clave_firma = config.p12Password;
+      if (payload.correo !== undefined && payload.correo !== existing.correo) changesOnly.correo = payload.correo;
+
+      if (Object.keys(changesOnly).length > 0) {
+        const { error } = await supabase.from('emisor_config').update(changesOnly).eq('id', existing.id);
+        return !error;
+      }
+      return true;
+    }
+  } catch (e) {
+    console.error('Error saving emitter config to Supabase:', e);
+    return false;
+  }
+}
+
+export async function saveEmitterLogoToSupabase(ruc: string, logoB64: string): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+
+  try {
+    const targetRuc = ruc || '';
+    let existing: any = null;
+
+    if (targetRuc) {
+      const { data } = await supabase.from('emisor_config').select('id, ruc, logo_url').eq('ruc', targetRuc).maybeSingle();
+      existing = data;
+    }
+
+    if (!existing) {
+      const { data } = await supabase.from('emisor_config').select('id, ruc, logo_url').limit(1).maybeSingle();
+      existing = data;
+    }
+
+    if (existing) {
+      const { error } = await supabase.from('emisor_config').update({ logo_url: logoB64, ruc: targetRuc || existing.ruc }).eq('id', existing.id);
+      return !error;
+    } else {
+      const { error } = await supabase.from('emisor_config').insert({
+        id: targetRuc || 'default',
+        ruc: targetRuc,
+        logo_url: logoB64
+      });
+      return !error;
+    }
+  } catch (e) {
+    console.error('Error updating logo in emisor_config:', e);
     return false;
   }
 }

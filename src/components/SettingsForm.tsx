@@ -3,7 +3,7 @@ import { PortalUser, EmitterConfig, RegimenTributario } from '../types';
 import { validateRuc, REGIMENES } from '../sri/utils';
 import { getCertificateInfo } from '../sri/signer';
 import { CheckCircle2, AlertCircle, Key, FileCode, Shield, RefreshCw, Database, Globe, Check, AlertTriangle, Copy, Code } from 'lucide-react';
-import { getSupabaseConfig, saveSupabaseConfig, testSupabaseConnection, SUPABASE_SQL_SCRIPT } from '../lib/supabase';
+import { getSupabaseConfig, saveSupabaseConfig, testSupabaseConnection, SUPABASE_SQL_SCRIPT, saveEmitterConfigToSupabase } from '../lib/supabase';
 import { SupabaseExplorer } from './SupabaseExplorer';
 
 interface SettingsFormProps {
@@ -156,7 +156,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
     setTestingSb(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (ruc && !validateRuc(ruc)) {
@@ -185,9 +185,12 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
       correo: correo || undefined,
       telefono: telefono || undefined,
       ultimoSecuencialFactura: ultimoSecuencialFactura ? ultimoSecuencialFactura.replace(/\D/g, '').padStart(9, '0') : '000000001',
+      logoB64: config.logoB64
     };
 
     onSave(updatedConfig);
+    await saveEmitterConfigToSupabase(updatedConfig);
+
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
   };
