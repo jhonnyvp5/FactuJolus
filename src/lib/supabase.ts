@@ -763,8 +763,60 @@ export async function ensureSuperAdminInSupabase(): Promise<void> {
 }
 
 /**
- * Validate login credentials against usuarios_portal table in Supabase
+ * Fetch rows from any Supabase table for database inspection
  */
+export async function fetchSupabaseTableRows(tableName: string): Promise<{ data: any[]; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: [], error: 'Cliente de Supabase no configurado o inactivo.' };
+
+  try {
+    const { data, error } = await supabase
+      .from(tableName)
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      // Retry without order by created_at if table doesn't have created_at column
+      if (error.message.includes('created_at') || error.code === '42703') {
+        const fallbackRes = await supabase.from(tableName).select('*').limit(100);
+        if (fallbackRes.error) {
+          return { data: [], error: fallbackRes.error.message };
+        }
+        return { data: fallbackRes.data || [], error: null };
+      }
+      return { data: [], error: error.message };
+    }
+
+    return { data: data || [], error: null };
+  } catch (err: any) {
+    return { data: [], error: err.message || 'Error consultando la tabla en Supabase.' };
+  }
+}
+
+/**
+ * Fetch list of files in a Supabase storage bucket
+ */
+export async function fetchSupabaseStorageFiles(bucketName: string): Promise<{ files: any[]; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { files: [], error: 'Cliente de Supabase no configurado.' };
+
+  try {
+    const { data, error } = await supabase.storage.from(bucketName).list('', {
+      limit: 100,
+      sortBy: { column: 'created_at', order: 'desc' }
+    });
+
+    if (error) {
+      return { files: [], error: error.message };
+    }
+
+    return { files: data || [], error: null };
+  } catch (err: any) {
+    return { files: [], error: err.message || 'Error listando archivos del bucket.' };
+  }
+}
+
 export async function authenticateUserInSupabase(
   email: string,
   pass: string

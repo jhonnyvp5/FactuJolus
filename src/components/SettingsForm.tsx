@@ -4,6 +4,7 @@ import { validateRuc, REGIMENES } from '../sri/utils';
 import { getCertificateInfo } from '../sri/signer';
 import { CheckCircle2, AlertCircle, Key, FileCode, Shield, RefreshCw, Database, Globe, Check, AlertTriangle, Copy, Code } from 'lucide-react';
 import { getSupabaseConfig, saveSupabaseConfig, testSupabaseConnection, SUPABASE_SQL_SCRIPT } from '../lib/supabase';
+import { SupabaseExplorer } from './SupabaseExplorer';
 
 interface SettingsFormProps {
   config: EmitterConfig;
@@ -647,6 +648,11 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
               </pre>
             </div>
           )}
+
+          {/* EXPLORADOR DE DATOS DE SUPABASE EN TIEMPO REAL */}
+          <div className="pt-4 border-t border-gray-100 dark:border-zinc-800">
+            <SupabaseExplorer />
+          </div>
         </div>
       )}
 

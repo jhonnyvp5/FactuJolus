@@ -11,13 +11,14 @@ import LoginForm from './components/LoginForm';
 import UserManagement from './components/UserManagement';
 import ProformaForm from './components/ProformaForm';
 import ClientCatalog from './components/ClientCatalog';
+import { SupabaseExplorer } from './components/SupabaseExplorer';
 import { logActivity } from './lib/activityLogger';
 import { 
   fetchClientsFromSupabase, saveClientToSupabase, 
   fetchProductsFromSupabase, saveProductToSupabase, 
   fetchInvoicesFromSupabase, saveInvoiceToSupabase 
 } from './lib/supabase';
-import { ShieldCheck, Send, Settings, History, Plus, Layers, ArrowLeftRight, FileCheck2, CloudLightning, Package, User, Users, Menu, X, FileText } from 'lucide-react';
+import { ShieldCheck, Send, Settings, History, Plus, Layers, ArrowLeftRight, FileCheck2, CloudLightning, Package, User, Users, Menu, X, FileText, Database } from 'lucide-react';
 
 const STORAGE_KEYS = {
   CONFIG: 'sri_emitter_config',
@@ -572,6 +573,19 @@ export default function App() {
                   Gestión Usuarios
                 </button>
               )}
+
+              {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('settings')) && (
+                <button
+                  onClick={() => {
+                    setActiveTab('supabase');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer ${activeTab === 'supabase' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
+                >
+                  <Database className="w-4 h-4 text-emerald-500" />
+                  Base de Datos Supabase
+                </button>
+              )}
             </div>
 
             {/* EXIT BUTTON IN DRAWER */}
@@ -687,6 +701,16 @@ export default function App() {
             >
               <Users className="w-3.5 h-3.5" />
               Gestión Usuarios
+            </button>
+          )}
+
+          {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('settings')) && (
+            <button
+              onClick={() => setActiveTab('supabase')}
+              className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'supabase' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
+            >
+              <Database className="w-3.5 h-3.5 text-emerald-500" />
+              Base de Datos Supabase
             </button>
           )}
           
@@ -806,6 +830,10 @@ export default function App() {
                 localStorage.setItem('sri_portal_user_permissions', JSON.stringify(newPerms));
               }}
             />
+          )}
+
+          {activeTab === 'supabase' && (
+            <SupabaseExplorer />
           )}
         </div>
 
