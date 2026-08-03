@@ -124,8 +124,12 @@ CREATE TABLE IF NOT EXISTS public.emisor_config (
     regimen_tributario TEXT DEFAULT 'GENERAL',
     ambiente TEXT DEFAULT '1',
     logo_url TEXT,
+    logo_b64 TEXT,
     ultimo_secuencial_factura TEXT DEFAULT '000000001',
     clave_firma TEXT,
+    p12_nombre TEXT,
+    p12_firma_b64 TEXT,
+    p12_password TEXT,
     correo TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -647,15 +651,17 @@ export async function fetchEmitterConfigFromSupabase(ruc?: string): Promise<Emit
       nombreComercial: data.nombre_comercial || '',
       dirMatriz: data.direccion_matriz || data.dir_matriz || '',
       dirEstablecimiento: data.direccion_establecimiento || data.dir_establecimiento || '',
-      codEstablecimiento: data.establecimiento || '001',
-      codPuntoEmision: data.punto_emision || '001',
+      codEstablecimiento: data.establecimiento || '',
+      codPuntoEmision: data.punto_emision || '',
       obligadoContabilidad: data.lleva_contabilidad === 'SI' || data.lleva_contabilidad === true,
       contribuyenteEspecial: data.contribuyente_especial || '',
-      regimen: data.regimen_tributario || 'GENERAL',
-      ambiente: data.ambiente || '1',
-      logoB64: data.logo_url || '',
-      ultimoSecuencialFactura: data.ultimo_secuencial_factura || '000000001',
-      p12Password: data.clave_firma || '',
+      regimen: data.regimen_tributario || '',
+      ambiente: data.ambiente || '',
+      logoB64: data.logo_b64 || data.logo_url || '',
+      ultimoSecuencialFactura: data.ultimo_secuencial_factura || '',
+      p12Nombre: data.p12_nombre || '',
+      p12FirmaB64: data.p12_firma_b64 || '',
+      p12Password: data.p12_password || data.clave_firma || '',
       correo: data.correo || '',
       isDemoMode: false
     };
@@ -678,15 +684,19 @@ export async function saveEmitterConfigToSupabase(config: EmitterConfig): Promis
     dir_matriz: config.dirMatriz ? config.dirMatriz.trim() : '',
     direccion_establecimiento: config.dirEstablecimiento ? config.dirEstablecimiento.trim() : '',
     dir_establecimiento: config.dirEstablecimiento ? config.dirEstablecimiento.trim() : '',
-    establecimiento: config.codEstablecimiento || '001',
-    punto_emision: config.codPuntoEmision || '001',
+    establecimiento: config.codEstablecimiento || '',
+    punto_emision: config.codPuntoEmision || '',
     lleva_contabilidad: config.obligadoContabilidad ? 'SI' : 'NO',
     contribuyente_especial: config.contribuyenteEspecial || '',
-    regimen_tributario: config.regimen || 'GENERAL',
+    regimen_tributario: config.regimen || '',
     ambiente: config.ambiente || '1',
     logo_url: config.logoB64 !== undefined ? config.logoB64 : '',
-    ultimo_secuencial_factura: config.ultimoSecuencialFactura || '000000001',
+    logo_b64: config.logoB64 !== undefined ? config.logoB64 : '',
+    ultimo_secuencial_factura: config.ultimoSecuencialFactura || '',
     clave_firma: config.p12Password !== undefined ? config.p12Password : '',
+    p12_nombre: config.p12Nombre || '',
+    p12_firma_b64: config.p12FirmaB64 || '',
+    p12_password: config.p12Password !== undefined ? config.p12Password : '',
     correo: config.correo || ''
   };
 
@@ -707,15 +717,28 @@ export async function saveEmitterConfigToSupabase(config: EmitterConfig): Promis
 }
 
 export async function saveEmitterLogoToSupabase(ruc: string, logoB64: string): Promise<boolean> {
-  const targetRuc = ruc ? ruc.trim() : '';
+  let targetRuc = ruc ? ruc.trim() : '';
+
+  const supabase = getSupabase();
+  if (supabase && !targetRuc) {
+    try {
+      const { data: existing } = await supabase.from('emisor_config').select('ruc').limit(1).maybeSingle();
+      if (existing?.ruc) {
+        targetRuc = existing.ruc;
+      }
+    } catch {
+      // Ignore query error
+    }
+  }
+
   if (!targetRuc) return false;
 
   const payload: Record<string, any> = {
     ruc: targetRuc,
-    logo_url: logoB64
+    logo_url: logoB64,
+    logo_b64: logoB64
   };
 
-  const supabase = getSupabase();
   if (supabase && targetRuc) {
     try {
       const { data: existing } = await supabase.from('emisor_config').select('*').eq('ruc', targetRuc).maybeSingle();
@@ -725,6 +748,9 @@ export async function saveEmitterLogoToSupabase(ruc: string, logoB64: string): P
         if (existing.direccion_matriz) payload.direccion_matriz = existing.direccion_matriz;
         if (existing.razon_social) payload.razon_social = existing.razon_social;
         if (existing.nombre_comercial) payload.nombre_comercial = existing.nombre_comercial;
+        if (existing.p12_nombre) payload.p12_nombre = existing.p12_nombre;
+        if (existing.p12_firma_b64) payload.p12_firma_b64 = existing.p12_firma_b64;
+        if (existing.p12_password) payload.p12_password = existing.p12_password;
       }
     } catch {
       // Ignore query error

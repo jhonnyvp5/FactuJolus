@@ -63,17 +63,17 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
     setNombreComercial(config.nombreComercial || '');
     setDirMatriz(config.dirMatriz || '');
     setDirEstablecimiento(config.dirEstablecimiento || '');
-    setCodEstablecimiento(config.codEstablecimiento || '001');
-    setCodPuntoEmision(config.codPuntoEmision || '001');
+    setCodEstablecimiento(config.codEstablecimiento || '');
+    setCodPuntoEmision(config.codPuntoEmision || '');
     setCorreo(config.correo || '');
     setTelefono(config.telefono || '');
     setObligadoContabilidad(config.obligadoContabilidad ?? true);
     setContribuyenteEspecial(config.contribuyenteEspecial || '');
     setAgenteRetencion(config.agenteRetencion || '');
-    setRegimen(config.regimen || 'RIMPE_EMPRENDEDOR');
+    setRegimen(config.regimen || '');
     setAmbiente(config.ambiente || '1');
     setIsDemoMode(config.isDemoMode ?? true);
-    setUltimoSecuencialFactura(config.ultimoSecuencialFactura || '000000001');
+    setUltimoSecuencialFactura(config.ultimoSecuencialFactura || '');
     setPassword(config.p12Password || '');
     setSignatureB64(config.p12FirmaB64 || '');
     setSignatureName(config.p12Nombre || '');
@@ -87,8 +87,8 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
     setNombreComercial('');
     setDirMatriz('');
     setDirEstablecimiento('');
-    setCodEstablecimiento('001');
-    setCodPuntoEmision('001');
+    setCodEstablecimiento('');
+    setCodPuntoEmision('');
     setCorreo('');
     setTelefono('');
     setContribuyenteEspecial('');
@@ -108,7 +108,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
     setDirEstablecimiento('Matriz - Oficinas Administrativas 3B');
     setCodEstablecimiento('001');
     setCodPuntoEmision('001');
-    setCorreo('jolusservices@gmail.com');
+    setCorreo('alexis.valle@gmail.com');
     setTelefono('0995831920');
     setObligadoContabilidad(true);
     setRegimen('RIMPE_EMPRENDEDOR');
@@ -453,7 +453,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
                   setUltimoSecuencialFactura(val.padStart(9, '0'));
                 }
               }}
-              placeholder="Ej. 000000002"
+              placeholder="Ej. 000000001"
               className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 text-center font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
               required
             />

@@ -42,7 +42,7 @@ const DEFAULT_CONFIG: EmitterConfig = {
   codEstablecimiento: '001',
   codPuntoEmision: '001',
   obligadoContabilidad: true,
-  regimen: 'RIMPE_EMPRENDEDOR',
+  regimen: '',
   ambiente: '1', // Pruebas
   isDemoMode: true,
   correo: '',

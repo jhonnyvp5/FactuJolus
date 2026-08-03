@@ -1,6 +1,6 @@
 export type TipoIdentificacion = '04' | '05' | '06' | '07' | '08';
 export type TipoIva = '0' | '2' | '4' | '6' | '7'; // 0 = 0%, 2 = 12%, 4 = 15%, 6 = No Objeto, 7 = Exento
-export type RegimenTributario = 'RIMPE_POPULAR' | 'RIMPE_EMPRENDEDOR' | 'GENERAL' | 'OTRO';
+export type RegimenTributario = 'RIMPE_POPULAR' | 'RIMPE_EMPRENDEDOR' | 'GENERAL' | 'OTRO' | '';
 export type EstadoComprobante = 'Borrador' | 'Firmado' | 'Enviado' | 'Autorizado' | 'No Autorizado' | 'Devuelto';
 
 export interface EmitterConfig {

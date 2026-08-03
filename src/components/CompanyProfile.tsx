@@ -154,7 +154,7 @@ export default function CompanyProfile({ config, onSaveConfig, currentUserEmail 
       numeroAutorizacion: '1006202601' + config.ruc + config.ambiente + '0010010000009991234567812',
       mensajesSRI: [{ mensaje: 'AUTORIZADO', tipo: 'INFORMATIVO' }],
       infoAdicional: [
-        { id: 'ia-1', nombre: 'Email', valor: 'juan.perez@example.com' },
+        { id: 'ia-1', nombre: 'Email', valor: 'example@example.com' },
         { id: 'ia-2', nombre: 'Observación', valor: 'Este es un comprobante modelo interactivo de visualización RIDE' }
       ],
       resumenImpuestos: {
