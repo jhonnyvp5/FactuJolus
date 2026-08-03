@@ -56,9 +56,8 @@ export async function testSupabaseConnection(): Promise<{ success: boolean; tabl
 
     const { error } = await supabase.from('clientes').select('id').limit(1);
 
-    // Ensure storage buckets and superadmin exist
+    // Ensure storage buckets exist
     ensureSupabaseBucketsExist().catch(e => console.warn('Bucket check notice:', e));
-    ensureSuperAdminInSupabase().catch(e => console.warn('Superadmin user sync notice:', e));
 
     if (error) {
       if (isTableMissingError(error)) {
@@ -666,17 +665,19 @@ export async function fetchEmitterConfigFromSupabase(ruc?: string): Promise<Emit
 }
 
 export async function saveEmitterConfigToSupabase(config: EmitterConfig): Promise<boolean> {
-  const targetRuc = config.ruc || '';
-  const dirMatrizVal = config.dirMatriz || 'Matriz Principal';
+  const targetRuc = config.ruc ? config.ruc.trim() : '';
+  if (!targetRuc) {
+    return false;
+  }
 
   const payload: Record<string, any> = {
-    ruc: config.ruc || '',
-    razon_social: config.razonSocial || 'Emisor',
-    nombre_comercial: config.nombreComercial || '',
-    direccion_matriz: dirMatrizVal,
-    dir_matriz: dirMatrizVal,
-    direccion_establecimiento: config.dirEstablecimiento || dirMatrizVal,
-    dir_establecimiento: config.dirEstablecimiento || dirMatrizVal,
+    ruc: targetRuc,
+    razon_social: config.razonSocial ? config.razonSocial.trim() : '',
+    nombre_comercial: config.nombreComercial ? config.nombreComercial.trim() : '',
+    direccion_matriz: config.dirMatriz ? config.dirMatriz.trim() : '',
+    dir_matriz: config.dirMatriz ? config.dirMatriz.trim() : '',
+    direccion_establecimiento: config.dirEstablecimiento ? config.dirEstablecimiento.trim() : '',
+    dir_establecimiento: config.dirEstablecimiento ? config.dirEstablecimiento.trim() : '',
     establecimiento: config.codEstablecimiento || '001',
     punto_emision: config.codPuntoEmision || '001',
     lleva_contabilidad: config.obligadoContabilidad ? 'SI' : 'NO',
@@ -706,13 +707,12 @@ export async function saveEmitterConfigToSupabase(config: EmitterConfig): Promis
 }
 
 export async function saveEmitterLogoToSupabase(ruc: string, logoB64: string): Promise<boolean> {
-  const targetRuc = ruc || '';
-  const defaultDir = 'Matriz Principal';
+  const targetRuc = ruc ? ruc.trim() : '';
+  if (!targetRuc) return false;
+
   const payload: Record<string, any> = {
     ruc: targetRuc,
-    logo_url: logoB64,
-    direccion_matriz: defaultDir,
-    dir_matriz: defaultDir
+    logo_url: logoB64
   };
 
   const supabase = getSupabase();
@@ -1238,7 +1238,7 @@ export async function migrateLocalDataToSupabase(data: {
         await saveCreditNoteToSupabase(cn);
       }
     }
-    if (data.config) {
+    if (data.config && data.config.ruc && data.config.ruc.trim()) {
       await saveEmitterConfigToSupabase(data.config);
     }
     if (data.users) {

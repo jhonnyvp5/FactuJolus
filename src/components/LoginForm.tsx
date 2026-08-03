@@ -7,9 +7,10 @@ import { authenticateUserInSupabase, upsertUserInSupabase } from '../lib/supabas
 interface LoginFormProps {
   onLoginSuccess: (user: PortalUser) => void;
   adminEmail: string;
+  inactivityNotice?: string | null;
 }
 
-export default function LoginForm({ onLoginSuccess, adminEmail }: LoginFormProps) {
+export default function LoginForm({ onLoginSuccess, adminEmail, inactivityNotice }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -72,31 +73,20 @@ export default function LoginForm({ onLoginSuccess, adminEmail }: LoginFormProps
         }
       }
 
-      // 3. Fallback check for default admin or superadmin login
-      if (cleanEmail === 'jolusservices@gmail.com' || cleanEmail === adminEmail.toLowerCase()) {
-        const superAdmin: PortalUser = {
-          id: 'superadmin-jolusservices',
-          correo: 'jolusservices@gmail.com',
-          clave: password || 'admin123',
-          role: 'SUPERADMIN',
-          nombre: 'Anibal Joel Gualoto Indacochea',
+      // 3. Fallback check for offline admin login if Supabase is unavailable
+      if (cleanEmail === adminEmail.toLowerCase() && password === 'admin123') {
+        const adminUser: PortalUser = {
+          id: 'admin-local',
+          correo: cleanEmail,
+          clave: password,
+          role: 'ADMIN',
+          nombre: cleanEmail.split('@')[0].toUpperCase(),
           fechaRegistro: new Date().toISOString()
         };
 
-        const idx = registeredUsers.findIndex(u => u.correo.toLowerCase() === 'jolusservices@gmail.com');
-        if (idx >= 0) {
-          registeredUsers[idx] = superAdmin;
-        } else {
-          registeredUsers.push(superAdmin);
-        }
-        localStorage.setItem('sri_portal_users', JSON.stringify(registeredUsers));
-        
-        // Try background sync to Supabase usuarios_portal
-        upsertUserInSupabase(superAdmin).catch(err => console.warn('Supabase sync notice:', err));
-
-        logActivity(superAdmin, 'Inicio de Sesión', 'Acceso al portal con cuenta SUPERADMIN de Administrador Principal.');
+        logActivity(adminUser, 'Inicio de Sesión', 'Acceso al portal en modo local.');
         setIsLoggingIn(false);
-        onLoginSuccess(superAdmin);
+        onLoginSuccess(adminUser);
         return;
       }
 
@@ -234,6 +224,13 @@ export default function LoginForm({ onLoginSuccess, adminEmail }: LoginFormProps
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="bg-zinc-900 py-8 px-6 shadow-2xl rounded-3xl border border-zinc-850 sm:px-10">
+
+          {inactivityNotice && (
+            <div className="mb-4 bg-amber-500/10 text-amber-300 p-3.5 rounded-xl border border-amber-500/20 text-xs font-semibold flex items-start gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping mt-1 flex-shrink-0"></span>
+              <span>{inactivityNotice}</span>
+            </div>
+          )}
 
           {error && (
             <div className="mb-4 bg-red-50 text-red-900 dark:bg-red-950/20 dark:text-red-300 p-3.5 rounded-xl border border-red-200 dark:border-red-900/30 text-xs font-semibold flex items-center gap-2">

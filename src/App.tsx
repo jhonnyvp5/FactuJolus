@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { EmitterConfig, Client, Product, Invoice, CreditNote, PortalUser } from './types';
 import SettingsForm from './components/SettingsForm';
 import InvoiceForm from './components/InvoiceForm';
@@ -113,7 +113,88 @@ export default function App() {
   // Responsive mobile menu state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Initialize and load seed data
+  const [inactivityNotice, setInactivityNotice] = useState<string | null>(null);
+  const lastActivityRef = useRef(Date.now());
+
+  // 15-Minute Inactivity Auto-Logout
+  const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000;
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const resetTimer = () => {
+      lastActivityRef.current = Date.now();
+    };
+
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
+    events.forEach(evt => window.addEventListener(evt, resetTimer, { passive: true }));
+
+    const checkInterval = setInterval(() => {
+      if (Date.now() - lastActivityRef.current >= INACTIVITY_TIMEOUT_MS) {
+        logActivity(
+          currentUser,
+          'Cierre de Sesión por Inactividad',
+          'La sesión se cerró automáticamente tras 15 minutos de inactividad.'
+        );
+        setCurrentUser(null);
+        localStorage.removeItem('sri_portal_active_user');
+        setInactivityNotice('Su sesión expiró por inactividad (15 min sin uso). Por favor, inicie sesión nuevamente.');
+      }
+    }, 10000);
+
+    return () => {
+      events.forEach(evt => window.removeEventListener(evt, resetTimer));
+      clearInterval(checkInterval);
+    };
+  }, [currentUser]);
+
+  // Platform Automatic Update / Refresh Listener
+  useEffect(() => {
+    let initialScriptSignature: string | null = null;
+
+    const checkPlatformUpdate = async () => {
+      try {
+        const response = await fetch(`/?_update=${Date.now()}`, { cache: 'no-store' });
+        if (!response.ok) return;
+        const html = await response.text();
+        const scripts = html.match(/<script[^>]*src=["']([^"']+)["']/g) || [];
+        const signature = scripts.join('|');
+
+        if (initialScriptSignature === null) {
+          initialScriptSignature = signature;
+        } else if (signature && signature !== initialScriptSignature) {
+          console.log('[AutoUpdate] Nueva versión de plataforma detectada. Recargando...');
+          window.location.reload();
+        }
+      } catch {
+        // Network error ignored
+      }
+    };
+
+    checkPlatformUpdate();
+    const interval = setInterval(checkPlatformUpdate, 30000);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkPlatformUpdate();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, []);
+
+  const handleManualLogout = () => {
+    if (currentUser) {
+      logActivity(currentUser, 'Cierre de Sesión', 'Cierre de sesión voluntario realizado por el usuario.');
+    }
+    setCurrentUser(null);
+    localStorage.removeItem('sri_portal_active_user');
+    setActiveTab('history');
+    setIsMobileMenuOpen(false);
+  };
   useEffect(() => {
     const email = currentUser?.correo;
     const configKey = getUserStorageKey(STORAGE_KEYS.CONFIG, email);
@@ -220,29 +301,32 @@ export default function App() {
 
       // 5. Config
       const dbConfig = await fetchEmitterConfigFromSupabase();
-      if (dbConfig && isMounted) {
+      if (dbConfig && dbConfig.ruc && isMounted) {
         setConfig(prev => ({ ...prev, ...dbConfig }));
         const key = getUserStorageKey(STORAGE_KEYS.CONFIG, currentUser?.correo);
         localStorage.setItem(key, JSON.stringify({ ...config, ...dbConfig }));
       } else if (!dbConfig && isMounted) {
-        // If no record exists in emisor_config, ensure hardcoded sample data isn't shown
+        // If no record exists in emisor_config in Supabase (e.g. manually deleted), reset local state to empty
         setConfig(prev => {
-          if (prev.ruc === '1792451083001' || prev.razonSocial === 'VALLE PLUA JHONNY ALEXIS') {
+          if (prev.ruc || prev.razonSocial) {
+            const emptyCfg: EmitterConfig = {
+              ...DEFAULT_CONFIG,
+              correo: prev.correo || currentUser?.correo || ''
+            };
             const key = getUserStorageKey(STORAGE_KEYS.CONFIG, currentUser?.correo);
-            localStorage.setItem(key, JSON.stringify(DEFAULT_CONFIG));
-            return DEFAULT_CONFIG;
+            localStorage.setItem(key, JSON.stringify(emptyCfg));
+            return emptyCfg;
           }
           return prev;
         });
       }
 
-      // Auto migrate local items to Supabase
+      // Auto migrate local items to Supabase (excluding config to avoid precooling)
       migrateLocalDataToSupabase({
         clients,
         products,
         invoices,
-        creditNotes,
-        config
+        creditNotes
       });
     };
 
@@ -413,10 +497,12 @@ export default function App() {
     return (
       <LoginForm
         onLoginSuccess={(user) => {
+          setInactivityNotice(null);
           setCurrentUser(user);
           localStorage.setItem('sri_portal_active_user', JSON.stringify(user));
         }}
         adminEmail={config.correo || 'jhonnyVP5@gmail.com'}
+        inactivityNotice={inactivityNotice}
       />
     );
   }
@@ -486,12 +572,7 @@ export default function App() {
                 </div>
                 <div className="h-5 border-l border-indigo-200/40 dark:border-indigo-900/40" />
                 <button
-                  onClick={() => {
-                    setCurrentUser(null);
-                    localStorage.removeItem('sri_portal_active_user');
-                    // Reset tab to history on logout
-                    setActiveTab('history');
-                  }}
+                  onClick={handleManualLogout}
                   className="px-2.5 py-1 bg-white hover:bg-red-50 hover:text-red-605 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-300 font-bold text-[10.5px] rounded-lg border border-gray-200/50 dark:border-zinc-700 transition cursor-pointer"
                   title="Cerrar sesión"
                 >
@@ -695,12 +776,7 @@ export default function App() {
             {currentUser && (
               <div className="border-t border-gray-100 dark:border-zinc-800 pt-4 mt-6">
                 <button
-                  onClick={() => {
-                    setCurrentUser(null);
-                    localStorage.removeItem('sri_portal_active_user');
-                    setActiveTab('history');
-                    setIsMobileMenuOpen(false);
-                  }}
+                  onClick={handleManualLogout}
                   className="w-full py-2.5 bg-red-50 hover:bg-red-100 text-red-650 dark:bg-red-950/20 dark:hover:bg-red-950/40 text-xs font-bold rounded-xl border border-red-200 transition cursor-pointer flex items-center justify-center gap-2"
                 >
                   Cerrar Sesión Activa

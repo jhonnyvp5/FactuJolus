@@ -32,86 +32,29 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
   }, []);
 
   const loadData = async () => {
-    // 1. Registered Users
-    const savedUsers = localStorage.getItem('sri_portal_users');
-    let uList: PortalUser[] = [];
-    if (savedUsers) {
-      uList = JSON.parse(savedUsers);
-    } else if (currentUser) {
-      uList.push(currentUser);
-    }
-
-    // Try fetching from Supabaseusuarios_portal
+    // 1. Registered Users - Display only available users from usuarios_portal in Supabase
     const dbUsers = await fetchUsersFromSupabase();
-    if (dbUsers && dbUsers.length > 0) {
-      uList = dbUsers;
-    }
-
-    // Ensure SUPERADMIN Anibal Joel Gualoto Indacochea exists as Principal Administrator
-    const superAdminIndex = uList.findIndex(u => u.correo.toLowerCase() === 'jolusservices@gmail.com');
-    const superAdminUser: PortalUser = {
-      id: 'superadmin-jolusservices',
-      correo: 'jolusservices@gmail.com',
-      clave: 'admin123',
-      role: 'SUPERADMIN',
-      nombre: 'Anibal Joel Gualoto Indacochea',
-      fechaRegistro: new Date().toISOString()
-    };
-
-    if (superAdminIndex >= 0) {
-      uList[superAdminIndex] = {
-        ...uList[superAdminIndex],
-        role: 'SUPERADMIN',
-        nombre: 'Anibal Joel Gualoto Indacochea'
-      };
+    if (dbUsers !== null) {
+      setUsers(dbUsers);
+      localStorage.setItem('sri_portal_users', JSON.stringify(dbUsers));
     } else {
-      uList.unshift(superAdminUser);
+      const savedUsers = localStorage.getItem('sri_portal_users');
+      if (savedUsers) {
+        setUsers(JSON.parse(savedUsers));
+      } else if (currentUser) {
+        setUsers([currentUser]);
+      }
     }
 
-    // Seed provisional USER demo operator if not exists
-    const hasProvisional = uList.some(u => u.correo.toLowerCase() === 'user@sri.com');
-    if (!hasProvisional) {
-      uList.push({
-        id: 'usr-provisional-user',
-        correo: 'user@sri.com',
-        clave: 'sriuser123',
-        role: 'USER',
-        nombre: 'Mariana Delgado',
-        fechaRegistro: new Date().toISOString()
-      });
-    }
-
-    localStorage.setItem('sri_portal_users', JSON.stringify(uList));
-    setUsers(uList);
-
-    // Sync users to Supabase
-    for (const u of uList) {
-      upsertUserInSupabase(u);
-    }
-
-    // 2. Invitations
+    // 2. Invitations - Display only available invitations from invitaciones in Supabase
     const dbInvites = await fetchInvitationsFromSupabase();
-    if (dbInvites && dbInvites.length > 0) {
+    if (dbInvites !== null) {
       setInvitations(dbInvites);
       localStorage.setItem('sri_portal_invitations', JSON.stringify(dbInvites));
     } else {
       const savedInvites = localStorage.getItem('sri_portal_invitations');
       if (savedInvites) {
         setInvitations(JSON.parse(savedInvites));
-      } else {
-        const seedInvite: Invitation = {
-          id: 'seed-invite-1',
-          correo: 'operador1@gmail.com',
-          claveTemporal: 'temp2026',
-          role: 'USER',
-          nombreInvitado: 'Carlos Mendoza',
-          fechaCreacion: new Date().toISOString(),
-          estado: 'PENDIENTE'
-        };
-        const initialInvites = [seedInvite];
-        localStorage.setItem('sri_portal_invitations', JSON.stringify(initialInvites));
-        setInvitations(initialInvites);
-        saveInvitationToSupabase(seedInvite);
       }
     }
 
