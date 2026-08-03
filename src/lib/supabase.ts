@@ -1,11 +1,11 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Client, Product, Invoice, CreditNote, Proforma, EmitterConfig, PortalUser, ActivityLog } from '../types';
+import { Client, Product, Invoice, CreditNote, Proforma, EmitterConfig, PortalUser, ActivityLog, Invitation } from '../types';
 
 // Default Supabase project URL & Anon Key provided by user
 const DEFAULT_SUPABASE_URL = 'https://zrbmybedhtziyvkwrvzl.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpyYm15YmVkaHR6aXl2a3dydnpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1MDMzMzUsImV4cCI6MjEwMTA3OTMzNX0.shxpYArUxwCd9nLqSG7fV2SbVGwz7oHp4rKuTWY2T7g';
 
-// Key stored in localStorage if user configures it dynamically
+// Storage keys
 const ANON_KEY_STORAGE_KEY = 'sri_supabase_anon_key';
 const URL_STORAGE_KEY = 'sri_supabase_url';
 
@@ -41,29 +41,22 @@ export function getSupabase(): SupabaseClient | null {
   }
 }
 
-// Reset instance when config changes
 export function resetSupabaseInstance() {
   supabaseInstance = null;
 }
 
 // Connection test helper
 export async function testSupabaseConnection(): Promise<{ success: boolean; tablesExist: boolean; message: string }> {
-  const { url, anonKey } = getSupabaseConfig();
+  const { url } = getSupabaseConfig();
   if (!url) return { success: false, tablesExist: false, message: 'URL de Supabase no configurada.' };
   
   try {
     const supabase = getSupabase();
     if (!supabase) return { success: false, tablesExist: false, message: 'No se pudo instanciar el cliente de Supabase.' };
 
-    // Try 'clientes' (Spanish) first, then 'clients' (English)
-    let { data, error } = await supabase.from('clientes').select('id').limit(1);
+    const { error } = await supabase.from('clientes').select('id').limit(1);
 
-    if (error && isTableMissingError(error)) {
-      const res = await supabase.from('clients').select('id').limit(1);
-      error = res.error;
-    }
-
-    // Ensure storage buckets exist
+    // Ensure storage buckets and superadmin exist
     ensureSupabaseBucketsExist().catch(e => console.warn('Bucket check notice:', e));
     ensureSuperAdminInSupabase().catch(e => console.warn('Superadmin user sync notice:', e));
 
@@ -72,20 +65,20 @@ export async function testSupabaseConnection(): Promise<{ success: boolean; tabl
         return { 
           success: true, 
           tablesExist: false, 
-          message: 'Conexión REST exitosa, pero la tabla "clientes" o "clients" aún no existe en Supabase.' 
+          message: 'Conexión REST exitosa. Ejecute el script SQL en Supabase para crear todas las 12 tablas si aún no existen.' 
         };
       }
       if (error.message.includes('row-level security') || error.code === '42501') {
         return {
           success: false,
           tablesExist: true,
-          message: 'Tabla encontrada, pero las políticas de seguridad RLS bloquean la clave pública anon. Ejecute el comando SQL para permitir RLS en anon.'
+          message: 'Tablas encontradas, pero RLS requiere habilitar las políticas anónimas. Ejecute el script SQL adjunto.'
         };
       }
       return { success: false, tablesExist: false, message: `Aviso Supabase: ${error.message}` };
     }
 
-    return { success: true, tablesExist: true, message: '¡Conexión exitosa, tablas y buckets verificados en Supabase!' };
+    return { success: true, tablesExist: true, message: '¡Conexión exitosa, 12 tablas y buckets verificados en Supabase!' };
   } catch (err: any) {
     return { success: false, tablesExist: false, message: `Error al conectar con Supabase: ${err.message || 'Error de red'}` };
   }
@@ -95,7 +88,7 @@ export const SUPABASE_SQL_SCRIPT = `-- SCRIPT DE CREACIÓN DE TABLAS Y BUCKETS E
 -- Copie y pegue este código completo en el "SQL Editor" de su panel de Supabase y haga clic en "Run".
 
 -- 1. TABLA DE CLIENTES
-CREATE TABLE IF NOT EXISTS public.clients (
+CREATE TABLE IF NOT EXISTS public.clientes (
     id TEXT PRIMARY KEY,
     tipo_identificacion TEXT NOT NULL,
     identificacion TEXT NOT NULL UNIQUE,
@@ -107,7 +100,7 @@ CREATE TABLE IF NOT EXISTS public.clients (
 );
 
 -- 2. TABLA DE PRODUCTOS
-CREATE TABLE IF NOT EXISTS public.products (
+CREATE TABLE IF NOT EXISTS public.productos (
     id TEXT PRIMARY KEY,
     codigo TEXT NOT NULL UNIQUE,
     nombre TEXT NOT NULL,
@@ -117,12 +110,33 @@ CREATE TABLE IF NOT EXISTS public.products (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. TABLA DE FACTURAS
-CREATE TABLE IF NOT EXISTS public.invoices (
+-- 3. TABLA DE CONFIGURACIÓN EMISOR
+CREATE TABLE IF NOT EXISTS public.emisor_config (
+    id TEXT PRIMARY KEY DEFAULT 'default',
+    ruc TEXT,
+    razon_social TEXT,
+    nombre_comercial TEXT,
+    direccion_matriz TEXT,
+    direccion_establecimiento TEXT,
+    establecimiento TEXT DEFAULT '001',
+    punto_emision TEXT DEFAULT '001',
+    lleva_contabilidad TEXT DEFAULT 'NO',
+    contribuyente_especial TEXT DEFAULT '',
+    regimen_tributario TEXT DEFAULT 'GENERAL',
+    ambiente TEXT DEFAULT '1',
+    logo_url TEXT,
+    ultimo_secuencial_factura TEXT DEFAULT '000000001',
+    clave_firma TEXT,
+    correo TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 4. TABLA DE FACTURAS
+CREATE TABLE IF NOT EXISTS public.facturas (
     id TEXT PRIMARY KEY,
     secuencial TEXT NOT NULL,
     fecha_emision TEXT NOT NULL,
-    cliente JSONB NOT NULL,
+    cliente_datos JSONB NOT NULL,
     detalles JSONB NOT NULL,
     forma_pago TEXT,
     plazo NUMERIC DEFAULT 0,
@@ -140,26 +154,88 @@ CREATE TABLE IF NOT EXISTS public.invoices (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. TABLA DE PROFORMAS
+-- 5. TABLA DE FACTURA DETALLES
+CREATE TABLE IF NOT EXISTS public.factura_detalles (
+    id TEXT PRIMARY KEY,
+    factura_id TEXT REFERENCES public.facturas(id) ON DELETE CASCADE,
+    factura_secuencial TEXT,
+    producto_id TEXT,
+    producto_codigo TEXT,
+    producto_nombre TEXT,
+    cantidad NUMERIC(12,4),
+    precio_unitario NUMERIC(12,4),
+    descuento NUMERIC(12,4),
+    subtotal NUMERIC(12,4),
+    iva_calculado NUMERIC(12,4),
+    total NUMERIC(12,4),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 6. TABLA DE PROFORMAS
 CREATE TABLE IF NOT EXISTS public.proformas (
     id TEXT PRIMARY KEY,
     secuencial TEXT NOT NULL,
     fecha_emision TEXT NOT NULL,
-    cliente JSONB NOT NULL,
+    cliente_datos JSONB NOT NULL,
     detalles JSONB NOT NULL,
     resumen_impuestos JSONB,
     informacion_pago TEXT,
     nota_dudas TEXT,
-    empresa_nombre TEXT,
-    empresa_direccion TEXT,
-    empresa_telefono TEXT,
-    empresa_correo TEXT,
+    empresa_datos JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 5. TABLA DE USUARIOS DEL PORTAL
+-- 7. TABLA DE PROFORMA DETALLES
+CREATE TABLE IF NOT EXISTS public.proforma_detalles (
+    id TEXT PRIMARY KEY,
+    proforma_id TEXT REFERENCES public.proformas(id) ON DELETE CASCADE,
+    producto_codigo TEXT,
+    producto_nombre TEXT,
+    cantidad NUMERIC(12,4),
+    precio_unitario NUMERIC(12,4),
+    subtotal NUMERIC(12,4),
+    iva_calculado NUMERIC(12,4),
+    total NUMERIC(12,4),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 8. TABLA DE NOTAS DE CRÉDITO
+CREATE TABLE IF NOT EXISTS public.notas_credito (
+    id TEXT PRIMARY KEY,
+    secuencial TEXT NOT NULL,
+    fecha_emision TEXT NOT NULL,
+    factura_modificada_num TEXT,
+    motivo TEXT,
+    cliente_datos JSONB NOT NULL,
+    detalles JSONB NOT NULL,
+    clave_acceso TEXT UNIQUE,
+    xml TEXT,
+    xml_firmado TEXT,
+    estado TEXT DEFAULT 'BORRADOR',
+    mensajes_sri JSONB DEFAULT '[]'::jsonb,
+    fecha_autorizacion TEXT,
+    numero_autorizacion TEXT,
+    resumen_impuestos JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 9. TABLA DE NOTA DE CRÉDITO DETALLES
+CREATE TABLE IF NOT EXISTS public.nota_credito_detalles (
+    id TEXT PRIMARY KEY,
+    nota_credito_id TEXT REFERENCES public.notas_credito(id) ON DELETE CASCADE,
+    producto_codigo TEXT,
+    producto_nombre TEXT,
+    cantidad NUMERIC(12,4),
+    precio_unitario NUMERIC(12,4),
+    subtotal NUMERIC(12,4),
+    iva_calculado NUMERIC(12,4),
+    total NUMERIC(12,4),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 10. TABLA DE USUARIOS DEL PORTAL
 CREATE TABLE IF NOT EXISTS public.usuarios_portal (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id TEXT PRIMARY KEY,
     usuario TEXT,
     correo VARCHAR(255) NOT NULL UNIQUE,
     clave_hash TEXT NOT NULL DEFAULT 'admin123',
@@ -169,23 +245,48 @@ CREATE TABLE IF NOT EXISTS public.usuarios_portal (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Habilitar RLS y crear políticas de acceso público/anon para todas las tablas
+-- 11. TABLA DE INVITACIONES
+CREATE TABLE IF NOT EXISTS public.invitaciones (
+    id TEXT PRIMARY KEY,
+    correo VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'USER',
+    clave_temporal TEXT NOT NULL,
+    estado TEXT DEFAULT 'PENDIENTE',
+    fecha_invitacion TEXT,
+    nombre_invitado TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 12. TABLA DE BITÁCORA DE ACTIVIDADES
+CREATE TABLE IF NOT EXISTS public.bitacora_actividades (
+    id TEXT PRIMARY KEY,
+    usuario_correo TEXT,
+    usuario_nombre TEXT,
+    usuario_rol TEXT,
+    fecha TEXT,
+    accion TEXT,
+    detalles TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Habilitar RLS y crear políticas de acceso público/anon para todas las 12 tablas
 DO $$
 DECLARE
     t text;
     tables text[] := ARRAY[
         'clientes',
         'productos',
-        'facturas',
-        'proformas',
-        'bitacoras_actividades',
         'emisor_config',
+        'facturas',
         'factura_detalles',
-        'invitaciones',
-        'notas_credito',
-        'notas_credito_detalles',
+        'proformas',
         'proforma_detalles',
+        'notas_credito',
+        'nota_credito_detalles',
         'usuarios_portal',
+        'invitaciones',
+        'bitacora_actividades',
+        'bitacoras_actividades',
         'clients',
         'products',
         'invoices'
@@ -200,9 +301,10 @@ BEGIN
     END LOOP;
 END $$;
 
--- REGISTRO DE USUARIO SUPERADMIN SOLICITADO
-INSERT INTO public.usuarios_portal (usuario, correo, clave_hash, role, nombre, is_temp)
+-- SUPERADMIN DEFAULT
+INSERT INTO public.usuarios_portal (id, usuario, correo, clave_hash, role, nombre, is_temp)
 VALUES (
+    'superadmin-jolusservices',
     'Anibal Joel Gualoto Indacochea',
     'jolusservices@gmail.com',
     'admin123',
@@ -215,9 +317,7 @@ ON CONFLICT (correo) DO UPDATE SET
     role = 'SUPERADMIN',
     nombre = EXCLUDED.nombre;
 
--- ==============================================================================
--- 5. CREACIÓN DE BUCKETS DE ALMACENAMIENTO DE ARCHIVOS (SUPABASE STORAGE)
--- ==============================================================================
+-- 13. BUCKETS DE ALMACENAMIENTO (SUPABASE STORAGE)
 INSERT INTO storage.buckets (id, name, public) VALUES
     ('facturas-pdf', 'facturas-pdf', true),
     ('facturas-xml-sin-firmar', 'facturas-xml-sin-firmar', true),
@@ -227,26 +327,8 @@ INSERT INTO storage.buckets (id, name, public) VALUES
     ('notas-credito-xml-sin-firmar', 'notas-credito-xml-sin-firmar', true),
     ('proformas-pdf', 'proformas-pdf', true)
 ON CONFLICT (id) DO NOTHING;
-
--- Políticas permisivas de lectura y escritura para almacenamiento público
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies WHERE policyname = 'Permitir lectura y escritura publica en buckets'
-    ) THEN
-        CREATE POLICY "Permitir lectura y escritura publica en buckets"
-        ON storage.objects FOR ALL
-        USING (true)
-        WITH CHECK (true);
-    END IF;
-END $$;
 `;
 
-/* ========================================================================
-   SUPABASE DATA SYNC HELPERS (CLIENTS, PRODUCTS, INVOICES, PROFORMAS, ETC)
-   ======================================================================== */
-
-// Helper to check if error is table missing
 function isTableMissingError(error: any): boolean {
   if (!error) return false;
   const msg = error.message || '';
@@ -257,29 +339,19 @@ function isValidUuid(id: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 }
 
-// --- CLIENTS / CLIENTES ---
+// ==========================================
+// 1. CLIENTES
+// ==========================================
 export async function fetchClientsFromSupabase(): Promise<Client[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
-  // Try Spanish table 'clientes' first
-  let { data, error } = await supabase.from('clientes').select('*');
-  
-  if (error && isTableMissingError(error)) {
-    const fallback = await supabase.from('clients').select('*');
-    data = fallback.data;
-    error = fallback.error;
-  }
+  const { data, error } = await supabase.from('clientes').select('*').order('created_at', { ascending: false });
 
-  if (error) {
-    if (!isTableMissingError(error)) {
-      console.warn('Aviso Supabase clientes:', error.message);
-    }
-    return null;
-  }
+  if (error) return null;
 
   return data ? data.map(item => ({
-    id: item.id,
+    id: item.id || `cli-${Date.now()}`,
     tipoIdentificacion: item.tipo_identificacion || item.tipoIdentificacion || '05',
     identificacion: item.identificacion,
     nombre: item.nombre,
@@ -293,8 +365,8 @@ export async function saveClientToSupabase(client: Client): Promise<{ success: b
   const supabase = getSupabase();
   if (!supabase) return { success: false, errorDetails: 'Cliente de Supabase no inicializado.' };
 
-  // Prepare Spanish table payload ('clientes')
   const spanishPayload: Record<string, any> = {
+    id: client.id || `cli-${Date.now()}`,
     tipo_identificacion: client.tipoIdentificacion,
     identificacion: client.identificacion,
     nombre: client.nombre,
@@ -303,30 +375,9 @@ export async function saveClientToSupabase(client: Client): Promise<{ success: b
     correo: client.correo
   };
 
-  if (isValidUuid(client.id)) {
-    spanishPayload.id = client.id;
-  }
-
-  // First try 'clientes' table
-  let { error } = await supabase.from('clientes').upsert(spanishPayload, { onConflict: 'identificacion' });
-
-  if (error && isTableMissingError(error)) {
-    // Fallback to 'clients' table
-    const englishPayload = {
-      id: client.id,
-      tipo_identificacion: client.tipoIdentificacion,
-      identificacion: client.identificacion,
-      nombre: client.nombre,
-      direccion: client.direccion,
-      telefono: client.telefono,
-      correo: client.correo
-    };
-    const res = await supabase.from('clients').upsert(englishPayload);
-    error = res.error;
-  }
+  const { error } = await supabase.from('clientes').upsert(spanishPayload, { onConflict: 'identificacion' });
 
   if (error) {
-    console.warn('Error al guardar cliente en Supabase:', error.message, error);
     return { success: false, errorDetails: error.message };
   }
 
@@ -337,30 +388,23 @@ export async function deleteClientFromSupabase(id: string, identificacion?: stri
   const supabase = getSupabase();
   if (!supabase) return false;
 
-  let { error } = await supabase.from('clientes').delete().eq('identificacion', identificacion || id);
-  if (error && isTableMissingError(error)) {
-    const res = await supabase.from('clients').delete().eq('id', id);
-    error = res.error;
-  }
+  const { error } = await supabase.from('clientes').delete().eq('identificacion', identificacion || id);
   return !error;
 }
 
-// --- PRODUCTS / PRODUCTOS ---
+// ==========================================
+// 2. PRODUCTOS
+// ==========================================
 export async function fetchProductsFromSupabase(): Promise<Product[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
-  let { data, error } = await supabase.from('productos').select('*');
-  if (error && isTableMissingError(error)) {
-    const fallback = await supabase.from('products').select('*');
-    data = fallback.data;
-    error = fallback.error;
-  }
+  const { data, error } = await supabase.from('productos').select('*').order('created_at', { ascending: false });
 
   if (error) return null;
 
   return data ? data.map(item => ({
-    id: item.id,
+    id: item.id || `prod-${Date.now()}`,
     codigo: item.codigo,
     nombre: item.nombre,
     precio: Number(item.precio) || 0,
@@ -373,7 +417,8 @@ export async function saveProductToSupabase(product: Product): Promise<boolean> 
   const supabase = getSupabase();
   if (!supabase) return false;
 
-  const spanishPayload: Record<string, any> = {
+  const payload: Record<string, any> = {
+    id: product.id || `prod-${Date.now()}`,
     codigo: product.codigo,
     nombre: product.nombre,
     precio: product.precio,
@@ -381,24 +426,7 @@ export async function saveProductToSupabase(product: Product): Promise<boolean> 
     descuento_default: product.descuentoDefault
   };
 
-  if (isValidUuid(product.id)) {
-    spanishPayload.id = product.id;
-  }
-
-  let { error } = await supabase.from('productos').upsert(spanishPayload, { onConflict: 'codigo' });
-
-  if (error && isTableMissingError(error)) {
-    const englishPayload = {
-      id: product.id,
-      codigo: product.codigo,
-      nombre: product.nombre,
-      precio: product.precio,
-      iva_tipo: product.ivaTipo,
-      descuento_default: product.descuentoDefault
-    };
-    const res = await supabase.from('products').upsert(englishPayload);
-    error = res.error;
-  }
+  const { error } = await supabase.from('productos').upsert(payload, { onConflict: 'codigo' });
 
   return !error;
 }
@@ -407,25 +435,82 @@ export async function deleteProductFromSupabase(id: string, codigo?: string): Pr
   const supabase = getSupabase();
   if (!supabase) return false;
 
-  let { error } = await supabase.from('productos').delete().eq('codigo', codigo || id);
-  if (error && isTableMissingError(error)) {
-    const res = await supabase.from('products').delete().eq('id', id);
-    error = res.error;
-  }
+  const { error } = await supabase.from('productos').delete().eq('codigo', codigo || id);
   return !error;
 }
 
-// --- INVOICES / FACTURAS ---
+// ==========================================
+// 3. EMISOR CONFIG (emisor_config)
+// ==========================================
+export async function fetchEmitterConfigFromSupabase(): Promise<EmitterConfig | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+
+  try {
+    const { data, error } = await supabase.from('emisor_config').select('*').limit(1).maybeSingle();
+    if (error || !data) return null;
+
+    return {
+      ruc: data.ruc || '',
+      razonSocial: data.razon_social || '',
+      nombreComercial: data.nombre_comercial || '',
+      dirMatriz: data.direccion_matriz || '',
+      dirEstablecimiento: data.direccion_establecimiento || '',
+      codEstablecimiento: data.establecimiento || '001',
+      codPuntoEmision: data.punto_emision || '001',
+      obligadoContabilidad: data.lleva_contabilidad === 'SI' || data.lleva_contabilidad === true,
+      contribuyenteEspecial: data.contribuyente_especial || '',
+      regimen: data.regimen_tributario || 'GENERAL',
+      ambiente: data.ambiente || '1',
+      logoB64: data.logo_url || '',
+      ultimoSecuencialFactura: data.ultimo_secuencial_factura || '000000001',
+      p12Password: data.clave_firma || '',
+      correo: data.correo || '',
+      isDemoMode: false
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function saveEmitterConfigToSupabase(config: EmitterConfig): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+
+  try {
+    const payload = {
+      id: 'default',
+      ruc: config.ruc,
+      razon_social: config.razonSocial,
+      nombre_comercial: config.nombreComercial,
+      direccion_matriz: config.dirMatriz,
+      direccion_establecimiento: config.dirEstablecimiento,
+      establecimiento: config.codEstablecimiento,
+      punto_emision: config.codPuntoEmision,
+      lleva_contabilidad: config.obligadoContabilidad ? 'SI' : 'NO',
+      contribuyente_especial: config.contribuyenteEspecial,
+      regimen_tributario: config.regimen,
+      ambiente: config.ambiente,
+      logo_url: config.logoB64,
+      ultimo_secuencial_factura: config.ultimoSecuencialFactura,
+      clave_firma: config.p12Password,
+      correo: config.correo
+    };
+    const { error } = await supabase.from('emisor_config').upsert(payload, { onConflict: 'id' });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+// ==========================================
+// 4. FACTURAS & 5. FACTURA_DETALLES
+// ==========================================
 export async function fetchInvoicesFromSupabase(): Promise<Invoice[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
-  let { data, error } = await supabase.from('facturas').select('*').order('created_at', { ascending: false });
-  if (error && isTableMissingError(error)) {
-    const fallback = await supabase.from('invoices').select('*').order('created_at', { ascending: false });
-    data = fallback.data;
-    error = fallback.error;
-  }
+  const { data, error } = await supabase.from('facturas').select('*').order('created_at', { ascending: false });
 
   if (error) return null;
 
@@ -456,9 +541,11 @@ export async function saveInvoiceToSupabase(invoice: Invoice): Promise<boolean> 
   if (!supabase) return false;
 
   const spanishPayload: Record<string, any> = {
+    id: invoice.id,
     secuencial: invoice.secuencial,
     fecha_emision: invoice.fechaEmision || new Date().toISOString().split('T')[0],
     cliente_datos: invoice.cliente,
+    detalles: invoice.detalles,
     forma_pago: invoice.formaPago || '01',
     plazo: invoice.plazo || 0,
     unidad_tiempo: invoice.unidadTiempo || 'dias',
@@ -474,346 +561,235 @@ export async function saveInvoiceToSupabase(invoice: Invoice): Promise<boolean> 
     creador_nombre: invoice.creadorNombre
   };
 
-  if (isValidUuid(invoice.id)) {
-    spanishPayload.id = invoice.id;
-  }
+  const { error } = await supabase.from('facturas').upsert(spanishPayload, { onConflict: 'id' });
 
-  let { error } = await supabase.from('facturas').upsert(spanishPayload, { onConflict: 'clave_acceso' });
-
-  if (error && isTableMissingError(error)) {
-    const englishPayload = {
-      id: invoice.id,
-      secuencial: invoice.secuencial,
-      fecha_emision: invoice.fechaEmision,
-      cliente: invoice.cliente,
-      detalles: invoice.detalles,
-      forma_pago: invoice.formaPago,
-      plazo: invoice.plazo,
-      unidad_tiempo: invoice.unidadTiempo,
-      clave_acceso: invoice.claveAcceso,
-      xml: invoice.xml,
-      xml_firmado: invoice.xmlFirmado,
-      estado: invoice.estado,
-      mensajes_sri: invoice.mensajesSRI,
-      fecha_autorizacion: invoice.fechaAutorizacion,
-      numero_autorizacion: invoice.numeroAutorizacion,
-      info_adicional: invoice.infoAdicional,
-      resumen_impuestos: invoice.resumenImpuestos,
-      creador_nombre: invoice.creadorNombre
-    };
-    const res = await supabase.from('invoices').upsert(englishPayload);
-    error = res.error;
+  // Also save line items in 'factura_detalles' table
+  if (!error && invoice.detalles && invoice.detalles.length > 0) {
+    try {
+      const lineItems = invoice.detalles.map(d => ({
+        id: d.id || `${invoice.id}-${d.producto.codigo}`,
+        factura_id: invoice.id,
+        factura_secuencial: invoice.secuencial,
+        producto_id: d.producto.id,
+        producto_codigo: d.producto.codigo,
+        producto_nombre: d.producto.nombre,
+        cantidad: d.cantidad,
+        precio_unitario: d.producto.precio,
+        descuento: d.descuento || 0,
+        subtotal: d.subtotal,
+        iva_calculado: d.ivaCalculado,
+        total: d.total
+      }));
+      await supabase.from('factura_detalles').upsert(lineItems, { onConflict: 'id' });
+    } catch (e) {
+      console.warn('Aviso guardando factura_detalles:', e);
+    }
   }
 
   return !error;
 }
 
-// --- PROFORMAS ---
+export async function deleteInvoiceFromSupabase(id: string): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+
+  const { error } = await supabase.from('facturas').delete().eq('id', id);
+  return !error;
+}
+
+// ==========================================
+// 6. PROFORMAS & 7. PROFORMA_DETALLES
+// ==========================================
 export async function fetchProformasFromSupabase(): Promise<Proforma[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
-  const { data, error } = await supabase.from('proformas').select('*').order('created_at', { ascending: false });
-  if (error) return null;
+  try {
+    const { data, error } = await supabase.from('proformas').select('*').order('created_at', { ascending: false });
+    if (error || !data) return null;
 
-  return data ? data.map(item => ({
-    id: item.id,
-    secuencial: item.secuencial,
-    fechaEmision: item.fecha_emision || item.fechaEmision,
-    cliente: typeof item.cliente_datos === 'string' ? JSON.parse(item.cliente_datos) : (typeof item.cliente === 'string' ? JSON.parse(item.cliente) : item.cliente),
-    detalles: typeof item.detalles === 'string' ? JSON.parse(item.detalles) : (item.detalles || []),
-    resumenImpuestos: typeof item.resumen_impuestos === 'string' ? JSON.parse(item.resumen_impuestos) : item.resumen_impuestos,
-    informacionPago: item.informacion_pago || item.informacionPago,
-    notaDudas: item.nota_dudas || item.notaDudas,
-    empresaNombre: item.empresa_nombre || item.empresaNombre,
-    empresaDireccion: item.empresa_direccion || item.empresaDireccion,
-    empresaTelefono: item.empresa_telefono || item.empresaTelefono,
-    empresaCorreo: item.empresa_correo || item.empresaCorreo
-  })) : [];
+    return data.map(item => ({
+      id: item.id,
+      secuencial: item.secuencial,
+      fechaEmision: item.fecha_emision || item.fechaEmision,
+      cliente: typeof item.cliente_datos === 'string' ? JSON.parse(item.cliente_datos) : (typeof item.cliente === 'string' ? JSON.parse(item.cliente) : item.cliente),
+      detalles: typeof item.detalles === 'string' ? JSON.parse(item.detalles) : (item.detalles || []),
+      resumenImpuestos: typeof item.resumen_impuestos === 'string' ? JSON.parse(item.resumen_impuestos) : item.resumen_impuestos,
+      informacionPago: item.informacion_pago || item.informacionPago,
+      notaDudas: item.nota_dudas || item.notaDudas,
+      empresaNombre: item.empresa_datos?.nombre || item.empresa_nombre || item.empresaNombre,
+      empresaDireccion: item.empresa_datos?.direccion || item.empresa_direccion || item.empresaDireccion,
+      empresaTelefono: item.empresa_datos?.telefono || item.empresa_telefono || item.empresaTelefono,
+      empresaCorreo: item.empresa_datos?.correo || item.empresa_correo || item.empresaCorreo
+    }));
+  } catch {
+    return null;
+  }
 }
 
 export async function saveProformaToSupabase(proforma: Proforma): Promise<boolean> {
   const supabase = getSupabase();
   if (!supabase) return false;
 
-  const payload: Record<string, any> = {
-    secuencial: proforma.secuencial,
-    fecha_emision: proforma.fechaEmision,
-    cliente_datos: proforma.cliente,
-    resumen_impuestos: proforma.resumenImpuestos,
-    informacion_pago: proforma.informacionPago,
-    nota_dudas: proforma.notaDudas,
-    empresa_datos: {
-      nombre: proforma.empresaNombre,
-      direccion: proforma.empresaDireccion,
-      telefono: proforma.empresaTelefono,
-      correo: proforma.empresaCorreo
+  try {
+    const payload: Record<string, any> = {
+      id: proforma.id,
+      secuencial: proforma.secuencial,
+      fecha_emision: proforma.fechaEmision,
+      cliente_datos: proforma.cliente,
+      detalles: proforma.detalles,
+      resumen_impuestos: proforma.resumenImpuestos,
+      informacion_pago: proforma.informacionPago,
+      nota_dudas: proforma.notaDudas,
+      empresa_datos: {
+        nombre: proforma.empresaNombre,
+        direccion: proforma.empresaDireccion,
+        telefono: proforma.empresaTelefono,
+        correo: proforma.empresaCorreo
+      }
+    };
+
+    const { error } = await supabase.from('proformas').upsert(payload, { onConflict: 'id' });
+
+    if (!error && proforma.detalles && proforma.detalles.length > 0) {
+      const lineItems = proforma.detalles.map(d => ({
+        id: `${proforma.id}-${d.producto.codigo}`,
+        proforma_id: proforma.id,
+        producto_codigo: d.producto.codigo,
+        producto_nombre: d.producto.nombre,
+        cantidad: d.cantidad,
+        precio_unitario: d.producto.precio,
+        subtotal: d.subtotal,
+        iva_calculado: d.ivaCalculado,
+        total: d.total
+      }));
+      await supabase.from('proforma_detalles').upsert(lineItems, { onConflict: 'id' });
     }
-  };
 
-  if (isValidUuid(proforma.id)) {
-    payload.id = proforma.id;
+    return !error;
+  } catch {
+    return false;
   }
+}
 
-  const { error } = await supabase.from('proformas').upsert(payload);
+export async function deleteProformaFromSupabase(id: string): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+  const { error } = await supabase.from('proformas').delete().eq('id', id);
   return !error;
 }
 
-/* ========================================================================
-   SUPABASE STORAGE BUCKETS (7 BUCKETS IMPLEMENTATION & FILE NAMING)
-   ======================================================================== */
-
-export const SUPABASE_BUCKETS = {
-  FACTURAS_PDF: 'facturas-pdf',
-  FACTURAS_XML_SIN_FIRMAR: 'facturas-xml-sin-firmar',
-  FACTURAS_XML_FIRMADOS: 'facturas-xml-firmados',
-  NOTAS_CREDITO_PDF: 'notas-credito-pdf',
-  NOTAS_CREDITO_XML_FIRMADOS: 'notas-credito-xml-firmados',
-  NOTAS_CREDITO_XML_SIN_FIRMAR: 'notas-credito-xml-sin-firmar',
-  PROFORMAS_PDF: 'proformas-pdf',
-} as const;
-
-/**
- * Helper to ensure all 7 buckets exist in Supabase Storage
- */
-export async function ensureSupabaseBucketsExist(): Promise<void> {
+// ==========================================
+// 8. NOTAS_CREDITO & 9. NOTA_CREDITO_DETALLES
+// ==========================================
+export async function fetchCreditNotesFromSupabase(): Promise<CreditNote[] | null> {
   const supabase = getSupabase();
-  if (!supabase) return;
+  if (!supabase) return null;
 
-  const buckets = Object.values(SUPABASE_BUCKETS);
-  for (const bucket of buckets) {
-    try {
-      await supabase.storage.createBucket(bucket, { public: true });
-    } catch {
-      // Bucket already exists or created via SQL
-    }
+  try {
+    const { data, error } = await supabase.from('notas_credito').select('*').order('created_at', { ascending: false });
+    if (error || !data) return null;
+
+    return data.map(item => ({
+      id: item.id,
+      secuencial: item.secuencial,
+      fechaEmision: item.fecha_emision,
+      facturaModificadaSecuencial: item.factura_modificada_num || '',
+      facturaModificadaClaveAcceso: item.factura_modificada_clave || '',
+      fechaEmisionModificado: item.fecha_emision_modificado || item.fecha_emision,
+      razonModificacion: item.motivo || '',
+      cliente: typeof item.cliente_datos === 'string' ? JSON.parse(item.cliente_datos) : item.cliente_datos,
+      detalles: typeof item.detalles === 'string' ? JSON.parse(item.detalles) : (item.detalles || []),
+      claveAcceso: item.clave_acceso,
+      xml: item.xml,
+      xmlFirmado: item.xml_firmado,
+      estado: item.estado,
+      mensajesSRI: typeof item.mensajes_sri === 'string' ? JSON.parse(item.mensajes_sri) : (item.mensajes_sri || []),
+      fechaAutorizacion: item.fecha_autorizacion,
+      numeroAutorizacion: item.numero_autorizacion,
+      infoAdicional: typeof item.info_adicional === 'string' ? JSON.parse(item.info_adicional) : (item.info_adicional || []),
+      resumenImpuestos: typeof item.resumen_impuestos === 'string' ? JSON.parse(item.resumen_impuestos) : item.resumen_impuestos
+    }));
+  } catch {
+    return null;
   }
 }
 
-/**
- * Upload raw content (XML string or PDF Blob/File) to a Supabase bucket
- */
-export async function uploadToSupabaseBucket(
-  bucketName: string,
-  fileName: string,
-  content: string | Blob | File,
-  contentType: string = 'text/plain'
-): Promise<{ success: boolean; publicUrl?: string; error?: string }> {
+export async function saveCreditNoteToSupabase(creditNote: CreditNote): Promise<boolean> {
   const supabase = getSupabase();
-  if (!supabase) return { success: false, error: 'Supabase no inicializado.' };
+  if (!supabase) return false;
 
   try {
-    let payload: Blob | File;
-    if (typeof content === 'string') {
-      payload = new Blob([content], { type: contentType });
-    } else {
-      payload = content;
-    }
-
-    const { data, error } = await supabase.storage
-      .from(bucketName)
-      .upload(fileName, payload, {
-        upsert: true,
-        contentType
-      });
-
-    if (error) {
-      console.warn(`[Supabase Storage] Error al subir ${fileName} a ${bucketName}:`, error.message);
-      return { success: false, error: error.message };
-    }
-
-    const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
-    return { success: true, publicUrl: publicUrlData.publicUrl };
-  } catch (err: any) {
-    console.error(`[Supabase Storage] Excepción al subir a ${bucketName}:`, err);
-    return { success: false, error: err.message || 'Error de red en almacenamiento' };
-  }
-}
-
-// --- 1. FACTURA PDF ("FAC establecimiento-punto de emision-secuencial factura") ---
-export async function uploadInvoicePdf(
-  estab: string = '001',
-  ptoEmi: string = '001',
-  secuencial: string,
-  pdfContent: Blob | File
-) {
-  const cleanEstab = String(estab).padStart(3, '0');
-  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
-  const cleanSeq = String(secuencial).padStart(9, '0');
-  const fileName = `FAC ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.pdf`;
-
-  return uploadToSupabaseBucket(SUPABASE_BUCKETS.FACTURAS_PDF, fileName, pdfContent, 'application/pdf');
-}
-
-// --- 2. FACTURA XML SIN FIRMAR ("FAC establecimiento-punto de emision-secuencial factura") ---
-export async function uploadInvoiceXmlSinFirmar(
-  estab: string = '001',
-  ptoEmi: string = '001',
-  secuencial: string,
-  xmlContent: string
-) {
-  const cleanEstab = String(estab).padStart(3, '0');
-  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
-  const cleanSeq = String(secuencial).padStart(9, '0');
-  const fileName = `FAC ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.xml`;
-
-  return uploadToSupabaseBucket(SUPABASE_BUCKETS.FACTURAS_XML_SIN_FIRMAR, fileName, xmlContent, 'application/xml');
-}
-
-// --- 3. FACTURA XML FIRMADO ("FAC establecimiento-punto de emision-secuencial factura_firmado") ---
-export async function uploadInvoiceXmlFirmado(
-  estab: string = '001',
-  ptoEmi: string = '001',
-  secuencial: string,
-  xmlContent: string
-) {
-  const cleanEstab = String(estab).padStart(3, '0');
-  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
-  const cleanSeq = String(secuencial).padStart(9, '0');
-  const fileName = `FAC ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}_firmado.xml`;
-
-  return uploadToSupabaseBucket(SUPABASE_BUCKETS.FACTURAS_XML_FIRMADOS, fileName, xmlContent, 'application/xml');
-}
-
-// --- 4. NOTA DE CRÉDITO PDF ("NCT establecimiento-punto de emision-secuencial (nota nc)") ---
-export async function uploadCreditNotePdf(
-  estab: string = '001',
-  ptoEmi: string = '001',
-  secuencial: string,
-  pdfContent: Blob | File
-) {
-  const cleanEstab = String(estab).padStart(3, '0');
-  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
-  const cleanSeq = String(secuencial).padStart(9, '0');
-  const fileName = `NCT ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.pdf`;
-
-  return uploadToSupabaseBucket(SUPABASE_BUCKETS.NOTAS_CREDITO_PDF, fileName, pdfContent, 'application/pdf');
-}
-
-// --- 5. NOTA DE CRÉDITO XML FIRMADO ("NCT establecimiento-punto de emision-secuencial (nota nc)_firmado") ---
-export async function uploadCreditNoteXmlFirmado(
-  estab: string = '001',
-  ptoEmi: string = '001',
-  secuencial: string,
-  xmlContent: string
-) {
-  const cleanEstab = String(estab).padStart(3, '0');
-  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
-  const cleanSeq = String(secuencial).padStart(9, '0');
-  const fileName = `NCT ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}_firmado.xml`;
-
-  return uploadToSupabaseBucket(SUPABASE_BUCKETS.NOTAS_CREDITO_XML_FIRMADOS, fileName, xmlContent, 'application/xml');
-}
-
-// --- 6. NOTA DE CRÉDITO XML SIN FIRMAR ("NCT establecimiento-punto de emision-secuencial (nota nc)") ---
-export async function uploadCreditNoteXmlSinFirmar(
-  estab: string = '001',
-  ptoEmi: string = '001',
-  secuencial: string,
-  xmlContent: string
-) {
-  const cleanEstab = String(estab).padStart(3, '0');
-  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
-  const cleanSeq = String(secuencial).padStart(9, '0');
-  const fileName = `NCT ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.xml`;
-
-  return uploadToSupabaseBucket(SUPABASE_BUCKETS.NOTAS_CREDITO_XML_SIN_FIRMAR, fileName, xmlContent, 'application/xml');
-}
-
-// --- 7. PROFORMA PDF ("Proforma_NombreClienteOEmpresa_fecha") ---
-export async function uploadProformaPdf(
-  clienteOEmpresa: string,
-  fecha: string,
-  pdfContent: Blob | File
-) {
-  const cleanName = (clienteOEmpresa || 'Cliente').trim().replace(/[^a-zA-Z0-9_\-]/g, '_');
-  const cleanFecha = fecha || new Date().toISOString().split('T')[0];
-  const fileName = `Proforma_${cleanName}_${cleanFecha}.pdf`;
-
-  return uploadToSupabaseBucket(SUPABASE_BUCKETS.PROFORMAS_PDF, fileName, pdfContent, 'application/pdf');
-}
-
-/**
- * Ensure superadmin user is registered in Supabase usuarios_portal table
- */
-export async function ensureSuperAdminInSupabase(): Promise<void> {
-  const supabase = getSupabase();
-  if (!supabase) return;
-
-  try {
-    const superAdminUser = {
-      usuario: 'Anibal Joel Gualoto Indacochea',
-      correo: 'jolusservices@gmail.com',
-      role: 'SUPERADMIN',
-      nombre: 'Anibal Joel Gualoto Indacochea',
-      clave_hash: 'admin123',
-      is_temp: false
+    const payload = {
+      id: creditNote.id,
+      secuencial: creditNote.secuencial,
+      fecha_emision: creditNote.fechaEmision,
+      factura_modificada_num: creditNote.facturaModificadaSecuencial,
+      motivo: creditNote.razonModificacion,
+      cliente_datos: creditNote.cliente,
+      detalles: creditNote.detalles,
+      clave_acceso: creditNote.claveAcceso,
+      xml: creditNote.xml,
+      xml_firmado: creditNote.xmlFirmado,
+      estado: creditNote.estado,
+      mensajes_sri: creditNote.mensajesSRI,
+      fecha_autorizacion: creditNote.fechaAutorizacion,
+      numero_autorizacion: creditNote.numeroAutorizacion,
+      info_adicional: creditNote.infoAdicional,
+      resumen_impuestos: creditNote.resumenImpuestos
     };
 
-    const { error } = await supabase
-      .from('usuarios_portal')
-      .upsert([superAdminUser], { onConflict: 'correo' });
+    const { error } = await supabase.from('notas_credito').upsert(payload, { onConflict: 'id' });
 
-    if (error && !isTableMissingError(error)) {
-      console.warn('[Supabase] Aviso usuarios_portal superadmin:', error.message);
+    if (!error && creditNote.detalles && creditNote.detalles.length > 0) {
+      const lineItems = creditNote.detalles.map(d => ({
+        id: `${creditNote.id}-${d.producto.codigo}`,
+        nota_credito_id: creditNote.id,
+        producto_codigo: d.producto.codigo,
+        producto_nombre: d.producto.nombre,
+        cantidad: d.cantidad,
+        precio_unitario: d.producto.precio,
+        subtotal: d.subtotal,
+        iva_calculado: d.ivaCalculado,
+        total: d.total
+      }));
+      await supabase.from('nota_credito_detalles').upsert(lineItems, { onConflict: 'id' });
     }
-  } catch (err) {
-    console.warn('[Supabase] Excepción en usuarios_portal superadmin:', err);
+
+    return !error;
+  } catch {
+    return false;
   }
 }
 
-/**
- * Fetch rows from any Supabase table for database inspection
- */
-export async function fetchSupabaseTableRows(tableName: string): Promise<{ data: any[]; error: string | null }> {
+export async function deleteCreditNoteFromSupabase(id: string): Promise<boolean> {
   const supabase = getSupabase();
-  if (!supabase) return { data: [], error: 'Cliente de Supabase no configurado o inactivo.' };
-
-  try {
-    const { data, error } = await supabase
-      .from(tableName)
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    if (error) {
-      // Retry without order by created_at if table doesn't have created_at column
-      if (error.message.includes('created_at') || error.code === '42703') {
-        const fallbackRes = await supabase.from(tableName).select('*').limit(100);
-        if (fallbackRes.error) {
-          return { data: [], error: fallbackRes.error.message };
-        }
-        return { data: fallbackRes.data || [], error: null };
-      }
-      return { data: [], error: error.message };
-    }
-
-    return { data: data || [], error: null };
-  } catch (err: any) {
-    return { data: [], error: err.message || 'Error consultando la tabla en Supabase.' };
-  }
+  if (!supabase) return false;
+  const { error } = await supabase.from('notas_credito').delete().eq('id', id);
+  return !error;
 }
 
-/**
- * Fetch list of files in a Supabase storage bucket
- */
-export async function fetchSupabaseStorageFiles(bucketName: string): Promise<{ files: any[]; error: string | null }> {
+// ==========================================
+// 10. USUARIOS_PORTAL
+// ==========================================
+export async function fetchUsersFromSupabase(): Promise<PortalUser[] | null> {
   const supabase = getSupabase();
-  if (!supabase) return { files: [], error: 'Cliente de Supabase no configurado.' };
+  if (!supabase) return null;
 
   try {
-    const { data, error } = await supabase.storage.from(bucketName).list('', {
-      limit: 100,
-      sortBy: { column: 'created_at', order: 'desc' }
-    });
+    const { data, error } = await supabase.from('usuarios_portal').select('*').order('created_at', { ascending: true });
+    if (error || !data) return null;
 
-    if (error) {
-      return { files: [], error: error.message };
-    }
-
-    return { files: data || [], error: null };
-  } catch (err: any) {
-    return { files: [], error: err.message || 'Error listando archivos del bucket.' };
+    return data.map(item => ({
+      id: item.id || item.correo,
+      correo: item.correo,
+      clave: item.clave_hash || item.clave || 'admin123',
+      role: (item.role || 'USER').toUpperCase() as any,
+      nombre: item.nombre || item.usuario || item.correo.split('@')[0],
+      fechaRegistro: item.created_at || new Date().toISOString()
+    }));
+  } catch {
+    return null;
   }
 }
 
@@ -834,7 +810,6 @@ export async function authenticateUserInSupabase(
 
     if (error || !data) return null;
 
-    // Check password match (supports clave_hash or clave)
     if (data.clave_hash === pass || data.clave === pass) {
       return {
         id: data.id || `supa-${Date.now()}`,
@@ -846,14 +821,11 @@ export async function authenticateUserInSupabase(
       };
     }
   } catch (err) {
-    console.warn('[Supabase] Error en autenticación usuarios_portal:', err);
+    console.warn('[Supabase] Error autenticación usuarios_portal:', err);
   }
   return null;
 }
 
-/**
- * Upsert user into Supabase usuarios_portal
- */
 export async function upsertUserInSupabase(user: PortalUser): Promise<void> {
   const supabase = getSupabase();
   if (!supabase) return;
@@ -863,6 +835,7 @@ export async function upsertUserInSupabase(user: PortalUser): Promise<void> {
       .from('usuarios_portal')
       .upsert([
         {
+          id: user.id || `usr-${Date.now()}`,
           usuario: user.nombre,
           correo: user.correo.toLowerCase(),
           clave_hash: user.clave,
@@ -872,9 +845,394 @@ export async function upsertUserInSupabase(user: PortalUser): Promise<void> {
         }
       ], { onConflict: 'correo' });
   } catch (err) {
-    console.warn('[Supabase] Error al sincronizar usuario en usuarios_portal:', err);
+    console.warn('[Supabase] Error sincronizando usuario usuarios_portal:', err);
   }
 }
 
+export async function deleteUserFromSupabase(id: string, email?: string): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
 
+  const { error } = await supabase.from('usuarios_portal').delete().eq('correo', email || id);
+  return !error;
+}
 
+// ==========================================
+// 11. INVITACIONES
+// ==========================================
+export async function fetchInvitationsFromSupabase(): Promise<Invitation[] | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+
+  try {
+    const { data, error } = await supabase.from('invitaciones').select('*').order('created_at', { ascending: false });
+    if (error || !data) return null;
+
+    return data.map(item => ({
+      id: item.id,
+      correo: item.correo,
+      role: item.role as any,
+      claveTemporal: item.clave_temporal,
+      nombreInvitado: item.nombre_invitado || item.nombre,
+      fechaCreacion: item.fecha_invitacion || item.created_at,
+      estado: item.estado || 'PENDIENTE'
+    }));
+  } catch {
+    return null;
+  }
+}
+
+export async function saveInvitationToSupabase(invite: Invitation): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+
+  try {
+    const payload = {
+      id: invite.id,
+      correo: invite.correo,
+      role: invite.role,
+      clave_temporal: invite.claveTemporal,
+      estado: invite.estado,
+      fecha_invitacion: invite.fechaCreacion,
+      nombre_invitado: invite.nombreInvitado
+    };
+    const { error } = await supabase.from('invitaciones').upsert(payload, { onConflict: 'id' });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteInvitationFromSupabase(id: string): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+  const { error } = await supabase.from('invitaciones').delete().eq('id', id);
+  return !error;
+}
+
+// ==========================================
+// 12. BITACORA_ACTIVIDADES
+// ==========================================
+export async function fetchActivityLogsFromSupabase(): Promise<ActivityLog[] | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('bitacora_actividades')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(300);
+
+    if (error || !data) return null;
+
+    return data.map(item => ({
+      id: item.id,
+      usuarioCorreo: item.usuario_correo,
+      usuarioNombre: item.usuario_nombre,
+      usuarioRol: item.usuario_rol,
+      fecha: item.fecha || item.created_at,
+      accion: item.accion,
+      detalles: item.detalles
+    }));
+  } catch {
+    return null;
+  }
+}
+
+export async function saveActivityLogToSupabase(log: ActivityLog): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+
+  try {
+    const payload = {
+      id: log.id,
+      usuario_correo: log.usuarioCorreo,
+      usuario_nombre: log.usuarioNombre,
+      usuario_rol: log.usuarioRol,
+      fecha: log.fecha,
+      accion: log.accion,
+      detalles: log.detalles
+    };
+    const { error } = await supabase.from('bitacora_actividades').upsert(payload, { onConflict: 'id' });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+// ==========================================
+// AUTO-MIGRACIÓN DE DATOS LOCALES A SUPABASE
+// ==========================================
+export async function migrateLocalDataToSupabase(data: {
+  clients?: Client[];
+  products?: Product[];
+  invoices?: Invoice[];
+  proformas?: Proforma[];
+  creditNotes?: CreditNote[];
+  config?: EmitterConfig;
+  users?: PortalUser[];
+  invitations?: Invitation[];
+  logs?: ActivityLog[];
+}) {
+  const supabase = getSupabase();
+  if (!supabase) return;
+
+  try {
+    if (data.clients) {
+      for (const c of data.clients) {
+        await saveClientToSupabase(c);
+      }
+    }
+    if (data.products) {
+      for (const p of data.products) {
+        await saveProductToSupabase(p);
+      }
+    }
+    if (data.invoices) {
+      for (const inv of data.invoices) {
+        await saveInvoiceToSupabase(inv);
+      }
+    }
+    if (data.proformas) {
+      for (const prof of data.proformas) {
+        await saveProformaToSupabase(prof);
+      }
+    }
+    if (data.creditNotes) {
+      for (const cn of data.creditNotes) {
+        await saveCreditNoteToSupabase(cn);
+      }
+    }
+    if (data.config) {
+      await saveEmitterConfigToSupabase(data.config);
+    }
+    if (data.users) {
+      for (const u of data.users) {
+        await upsertUserInSupabase(u);
+      }
+    }
+    if (data.invitations) {
+      for (const inv of data.invitations) {
+        await saveInvitationToSupabase(inv);
+      }
+    }
+    if (data.logs) {
+      for (const log of data.logs) {
+        await saveActivityLogToSupabase(log);
+      }
+    }
+  } catch (err) {
+    console.warn('[Supabase Migration] Aviso al migrar datos locales:', err);
+  }
+}
+
+// ==========================================
+// REALTIME SUBSCRIPTION FOR AUTO-UPDATES
+// ==========================================
+export function subscribeToSupabaseRealtime(onDataChanged: () => void): (() => void) | null {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+
+  try {
+    const channel = supabase
+      .channel('schema-db-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public' },
+        (payload) => {
+          console.log('[Supabase Realtime] Cambio en tiempo real detectado:', payload.table, payload.eventType);
+          onDataChanged();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  } catch (err) {
+    console.warn('[Supabase Realtime] No se pudo activar la suscripción:', err);
+    return null;
+  }
+}
+
+// ==========================================
+// SUPABASE STORAGE BUCKETS (7 BUCKETS)
+// ==========================================
+export const SUPABASE_BUCKETS = {
+  FACTURAS_PDF: 'facturas-pdf',
+  FACTURAS_XML_SIN_FIRMAR: 'facturas-xml-sin-firmar',
+  FACTURAS_XML_FIRMADOS: 'facturas-xml-firmados',
+  NOTAS_CREDITO_PDF: 'notas-credito-pdf',
+  NOTAS_CREDITO_XML_FIRMADOS: 'notas-credito-xml-firmados',
+  NOTAS_CREDITO_XML_SIN_FIRMAR: 'notas-credito-xml-sin-firmar',
+  PROFORMAS_PDF: 'proformas-pdf',
+} as const;
+
+export async function ensureSupabaseBucketsExist(): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
+
+  const buckets = Object.values(SUPABASE_BUCKETS);
+  for (const bucket of buckets) {
+    try {
+      await supabase.storage.createBucket(bucket, { public: true });
+    } catch {
+      // Bucket exists
+    }
+  }
+}
+
+export async function uploadToSupabaseBucket(
+  bucketName: string,
+  fileName: string,
+  content: string | Blob | File,
+  contentType: string = 'text/plain'
+): Promise<{ success: boolean; publicUrl?: string; error?: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { success: false, error: 'Supabase no inicializado.' };
+
+  try {
+    let payload: Blob | File;
+    if (typeof content === 'string') {
+      payload = new Blob([content], { type: contentType });
+    } else {
+      payload = content;
+    }
+
+    const { error } = await supabase.storage
+      .from(bucketName)
+      .upload(fileName, payload, {
+        upsert: true,
+        contentType
+      });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
+    return { success: true, publicUrl: publicUrlData.publicUrl };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Error de red en almacenamiento' };
+  }
+}
+
+export async function uploadInvoicePdf(estab: string = '001', ptoEmi: string = '001', secuencial: string, pdfContent: Blob | File) {
+  const cleanEstab = String(estab).padStart(3, '0');
+  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
+  const cleanSeq = String(secuencial).padStart(9, '0');
+  return uploadToSupabaseBucket(SUPABASE_BUCKETS.FACTURAS_PDF, `FAC ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.pdf`, pdfContent, 'application/pdf');
+}
+
+export async function uploadInvoiceXmlSinFirmar(estab: string = '001', ptoEmi: string = '001', secuencial: string, xmlContent: string) {
+  const cleanEstab = String(estab).padStart(3, '0');
+  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
+  const cleanSeq = String(secuencial).padStart(9, '0');
+  return uploadToSupabaseBucket(SUPABASE_BUCKETS.FACTURAS_XML_SIN_FIRMAR, `FAC ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.xml`, xmlContent, 'application/xml');
+}
+
+export async function uploadInvoiceXmlFirmado(estab: string = '001', ptoEmi: string = '001', secuencial: string, xmlContent: string) {
+  const cleanEstab = String(estab).padStart(3, '0');
+  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
+  const cleanSeq = String(secuencial).padStart(9, '0');
+  return uploadToSupabaseBucket(SUPABASE_BUCKETS.FACTURAS_XML_FIRMADOS, `FAC ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}_firmado.xml`, xmlContent, 'application/xml');
+}
+
+export async function uploadCreditNotePdf(estab: string = '001', ptoEmi: string = '001', secuencial: string, pdfContent: Blob | File) {
+  const cleanEstab = String(estab).padStart(3, '0');
+  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
+  const cleanSeq = String(secuencial).padStart(9, '0');
+  return uploadToSupabaseBucket(SUPABASE_BUCKETS.NOTAS_CREDITO_PDF, `NCT ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.pdf`, pdfContent, 'application/pdf');
+}
+
+export async function uploadCreditNoteXmlFirmado(estab: string = '001', ptoEmi: string = '001', secuencial: string, xmlContent: string) {
+  const cleanEstab = String(estab).padStart(3, '0');
+  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
+  const cleanSeq = String(secuencial).padStart(9, '0');
+  return uploadToSupabaseBucket(SUPABASE_BUCKETS.NOTAS_CREDITO_XML_FIRMADOS, `NCT ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}_firmado.xml`, xmlContent, 'application/xml');
+}
+
+export async function uploadCreditNoteXmlSinFirmar(estab: string = '001', ptoEmi: string = '001', secuencial: string, xmlContent: string) {
+  const cleanEstab = String(estab).padStart(3, '0');
+  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
+  const cleanSeq = String(secuencial).padStart(9, '0');
+  return uploadToSupabaseBucket(SUPABASE_BUCKETS.NOTAS_CREDITO_XML_SIN_FIRMAR, `NCT ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.xml`, xmlContent, 'application/xml');
+}
+
+export async function uploadProformaPdf(clienteOEmpresa: string, fecha: string, pdfContent: Blob | File) {
+  const cleanName = (clienteOEmpresa || 'Cliente').trim().replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const cleanFecha = fecha || new Date().toISOString().split('T')[0];
+  return uploadToSupabaseBucket(SUPABASE_BUCKETS.PROFORMAS_PDF, `Proforma_${cleanName}_${cleanFecha}.pdf`, pdfContent, 'application/pdf');
+}
+
+export async function ensureSuperAdminInSupabase(): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
+
+  try {
+    const superAdminUser = {
+      id: 'superadmin-jolusservices',
+      usuario: 'Anibal Joel Gualoto Indacochea',
+      correo: 'jolusservices@gmail.com',
+      role: 'SUPERADMIN',
+      nombre: 'Anibal Joel Gualoto Indacochea',
+      clave_hash: 'admin123',
+      is_temp: false
+    };
+
+    await supabase
+      .from('usuarios_portal')
+      .upsert([superAdminUser], { onConflict: 'correo' });
+  } catch (err) {
+    console.warn('[Supabase] Excepción en usuarios_portal superadmin:', err);
+  }
+}
+
+export async function fetchSupabaseTableRows(tableName: string): Promise<{ data: any[]; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: [], error: 'Cliente de Supabase no configurado o inactivo.' };
+
+  try {
+    const { data, error } = await supabase
+      .from(tableName)
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      if (error.message.includes('created_at') || error.code === '42703') {
+        const fallbackRes = await supabase.from(tableName).select('*').limit(100);
+        if (fallbackRes.error) {
+          return { data: [], error: fallbackRes.error.message };
+        }
+        return { data: fallbackRes.data || [], error: null };
+      }
+      return { data: [], error: error.message };
+    }
+
+    return { data: data || [], error: null };
+  } catch (err: any) {
+    return { data: [], error: err.message || 'Error consultando la tabla en Supabase.' };
+  }
+}
+
+export async function fetchSupabaseStorageFiles(bucketName: string): Promise<{ files: any[]; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { files: [], error: 'Cliente de Supabase no configurado.' };
+
+  try {
+    const { data, error } = await supabase.storage.from(bucketName).list('', {
+      limit: 100,
+      sortBy: { column: 'created_at', order: 'desc' }
+    });
+
+    if (error) {
+      return { files: [], error: error.message };
+    }
+
+    return { files: data || [], error: null };
+  } catch (err: any) {
+    return { files: [], error: err.message || 'Error listando archivos del bucket.' };
+  }
+}

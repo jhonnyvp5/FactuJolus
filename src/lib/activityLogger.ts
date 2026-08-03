@@ -1,4 +1,5 @@
 import { ActivityLog, PortalUser } from '../types';
+import { saveActivityLogToSupabase } from './supabase';
 
 export function logActivity(user: PortalUser, action: string, detalles: string) {
   try {
@@ -18,6 +19,9 @@ export function logActivity(user: PortalUser, action: string, detalles: string) 
     // Keep last 500 logs to prevent overflow
     const updated = [newLog, ...logs].slice(0, 500);
     localStorage.setItem('sri_portal_activity_logs', JSON.stringify(updated));
+
+    // Async push to Supabase table 'bitacora_actividades'
+    saveActivityLogToSupabase(newLog).catch(err => console.warn('Aviso log Supabase:', err));
   } catch (e) {
     console.error('Error writing activity log', e);
   }

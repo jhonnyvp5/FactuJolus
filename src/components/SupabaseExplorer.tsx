@@ -1,17 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Database, RefreshCw, Search, Users, ShoppingBag, FileText, 
-  Layers, FolderArchive, Shield, AlertTriangle, Check, Eye, Download, FileCode, ArrowUpDown, ChevronRight
+  Layers, FolderArchive, Shield, AlertTriangle, Eye, FileCode, CheckCircle, Mail, Activity, Settings
 } from 'lucide-react';
 import { fetchSupabaseTableRows, fetchSupabaseStorageFiles, getSupabaseConfig, SUPABASE_BUCKETS, getSupabase } from '../lib/supabase';
 
-interface SupabaseExplorerProps {
-  onClose?: () => void;
-}
+type TabType = 
+  | 'usuarios_portal' 
+  | 'clientes' 
+  | 'productos' 
+  | 'emisor_config' 
+  | 'facturas' 
+  | 'factura_detalles' 
+  | 'proformas' 
+  | 'proforma_detalles' 
+  | 'notas_credito' 
+  | 'nota_credito_detalles' 
+  | 'invitaciones' 
+  | 'bitacora_actividades' 
+  | 'storage_buckets';
 
-type TabType = 'usuarios_portal' | 'clients' | 'products' | 'invoices' | 'proformas' | 'actividades' | 'storage_buckets';
-
-export const SupabaseExplorer: React.FC<SupabaseExplorerProps> = () => {
+export const SupabaseExplorer: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('usuarios_portal');
   const [selectedBucket, setSelectedBucket] = useState<string>(SUPABASE_BUCKETS.FACTURAS_PDF);
   const [rows, setRows] = useState<any[]>([]);
@@ -52,7 +61,6 @@ export const SupabaseExplorer: React.FC<SupabaseExplorerProps> = () => {
     loadData();
   }, [activeTab, selectedBucket]);
 
-  // Filter rows based on search
   const filteredRows = rows.filter(row => {
     if (!searchTerm.trim()) return true;
     const term = searchTerm.toLowerCase();
@@ -68,25 +76,28 @@ export const SupabaseExplorer: React.FC<SupabaseExplorerProps> = () => {
     return file.name.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
-  const getTableBadgeColor = (tab: TabType) => {
-    switch (tab) {
-      case 'usuarios_portal': return 'bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300';
-      case 'clients': return 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300';
-      case 'products': return 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300';
-      case 'invoices': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300';
-      case 'proformas': return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300';
-      case 'actividades': return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300';
-      case 'storage_buckets': return 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300';
-      default: return 'bg-gray-100 text-gray-700';
-    }
-  };
-
   const getPublicFileUrl = (bucket: string, fileName: string) => {
     const supabase = getSupabase();
     if (!supabase) return '#';
     const { data } = supabase.storage.from(bucket).getPublicUrl(fileName);
     return data.publicUrl;
   };
+
+  const tabsConfig: { id: TabType; label: string; icon: React.ReactNode; color: string }[] = [
+    { id: 'usuarios_portal', label: 'usuarios_portal', icon: <Shield className="w-3.5 h-3.5" />, color: 'bg-purple-600' },
+    { id: 'clientes', label: 'clientes', icon: <Users className="w-3.5 h-3.5" />, color: 'bg-blue-600' },
+    { id: 'productos', label: 'productos', icon: <ShoppingBag className="w-3.5 h-3.5" />, color: 'bg-amber-600' },
+    { id: 'emisor_config', label: 'emisor_config', icon: <Settings className="w-3.5 h-3.5" />, color: 'bg-zinc-600' },
+    { id: 'facturas', label: 'facturas', icon: <FileText className="w-3.5 h-3.5" />, color: 'bg-emerald-600' },
+    { id: 'factura_detalles', label: 'factura_detalles', icon: <FileCode className="w-3.5 h-3.5" />, color: 'bg-teal-600' },
+    { id: 'proformas', label: 'proformas', icon: <Layers className="w-3.5 h-3.5" />, color: 'bg-cyan-600' },
+    { id: 'proforma_detalles', label: 'proforma_detalles', icon: <FileCode className="w-3.5 h-3.5" />, color: 'bg-sky-600' },
+    { id: 'notas_credito', label: 'notas_credito', icon: <FileText className="w-3.5 h-3.5" />, color: 'bg-rose-600' },
+    { id: 'nota_credito_detalles', label: 'nota_credito_detalles', icon: <FileCode className="w-3.5 h-3.5" />, color: 'bg-pink-600' },
+    { id: 'invitaciones', label: 'invitaciones', icon: <Mail className="w-3.5 h-3.5" />, color: 'bg-indigo-600' },
+    { id: 'bitacora_actividades', label: 'bitacora_actividades', icon: <Activity className="w-3.5 h-3.5" />, color: 'bg-violet-600' },
+    { id: 'storage_buckets', label: 'Storage Buckets', icon: <FolderArchive className="w-3.5 h-3.5" />, color: 'bg-rose-700' }
+  ];
 
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-gray-100 dark:border-zinc-800 p-5 md:p-6 space-y-5">
@@ -96,7 +107,7 @@ export const SupabaseExplorer: React.FC<SupabaseExplorerProps> = () => {
           <div className="flex items-center gap-2">
             <Database className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
             <h3 className="text-xl font-bold text-gray-900 dark:text-zinc-50">
-              Explorador de Base de Datos Supabase
+              Explorador de Base de Datos Supabase (12 Tablas)
             </h3>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -120,89 +131,20 @@ export const SupabaseExplorer: React.FC<SupabaseExplorerProps> = () => {
 
       {/* TAB SELECTORS */}
       <div className="flex flex-wrap gap-2 border-b border-gray-100 dark:border-zinc-800 pb-3">
-        <button
-          onClick={() => setActiveTab('usuarios_portal')}
-          className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'usuarios_portal'
-              ? 'bg-purple-600 text-white shadow-xs'
-              : 'bg-gray-50 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-700'
-          }`}
-        >
-          <Shield className="w-3.5 h-3.5" />
-          usuarios_portal
-        </button>
-
-        <button
-          onClick={() => setActiveTab('clients')}
-          className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'clients'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'bg-gray-50 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-700'
-          }`}
-        >
-          <Users className="w-3.5 h-3.5" />
-          clients / clientes
-        </button>
-
-        <button
-          onClick={() => setActiveTab('products')}
-          className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'products'
-              ? 'bg-amber-600 text-white shadow-xs'
-              : 'bg-gray-50 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-700'
-          }`}
-        >
-          <ShoppingBag className="w-3.5 h-3.5" />
-          products / productos
-        </button>
-
-        <button
-          onClick={() => setActiveTab('invoices')}
-          className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'invoices'
-              ? 'bg-emerald-600 text-white shadow-xs'
-              : 'bg-gray-50 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-700'
-          }`}
-        >
-          <FileText className="w-3.5 h-3.5" />
-          invoices / facturas
-        </button>
-
-        <button
-          onClick={() => setActiveTab('proformas')}
-          className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'proformas'
-              ? 'bg-cyan-600 text-white shadow-xs'
-              : 'bg-gray-50 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-700'
-          }`}
-        >
-          <Layers className="w-3.5 h-3.5" />
-          proformas
-        </button>
-
-        <button
-          onClick={() => setActiveTab('actividades')}
-          className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'actividades'
-              ? 'bg-indigo-600 text-white shadow-xs'
-              : 'bg-gray-50 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-700'
-          }`}
-        >
-          <Layers className="w-3.5 h-3.5" />
-          actividades
-        </button>
-
-        <button
-          onClick={() => setActiveTab('storage_buckets')}
-          className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'storage_buckets'
-              ? 'bg-rose-600 text-white shadow-xs'
-              : 'bg-gray-50 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-700'
-          }`}
-        >
-          <FolderArchive className="w-3.5 h-3.5" />
-          Storage Buckets (Archivos XML/PDF)
-        </button>
+        {tabsConfig.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === t.id
+                ? `${t.color} text-white shadow-xs`
+                : 'bg-gray-50 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-700'
+            }`}
+          >
+            {t.icon}
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* SEARCH AND BUCKET SELECTOR */}
@@ -231,13 +173,14 @@ export const SupabaseExplorer: React.FC<SupabaseExplorerProps> = () => {
               <option value={SUPABASE_BUCKETS.FACTURAS_XML_SIN_FIRMAR}>facturas-xml-sin-firmar</option>
               <option value={SUPABASE_BUCKETS.NOTAS_CREDITO_PDF}>notas-credito-pdf</option>
               <option value={SUPABASE_BUCKETS.NOTAS_CREDITO_XML_FIRMADOS}>notas-credito-xml-firmados</option>
+              <option value={SUPABASE_BUCKETS.NOTAS_CREDITO_XML_SIN_FIRMAR}>notas-credito-xml-sin-firmar</option>
               <option value={SUPABASE_BUCKETS.PROFORMAS_PDF}>proformas-pdf</option>
             </select>
           </div>
         ) : (
           <div className="flex items-center gap-2 text-xs text-gray-500 font-medium">
             <span>Registros encontrados:</span>
-            <span className={`px-2 py-0.5 rounded-full font-mono font-bold text-xs ${getTableBadgeColor(activeTab)}`}>
+            <span className="px-2 py-0.5 rounded-full font-mono font-bold text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
               {filteredRows.length} fila(s)
             </span>
           </div>
@@ -250,120 +193,99 @@ export const SupabaseExplorer: React.FC<SupabaseExplorerProps> = () => {
           <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
           <div className="space-y-1">
             <p className="font-bold">{error}</p>
-            <p className="text-[11px] opacity-80">
-              Verifique que la tabla o script SQL haya sido ejecutado en el editor SQL de Supabase si aún no ha sido creada.
+            <p className="text-[11px] text-amber-700 dark:text-amber-300">
+              Asegúrese de haber ejecutado el script de migración SQL en su consola de Supabase.
             </p>
           </div>
         </div>
       )}
 
-      {/* MAIN CONTENT DISPLAY */}
-      {activeTab === 'storage_buckets' ? (
-        /* BUCKETS VIEW */
-        <div className="overflow-x-auto">
+      {/* CONTENT TABLES */}
+      {loading ? (
+        <div className="py-12 text-center text-xs text-gray-400 font-mono animate-pulse">
+          Consultando Supabase en tiempo real...
+        </div>
+      ) : activeTab === 'storage_buckets' ? (
+        /* BUCKET FILES LIST */
+        <div className="space-y-3">
           {filteredFiles.length === 0 ? (
-            <div className="text-center py-12 text-gray-400 dark:text-zinc-500 text-xs font-medium">
-              No hay archivos subidos en el bucket "{selectedBucket}" aún.
+            <div className="py-10 text-center text-xs text-gray-400 font-mono bg-gray-50 dark:bg-zinc-950 rounded-xl border border-dashed border-gray-200 dark:border-zinc-800">
+              No hay archivos subidos en el bucket "{selectedBucket}".
             </div>
           ) : (
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-zinc-800 text-gray-500 font-mono text-[11px] bg-gray-50/50 dark:bg-zinc-950/50">
-                  <th className="p-3">Nombre del Archivo en Supabase Storage</th>
-                  <th className="p-3">Tamaño</th>
-                  <th className="p-3">Fecha Creación</th>
-                  <th className="p-3 text-right">Acción</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-zinc-800 font-mono text-gray-800 dark:text-zinc-200">
-                {filteredFiles.map((file, idx) => {
-                  const fileUrl = getPublicFileUrl(selectedBucket, file.name);
-                  return (
-                    <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition">
-                      <td className="p-3 font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
-                        {file.name.endsWith('.pdf') ? <FileText className="w-4 h-4 text-red-500" /> : <FileCode className="w-4 h-4 text-amber-500" />}
-                        {file.name}
-                      </td>
-                      <td className="p-3 text-gray-500">
-                        {file.metadata?.size ? `${(file.metadata.size / 1024).toFixed(1)} KB` : 'N/A'}
-                      </td>
-                      <td className="p-3 text-gray-500">
-                        {file.created_at ? new Date(file.created_at).toLocaleString() : 'N/A'}
-                      </td>
-                      <td className="p-3 text-right">
-                        <a
-                          href={fileUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-xs px-2.5 py-1 bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 rounded-lg hover:bg-rose-100 transition font-sans font-medium"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          Abrir / Descargar
-                        </a>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-950 text-gray-500 dark:text-zinc-400 font-semibold">
+                    <th className="py-2.5 px-3">Nombre del Archivo</th>
+                    <th className="py-2.5 px-3">Tamaño</th>
+                    <th className="py-2.5 px-3">Fecha de Subida</th>
+                    <th className="py-2.5 px-3 text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-zinc-800 font-mono">
+                  {filteredFiles.map((file, idx) => {
+                    const fileUrl = getPublicFileUrl(selectedBucket, file.name);
+                    return (
+                      <tr key={idx} className="hover:bg-gray-50/50 dark:hover:bg-zinc-850/50">
+                        <td className="py-2.5 px-3 text-gray-900 dark:text-zinc-100 font-bold">{file.name}</td>
+                        <td className="py-2.5 px-3 text-gray-500">{file.metadata?.size ? `${(file.metadata.size / 1024).toFixed(1)} KB` : 'N/A'}</td>
+                        <td className="py-2.5 px-3 text-gray-500">{file.created_at ? new Date(file.created_at).toLocaleString() : 'N/A'}</td>
+                        <td className="py-2.5 px-3 text-right">
+                          <a
+                            href={fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs font-sans font-semibold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            Ver/Descargar
+                          </a>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       ) : (
-        /* TABLE ROWS VIEW */
+        /* DATABASE TABLE ROWS */
         <div className="space-y-4">
-          {filteredRows.length === 0 && !loading && (
-            <div className="text-center py-12 text-gray-400 dark:text-zinc-500 text-xs font-medium space-y-1">
-              <p>No se encontraron filas en la tabla "{activeTab}".</p>
-              <p className="text-[11px] opacity-75">Las inserciones se registrarán automáticamente al emitir documentos o crear usuarios.</p>
+          {filteredRows.length === 0 ? (
+            <div className="py-10 text-center text-xs text-gray-400 font-mono bg-gray-50 dark:bg-zinc-950 rounded-xl border border-dashed border-gray-200 dark:border-zinc-800">
+              No se encontraron datos registrados en la tabla "{activeTab}".
             </div>
-          )}
-
-          {filteredRows.length > 0 && (
-            <div className="overflow-x-auto border border-gray-100 dark:border-zinc-800 rounded-xl">
-              <table className="w-full text-left text-xs border-collapse">
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-gray-200 dark:border-zinc-800 text-gray-500 font-mono text-[11px] bg-gray-50 dark:bg-zinc-950">
-                    <th className="p-3">#</th>
-                    {Object.keys(filteredRows[0]).slice(0, 6).map((colKey) => (
-                      <th key={colKey} className="p-3 uppercase tracking-wider font-bold">
-                        {colKey}
-                      </th>
+                  <tr className="border-b border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-950 text-gray-500 dark:text-zinc-400 font-semibold">
+                    {Object.keys(filteredRows[0] || {}).slice(0, 6).map((key) => (
+                      <th key={key} className="py-2.5 px-3 capitalize">{key.replace('_', ' ')}</th>
                     ))}
-                    <th className="p-3 text-right">Detalle Completo</th>
+                    <th className="py-2.5 px-3 text-right">Detalle JSON</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-zinc-800 font-mono text-gray-800 dark:text-zinc-200">
+                <tbody className="divide-y divide-gray-100 dark:divide-zinc-800 font-mono">
                   {filteredRows.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-gray-50/80 dark:hover:bg-zinc-800/50 transition">
-                      <td className="p-3 text-gray-400">{idx + 1}</td>
-                      {Object.keys(row).slice(0, 6).map((colKey) => {
-                        const val = row[colKey];
-                        let renderedVal = '';
-                        if (val === null || val === undefined) {
-                          renderedVal = 'null';
-                        } else if (typeof val === 'object') {
-                          renderedVal = JSON.stringify(val);
-                        } else {
-                          renderedVal = String(val);
-                        }
-
+                    <tr key={idx} className="hover:bg-gray-50/50 dark:hover:bg-zinc-850/50">
+                      {Object.keys(row).slice(0, 6).map((key) => {
+                        const val = row[key];
+                        const displayVal = typeof val === 'object' ? JSON.stringify(val).substring(0, 25) + '...' : String(val ?? '');
                         return (
-                          <td key={colKey} className="p-3 max-w-[200px] truncate" title={renderedVal}>
-                            {colKey === 'correo' || colKey === 'identificacion' || colKey === 'secuencial' ? (
-                              <strong className="text-indigo-600 dark:text-indigo-400">{renderedVal}</strong>
-                            ) : (
-                              <span>{renderedVal}</span>
-                            )}
+                          <td key={key} className="py-2.5 px-3 text-gray-800 dark:text-zinc-200 max-w-[180px] truncate">
+                            {displayVal}
                           </td>
                         );
                       })}
-                      <td className="p-3 text-right">
+                      <td className="py-2.5 px-3 text-right">
                         <button
                           onClick={() => setSelectedRowDetail(row)}
-                          className="px-2.5 py-1 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 rounded-lg hover:bg-indigo-100 text-xs font-sans font-semibold inline-flex items-center gap-1 transition cursor-pointer"
+                          className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 rounded-lg text-[11px] font-sans font-semibold hover:bg-indigo-100 transition cursor-pointer"
                         >
-                          <Eye className="w-3.5 h-3.5" />
-                          Ver JSON
+                          Ver Objeto
                         </button>
                       </td>
                     </tr>
@@ -375,37 +297,25 @@ export const SupabaseExplorer: React.FC<SupabaseExplorerProps> = () => {
         </div>
       )}
 
-      {/* ROW DETAIL MODAL */}
+      {/* JSON MODAL DETALLE */}
       {selectedRowDetail && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl max-w-2xl w-full p-6 space-y-4 border border-gray-200 dark:border-zinc-800 shadow-2xl animate-fade-in max-h-[85vh] flex flex-col">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-2xl border border-gray-100 dark:border-zinc-800 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-gray-100 dark:border-zinc-800 pb-3">
-              <h4 className="text-base font-bold text-gray-900 dark:text-zinc-50 flex items-center gap-2">
-                <Database className="w-5 h-5 text-indigo-500" />
-                Detalle del Registro Supabase ({activeTab})
+              <h4 className="font-bold text-sm text-gray-900 dark:text-zinc-100 flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-500" />
+                Detalle del Registro en "{activeTab}"
               </h4>
               <button
                 onClick={() => setSelectedRowDetail(null)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200 font-bold text-sm cursor-pointer"
+                className="text-xs font-bold text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200 cursor-pointer"
               >
-                ✕
+                Cerrar ✕
               </button>
             </div>
-
-            <div className="overflow-y-auto flex-1 p-3 bg-zinc-950 rounded-xl border border-zinc-800 font-mono text-xs text-indigo-300 space-y-2">
-              <pre className="whitespace-pre-wrap break-all">
-                {JSON.stringify(selectedRowDetail, null, 2)}
-              </pre>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={() => setSelectedRowDetail(null)}
-                className="py-2 px-5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl text-xs transition cursor-pointer"
-              >
-                Cerrar Visor
-              </button>
-            </div>
+            <pre className="bg-gray-950 text-emerald-400 p-4 rounded-xl text-[11px] font-mono overflow-x-auto leading-relaxed border border-gray-800">
+              {JSON.stringify(selectedRowDetail, null, 2)}
+            </pre>
           </div>
         </div>
       )}

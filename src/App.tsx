@@ -14,9 +14,13 @@ import ClientCatalog from './components/ClientCatalog';
 import { SupabaseExplorer } from './components/SupabaseExplorer';
 import { logActivity } from './lib/activityLogger';
 import { 
-  fetchClientsFromSupabase, saveClientToSupabase, 
-  fetchProductsFromSupabase, saveProductToSupabase, 
-  fetchInvoicesFromSupabase, saveInvoiceToSupabase 
+  fetchClientsFromSupabase, saveClientToSupabase, deleteClientFromSupabase,
+  fetchProductsFromSupabase, saveProductToSupabase, deleteProductFromSupabase,
+  fetchInvoicesFromSupabase, saveInvoiceToSupabase, deleteInvoiceFromSupabase,
+  fetchCreditNotesFromSupabase, saveCreditNoteToSupabase, deleteCreditNoteFromSupabase,
+  fetchProformasFromSupabase, saveProformaToSupabase,
+  fetchEmitterConfigFromSupabase, saveEmitterConfigToSupabase,
+  migrateLocalDataToSupabase, subscribeToSupabaseRealtime
 } from './lib/supabase';
 import { ShieldCheck, Send, Settings, History, Plus, Layers, ArrowLeftRight, FileCheck2, CloudLightning, Package, User, Users, Menu, X, FileText, Database } from 'lucide-react';
 
@@ -169,6 +173,78 @@ export default function App() {
     }
   }, [currentUser]);
 
+  // Real-time synchronization with Supabase
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncWithSupabase = async () => {
+      // 1. Clients
+      const dbClients = await fetchClientsFromSupabase();
+      if (dbClients && dbClients.length > 0 && isMounted) {
+        setClients(dbClients);
+        const key = getUserStorageKey(STORAGE_KEYS.CLIENTS, currentUser?.correo);
+        localStorage.setItem(key, JSON.stringify(dbClients));
+      }
+
+      // 2. Products
+      const dbProducts = await fetchProductsFromSupabase();
+      if (dbProducts && dbProducts.length > 0 && isMounted) {
+        setProducts(dbProducts);
+        const key = getUserStorageKey(STORAGE_KEYS.PRODUCTS, currentUser?.correo);
+        localStorage.setItem(key, JSON.stringify(dbProducts));
+      }
+
+      // 3. Invoices
+      const dbInvoices = await fetchInvoicesFromSupabase();
+      if (dbInvoices && isMounted) {
+        setInvoices(dbInvoices);
+        const key = getUserStorageKey(STORAGE_KEYS.INVOICES, currentUser?.correo);
+        localStorage.setItem(key, JSON.stringify(dbInvoices));
+      }
+
+      // 4. Credit Notes
+      const dbCreditNotes = await fetchCreditNotesFromSupabase();
+      if (dbCreditNotes && isMounted) {
+        setCreditNotes(dbCreditNotes);
+        const key = getUserStorageKey(STORAGE_KEYS.CREDIT_NOTES, currentUser?.correo);
+        localStorage.setItem(key, JSON.stringify(dbCreditNotes));
+      }
+
+      // 5. Config
+      const dbConfig = await fetchEmitterConfigFromSupabase();
+      if (dbConfig && dbConfig.ruc && isMounted) {
+        setConfig(prev => ({ ...prev, ...dbConfig }));
+        const key = getUserStorageKey(STORAGE_KEYS.CONFIG, currentUser?.correo);
+        localStorage.setItem(key, JSON.stringify({ ...config, ...dbConfig }));
+      }
+
+      // Auto migrate local items to Supabase
+      migrateLocalDataToSupabase({
+        clients,
+        products,
+        invoices,
+        creditNotes,
+        config
+      });
+    };
+
+    syncWithSupabase();
+
+    // Subscribe to Realtime Postgres changes
+    const unsubscribe = subscribeToSupabaseRealtime(() => {
+      syncWithSupabase();
+    });
+
+    // Polling interval fallback every 8 seconds
+    const interval = setInterval(syncWithSupabase, 8000);
+
+    return () => {
+      isMounted = false;
+      if (unsubscribe) unsubscribe();
+      clearInterval(interval);
+    };
+  }, [currentUser?.correo]);
+
   // Redirect to permitted tab for USER role if they land on or click a restricted option
   useEffect(() => {
     if (currentUser?.role === 'USER') {
@@ -186,6 +262,7 @@ export default function App() {
     setConfig(newConfig);
     const key = getUserStorageKey(STORAGE_KEYS.CONFIG, currentUser?.correo);
     localStorage.setItem(key, JSON.stringify(newConfig));
+    saveEmitterConfigToSupabase(newConfig);
     if (currentUser) {
       logActivity(
         currentUser,
@@ -245,12 +322,15 @@ export default function App() {
     setConfig(updatedConfig);
     const configKey = getUserStorageKey(STORAGE_KEYS.CONFIG, currentUser?.correo);
     localStorage.setItem(configKey, JSON.stringify(updatedConfig));
+    saveEmitterConfigToSupabase(updatedConfig);
   };
 
   const handleUpdateInvoice = (id: string, updatedParams: Partial<Invoice>) => {
     const updatedInvs = invoices.map(inv => {
       if (inv.id === id) {
-        return { ...inv, ...updatedParams };
+        const newInv = { ...inv, ...updatedParams };
+        saveInvoiceToSupabase(newInv);
+        return newInv;
       }
       return inv;
     });
@@ -269,6 +349,7 @@ export default function App() {
     setCreditNotes(updated);
     const cnKey = getUserStorageKey(STORAGE_KEYS.CREDIT_NOTES, currentUser?.correo);
     localStorage.setItem(cnKey, JSON.stringify(updated));
+    saveCreditNoteToSupabase(ncWithCreator);
 
     // Log the event
     if (currentUser) {
@@ -283,7 +364,9 @@ export default function App() {
   const handleUpdateCreditNote = (id: string, updatedParams: Partial<CreditNote>) => {
     const updatedNCs = creditNotes.map(nc => {
       if (nc.id === id) {
-        return { ...nc, ...updatedParams };
+        const newNC = { ...nc, ...updatedParams };
+        saveCreditNoteToSupabase(newNC);
+        return newNC;
       }
       return nc;
     });
@@ -297,6 +380,7 @@ export default function App() {
     setInvoices(filtered);
     const invoicesKey = getUserStorageKey(STORAGE_KEYS.INVOICES, currentUser?.correo);
     localStorage.setItem(invoicesKey, JSON.stringify(filtered));
+    deleteInvoiceFromSupabase(id);
   };
 
   const handleDeleteCreditNote = (id: string) => {
@@ -304,6 +388,7 @@ export default function App() {
     setCreditNotes(filtered);
     const cnKey = getUserStorageKey(STORAGE_KEYS.CREDIT_NOTES, currentUser?.correo);
     localStorage.setItem(cnKey, JSON.stringify(filtered));
+    deleteCreditNoteFromSupabase(id);
   };
 
   if (!currentUser) {

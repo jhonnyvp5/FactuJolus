@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { EmitterConfig, Client, Product, Proforma, ProformaDetail } from '../types';
 import { Plus, Trash2, Printer, CheckCircle, FileText, Download, Eye, RotateCcw, Copy, Pencil, X, Mail, Phone, MapPin, Palette, Layout, Award, Briefcase } from 'lucide-react';
+import { fetchProformasFromSupabase, saveProformaToSupabase, deleteProformaFromSupabase } from '../lib/supabase';
 
 interface ProformaFormProps {
   config: EmitterConfig;
@@ -402,6 +403,7 @@ export default function ProformaForm({
 
     setProformas(updatedList);
     localStorage.setItem(getUserStorageKey('sri_proformas'), JSON.stringify(updatedList));
+    saveProformaToSupabase(newProforma);
 
     // Reset Form
     setSelectedClientId('');
@@ -438,6 +440,7 @@ export default function ProformaForm({
     const filtered = proformas.filter(p => p.id !== id);
     setProformas(filtered);
     localStorage.setItem(getUserStorageKey('sri_proformas'), JSON.stringify(filtered));
+    deleteProformaFromSupabase(id);
   };
 
   const handleEditProforma = (proforma: Proforma, e: React.MouseEvent) => {

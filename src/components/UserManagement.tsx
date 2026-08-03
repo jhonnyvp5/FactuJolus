@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Users, UserPlus, Trash2, Key, Check, ShieldCheck, Mail, Clipboard, AlertCircle, FileText, History, RefreshCw, User, Lock, Unlock, Settings, Package, ArrowLeftRight, Plus, GripVertical, ArrowRight, ArrowLeft, Sliders, CheckSquare } from 'lucide-react';
 import { PortalUser, Invitation, UserRole, ActivityLog } from '../types';
 import { getLogs, logActivity } from '../lib/activityLogger';
+import { 
+  fetchUsersFromSupabase, upsertUserInSupabase, deleteUserFromSupabase,
+  fetchInvitationsFromSupabase, saveInvitationToSupabase, deleteInvitationFromSupabase,
+  fetchActivityLogsFromSupabase 
+} from '../lib/supabase';
 
 interface UserManagementProps {
   currentUser: PortalUser;
@@ -26,16 +31,20 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
     loadData();
   }, []);
 
-  const loadData = () => {
+  const loadData = async () => {
     // 1. Registered Users
     const savedUsers = localStorage.getItem('sri_portal_users');
     let uList: PortalUser[] = [];
     if (savedUsers) {
       uList = JSON.parse(savedUsers);
-    } else {
-      if (currentUser) {
-        uList.push(currentUser);
-      }
+    } else if (currentUser) {
+      uList.push(currentUser);
+    }
+
+    // Try fetching from Supabaseusuarios_portal
+    const dbUsers = await fetchUsersFromSupabase();
+    if (dbUsers && dbUsers.length > 0) {
+      uList = dbUsers;
     }
 
     // Ensure SUPERADMIN Anibal Joel Gualoto Indacochea exists as Principal Administrator
@@ -75,28 +84,44 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
     localStorage.setItem('sri_portal_users', JSON.stringify(uList));
     setUsers(uList);
 
+    // Sync users to Supabase
+    for (const u of uList) {
+      upsertUserInSupabase(u);
+    }
+
     // 2. Invitations
-    const savedInvites = localStorage.getItem('sri_portal_invitations');
-    if (savedInvites) {
-      setInvitations(JSON.parse(savedInvites));
+    const dbInvites = await fetchInvitationsFromSupabase();
+    if (dbInvites && dbInvites.length > 0) {
+      setInvitations(dbInvites);
+      localStorage.setItem('sri_portal_invitations', JSON.stringify(dbInvites));
     } else {
-      // Seed a starter invitation for ease of demoing
-      const seedInvite: Invitation = {
-        id: 'seed-invite-1',
-        correo: 'operador1@gmail.com',
-        claveTemporal: 'temp2026',
-        role: 'USER',
-        nombreInvitado: 'Carlos Mendoza',
-        fechaCreacion: new Date().toISOString(),
-        estado: 'PENDIENTE'
-      };
-      const initialInvites = [seedInvite];
-      localStorage.setItem('sri_portal_invitations', JSON.stringify(initialInvites));
-      setInvitations(initialInvites);
+      const savedInvites = localStorage.getItem('sri_portal_invitations');
+      if (savedInvites) {
+        setInvitations(JSON.parse(savedInvites));
+      } else {
+        const seedInvite: Invitation = {
+          id: 'seed-invite-1',
+          correo: 'operador1@gmail.com',
+          claveTemporal: 'temp2026',
+          role: 'USER',
+          nombreInvitado: 'Carlos Mendoza',
+          fechaCreacion: new Date().toISOString(),
+          estado: 'PENDIENTE'
+        };
+        const initialInvites = [seedInvite];
+        localStorage.setItem('sri_portal_invitations', JSON.stringify(initialInvites));
+        setInvitations(initialInvites);
+        saveInvitationToSupabase(seedInvite);
+      }
     }
 
     // 3. Activity Logs
-    setLogs(getLogs());
+    const dbLogs = await fetchActivityLogsFromSupabase();
+    if (dbLogs && dbLogs.length > 0) {
+      setLogs(dbLogs);
+    } else {
+      setLogs(getLogs());
+    }
   };
 
   const generateTempPassword = () => {
@@ -151,6 +176,7 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
     const updatedInvites = [newInvitation, ...invitations];
     setInvitations(updatedInvites);
     localStorage.setItem('sri_portal_invitations', JSON.stringify(updatedInvites));
+    saveInvitationToSupabase(newInvitation);
 
     // Log the event
     logActivity(
@@ -185,6 +211,7 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
     const updated = users.filter(u => u.id !== userId);
     setUsers(updated);
     localStorage.setItem('sri_portal_users', JSON.stringify(updated));
+    deleteUserFromSupabase(userId, email);
 
     // Log deletion
     logActivity(currentUser, 'Eliminación de Usuario', `Eliminado acceso permanente de operador: ${email}`);
@@ -200,6 +227,7 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
     const updated = invitations.filter(inv => inv.id !== inviteId);
     setInvitations(updated);
     localStorage.setItem('sri_portal_invitations', JSON.stringify(updated));
+    deleteInvitationFromSupabase(inviteId);
     
     if (generatedInvite?.id === inviteId) {
       setGeneratedInvite(null);
