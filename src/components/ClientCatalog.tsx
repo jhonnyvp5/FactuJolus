@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Client, TipoIdentificacion } from '../types';
-import { Trash2, UserPlus, Users, Search, Sparkles, AlertCircle, Phone, Mail, MapPin, CreditCard, Database, Check, Copy, AlertTriangle } from 'lucide-react';
+import { Trash2, UserPlus, Users, Search, Sparkles, AlertCircle, Phone, Mail, MapPin, CreditCard, Database, Check, Copy, AlertTriangle, Edit3, Save, X } from 'lucide-react';
 import { saveClientToSupabase, deleteClientFromSupabase, SUPABASE_SQL_SCRIPT, testSupabaseConnection } from '../lib/supabase';
 
 interface ClientCatalogProps {
@@ -17,6 +17,7 @@ export default function ClientCatalog({
   onSetClients,
 }: ClientCatalogProps) {
   // Form states
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [name, setName] = useState('');
   const [idType, setIdType] = useState<TipoIdentificacion>('05'); // Default: Cédula
   const [identificacion, setIdentificacion] = useState('');
@@ -51,6 +52,28 @@ export default function ClientCatalog({
     setTimeout(() => setCopiedSql(false), 3000);
   };
 
+  const startEditClient = (c: Client) => {
+    setEditingClient(c);
+    setName(c.nombre);
+    setIdType(c.tipoIdentificacion);
+    setIdentificacion(c.identificacion);
+    setEmail(c.correo || '');
+    setPhone(c.telefono || '');
+    setAddress(c.direccion || '');
+    setFormError('');
+  };
+
+  const cancelEdit = () => {
+    setEditingClient(null);
+    setName('');
+    setIdType('05');
+    setIdentificacion('');
+    setEmail('');
+    setPhone('');
+    setAddress('');
+    setFormError('');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
@@ -71,14 +94,14 @@ export default function ClientCatalog({
       return;
     }
 
-    // Verify duplication
-    if (clients.some(c => c.identificacion.trim() === identificacion.trim())) {
+    // Verify duplication if creating new
+    if (!editingClient && clients.some(c => c.identificacion.trim() === identificacion.trim())) {
       setFormError(`Ya existe un cliente registrado con la identificación "${identificacion}".`);
       return;
     }
 
-    const newClient: Client = {
-      id: 'c-' + Date.now(),
+    const clientData: Client = {
+      id: editingClient ? editingClient.id : 'c-' + Date.now(),
       tipoIdentificacion: idType,
       identificacion: identificacion.trim(),
       nombre: name.trim().toUpperCase(),
@@ -87,20 +110,25 @@ export default function ClientCatalog({
       correo: email.trim().toLowerCase() || 'cliente@correo.com'
     };
 
-    onAddClient(newClient);
+    if (editingClient) {
+      const updatedList = clients.map(c => c.id === editingClient.id ? clientData : c);
+      onSetClients(updatedList);
+    } else {
+      onAddClient(clientData);
+    }
 
     // Sync to Supabase
-    const resSb = await saveClientToSupabase(newClient);
+    const resSb = await saveClientToSupabase(clientData);
     const isOk = typeof resSb === 'boolean' ? resSb : resSb.success;
 
     if (isOk) {
-      setSbStatus({ synced: true, message: '¡Cliente guardado exitosamente en la base de datos de Supabase!' });
+      setSbStatus({ synced: true, message: `¡Cliente ${editingClient ? 'actualizado' : 'guardado'} exitosamente en Supabase!` });
       setShowSqlHelp(false);
     } else {
       const errDetail = typeof resSb === 'object' && resSb.errorDetails ? resSb.errorDetails : '';
       let msg = 'Cliente guardado localmente, pero ocurrió un aviso en Supabase.';
       if (errDetail.includes('row-level security') || errDetail.includes('42501')) {
-        msg = 'Error RLS en Supabase: Las políticas impiden que la clave pública anon guarde registros. Ejecute los comandos SQL RLS a continuación.';
+        msg = 'Error RLS en Supabase: Las políticas impiden que la clave pública anon guarde registros.';
       } else if (errDetail) {
         msg = `Supabase: ${errDetail}`;
       }
@@ -108,16 +136,9 @@ export default function ClientCatalog({
       setShowSqlHelp(true);
     }
 
-    // Reset Form
-    setName('');
-    setIdType('05');
-    setIdentificacion('');
-    setEmail('');
-    setPhone('');
-    setAddress('');
-
+    cancelEdit();
     setFormSuccess(true);
-    setTimeout(() => setFormSuccess(false), 4000);
+    setTimeout(() => setFormSuccess(false), 3000);
   };
 
   const loadDefaults = () => {
@@ -411,17 +432,26 @@ export default function ClientCatalog({
                         )}
                       </td>
                       <td className="p-3 pr-4 text-center">
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`¿Está seguro de eliminar al cliente "${client.nombre}"?`)) {
-                              onDeleteClient(client.id);
-                            }
-                          }}
-                          className="p-2 bg-red-50 hover:bg-red-100 text-red-650 dark:bg-red-950/20 dark:hover:bg-red-950/40 rounded-lg transition shrink-0 cursor-pointer"
-                          title="Eliminar cliente"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => startEditClient(client)}
+                            className="p-2 bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-950/20 dark:hover:bg-amber-950/40 rounded-lg transition shrink-0 cursor-pointer"
+                            title="Editar cliente"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`¿Está seguro de eliminar al cliente "${client.nombre}"?`)) {
+                                onDeleteClient(client.id);
+                              }
+                            }}
+                            className="p-2 bg-red-50 hover:bg-red-100 text-red-650 dark:bg-red-950/20 dark:hover:bg-red-950/40 rounded-lg transition shrink-0 cursor-pointer"
+                            title="Eliminar cliente"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

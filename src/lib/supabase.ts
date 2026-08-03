@@ -257,6 +257,22 @@ CREATE TABLE IF NOT EXISTS public.invitaciones (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ALTER MIGRATIONS PARA ASEGURAR COLUMNAS EN TABLAS EXISTENTES
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS clave_firma TEXT;
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS correo TEXT;
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS logo_url TEXT;
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS ultimo_secuencial_factura TEXT DEFAULT '000000001';
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS ambiente TEXT DEFAULT '1';
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS regimen_tributario TEXT DEFAULT 'GENERAL';
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS contribuyente_especial TEXT DEFAULT '';
+
+ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS creador_nombre TEXT;
+ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS resumen_impuestos JSONB;
+ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS info_adicional JSONB DEFAULT '[]'::jsonb;
+
+ALTER TABLE IF EXISTS public.usuarios_portal ADD COLUMN IF NOT EXISTS is_temp BOOLEAN DEFAULT FALSE;
+ALTER TABLE IF EXISTS public.invitaciones ADD COLUMN IF NOT EXISTS nombre_invitado TEXT;
+
 -- 12. TABLA DE BITÁCORA DE ACTIVIDADES
 CREATE TABLE IF NOT EXISTS public.bitacora_actividades (
     id TEXT PRIMARY KEY,
@@ -381,7 +397,7 @@ function isValidUuid(id: string): boolean {
 }
 
 // ==========================================
-// HELPER FOR SAFE UPSERT/INSERT WITH FALLBACKS
+// HELPER FOR SAFE UPSERT/INSERT WITH FALLBACKS & MISSING COLUMN STRIPPING
 // ==========================================
 export async function safeUpsert(
   tableName: string,
@@ -394,55 +410,130 @@ export async function safeUpsert(
     return { success: false, errorDetails: 'Cliente Supabase no configurado.' };
   }
 
-  // Strategy 1: Attempt Upsert with specified conflict field if provided
-  if (conflictField) {
-    try {
-      const { error } = await supabase.from(tableName).upsert(payload, { onConflict: conflictField });
-      if (!error) return { success: true };
-      console.warn(`[Supabase Upsert onConflict=${conflictField} failed for ${tableName}]:`, error.message, error.code);
-    } catch (err: any) {
-      console.warn(`[Supabase Upsert Exception on ${tableName}]:`, err?.message);
+  const currentPayload: Record<string, any> = { ...payload };
+  const maxAttempts = Object.keys(payload).length + 5;
+
+  const extractMissingColumn = (err: any): string | null => {
+    if (!err) return null;
+    const msg = typeof err === 'string' 
+      ? err 
+      : `${err?.message || ''} ${err?.details || ''} ${err?.hint || ''}`;
+    
+    // Do NOT match constraint or not-null errors as missing columns
+    if (msg.toLowerCase().includes('violates') || msg.toLowerCase().includes('not-null') || msg.toLowerCase().includes('null value')) {
+      return null;
     }
-  }
 
-  // Strategy 2: Attempt Upsert by primary key 'id' if 'id' exists in payload
-  if (payload.id) {
-    try {
-      const { error } = await supabase.from(tableName).upsert(payload, { onConflict: 'id' });
-      if (!error) return { success: true };
-      console.warn(`[Supabase Upsert onConflict=id failed for ${tableName}]:`, error.message, error.code);
-    } catch (err: any) {
-      console.warn(`[Supabase Upsert ID Exception on ${tableName}]:`, err?.message);
-    }
-  }
+    const match = 
+      msg.match(/Could not find the '([^']+)' column/i) || 
+      msg.match(/column ["']?([^"'\s]+)["']? of relation .* does not exist/i) ||
+      msg.match(/column ["']?([^"'\s]+)["']? does not exist/i);
+    return match && match[1] ? match[1] : null;
+  };
 
-  // Strategy 3: Check existence and perform explicit UPDATE or INSERT
-  try {
-    const matchCol = (conflictField && payload[conflictField]) ? conflictField : (payload.id ? 'id' : null);
-    if (matchCol && payload[matchCol]) {
-      const matchVal = payload[matchCol];
-      const { data: existing } = await supabase.from(tableName).select(matchCol).eq(matchCol, matchVal).maybeSingle();
+  const isUuidError = (err: any): boolean => {
+    if (!err) return false;
+    const code = err?.code;
+    const msg = typeof err === 'string' ? err : `${err?.message || ''} ${err?.details || ''}`;
+    return code === '22P02' || /invalid input syntax for type uuid/i.test(msg);
+  };
 
-      if (existing) {
-        // Row exists -> perform UPDATE
-        const { error: updateErr } = await supabase.from(tableName).update(payload).eq(matchCol, matchVal);
-        if (!updateErr) return { success: true };
-        console.error(`[Supabase Update error on ${tableName}]:`, updateErr.message);
-        return { success: false, errorDetails: updateErr.message };
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    let lastError: any = null;
+
+    // Strategy 1: Attempt Upsert with specified conflict field if provided
+    if (conflictField && currentPayload[conflictField] !== undefined) {
+      try {
+        const { error } = await supabase.from(tableName).upsert(currentPayload, { onConflict: conflictField });
+        if (!error) return { success: true };
+        lastError = error;
+      } catch (err: any) {
+        lastError = err;
+      }
+
+      const missingCol1 = extractMissingColumn(lastError);
+      if (missingCol1 && missingCol1 in currentPayload) {
+        console.warn(`[Supabase safeUpsert]: Columna '${missingCol1}' no existe en la tabla '${tableName}'. Omitiendo y reintentando...`);
+        delete currentPayload[missingCol1];
+        continue;
+      }
+
+      if (isUuidError(lastError) && currentPayload.id !== undefined && !isValidUuid(currentPayload.id)) {
+        console.warn(`[Supabase safeUpsert]: 'id' ("${currentPayload.id}") no es un UUID válido. Omitiendo 'id' y reintentando...`);
+        delete currentPayload.id;
+        continue;
       }
     }
 
-    // Row does not exist -> perform INSERT
-    const { error: insertErr } = await supabase.from(tableName).insert(payload);
-    if (!insertErr) return { success: true };
-    
-    console.error(`[Supabase Insert error on ${tableName}]:`, insertErr.message, insertErr.code, insertErr.details);
-    return { success: false, errorDetails: insertErr.message };
-  } catch (err: any) {
-    const errorMsg = err?.message || 'Error desconocido al guardar en Supabase';
-    console.error(`[Supabase Fatal Error on ${tableName}]:`, errorMsg);
-    return { success: false, errorDetails: errorMsg };
+    // Strategy 2: Attempt Upsert by primary key 'id' if 'id' exists in currentPayload and is a valid UUID
+    if (currentPayload.id !== undefined && isValidUuid(currentPayload.id)) {
+      try {
+        const { error } = await supabase.from(tableName).upsert(currentPayload, { onConflict: 'id' });
+        if (!error) return { success: true };
+        lastError = error;
+      } catch (err: any) {
+        lastError = err;
+      }
+
+      const missingCol2 = extractMissingColumn(lastError);
+      if (missingCol2 && missingCol2 in currentPayload) {
+        console.warn(`[Supabase safeUpsert]: Columna '${missingCol2}' no existe en la tabla '${tableName}'. Omitiendo y reintentando...`);
+        delete currentPayload[missingCol2];
+        continue;
+      }
+
+      if (isUuidError(lastError) && currentPayload.id !== undefined) {
+        console.warn(`[Supabase safeUpsert]: 'id' ("${currentPayload.id}") produjo error UUID. Omitiendo 'id' y reintentando...`);
+        delete currentPayload.id;
+        continue;
+      }
+    }
+
+    // Strategy 3: Check existence and perform explicit UPDATE or INSERT
+    try {
+      const matchCol = (conflictField && currentPayload[conflictField] !== undefined) ? conflictField : (currentPayload.id !== undefined && isValidUuid(currentPayload.id) ? 'id' : null);
+      if (matchCol && currentPayload[matchCol] !== undefined) {
+        const matchVal = currentPayload[matchCol];
+        const { data: existing } = await supabase.from(tableName).select(matchCol).eq(matchCol, matchVal).maybeSingle();
+
+        if (existing) {
+          // Row exists -> perform UPDATE
+          const { error: updateErr } = await supabase.from(tableName).update(currentPayload).eq(matchCol, matchVal);
+          if (!updateErr) return { success: true };
+          lastError = updateErr;
+        } else {
+          // Row does not exist -> perform INSERT
+          const { error: insertErr } = await supabase.from(tableName).insert(currentPayload);
+          if (!insertErr) return { success: true };
+          lastError = insertErr;
+        }
+      } else {
+        const { error: insertErr } = await supabase.from(tableName).insert(currentPayload);
+        if (!insertErr) return { success: true };
+        lastError = insertErr;
+      }
+    } catch (err: any) {
+      lastError = err;
+    }
+
+    const missingCol3 = extractMissingColumn(lastError);
+    if (missingCol3 && missingCol3 in currentPayload) {
+      console.warn(`[Supabase safeUpsert]: Columna '${missingCol3}' no existe en la tabla '${tableName}'. Omitiendo y reintentando...`);
+      delete currentPayload[missingCol3];
+      continue;
+    }
+
+    if (isUuidError(lastError) && currentPayload.id !== undefined && !isValidUuid(currentPayload.id)) {
+      console.warn(`[Supabase safeUpsert]: 'id' ("${currentPayload.id}") no es un UUID válido. Omitiendo 'id' y reintentando...`);
+      delete currentPayload.id;
+      continue;
+    }
+
+    console.error(`[Supabase Error en ${tableName}]:`, lastError?.message || lastError?.details || 'Error desconocido', lastError?.code);
+    return { success: false, errorDetails: lastError?.message || 'Error guardando en Supabase' };
   }
+
+  return { success: false, errorDetails: 'No se pudo guardar el registro en Supabase tras varios reintentos.' };
 }
 
 // ==========================================
@@ -555,8 +646,8 @@ export async function fetchEmitterConfigFromSupabase(ruc?: string): Promise<Emit
       ruc: data.ruc || '',
       razonSocial: data.razon_social || '',
       nombreComercial: data.nombre_comercial || '',
-      dirMatriz: data.direccion_matriz || '',
-      dirEstablecimiento: data.direccion_establecimiento || '',
+      dirMatriz: data.direccion_matriz || data.dir_matriz || '',
+      dirEstablecimiento: data.direccion_establecimiento || data.dir_establecimiento || '',
       codEstablecimiento: data.establecimiento || '001',
       codPuntoEmision: data.punto_emision || '001',
       obligadoContabilidad: data.lleva_contabilidad === 'SI' || data.lleva_contabilidad === true,
@@ -576,14 +667,16 @@ export async function fetchEmitterConfigFromSupabase(ruc?: string): Promise<Emit
 
 export async function saveEmitterConfigToSupabase(config: EmitterConfig): Promise<boolean> {
   const targetRuc = config.ruc || '';
+  const dirMatrizVal = config.dirMatriz || 'Matriz Principal';
 
   const payload: Record<string, any> = {
-    id: targetRuc || 'default',
     ruc: config.ruc || '',
-    razon_social: config.razonSocial || '',
+    razon_social: config.razonSocial || 'Emisor',
     nombre_comercial: config.nombreComercial || '',
-    direccion_matriz: config.dirMatriz || '',
-    direccion_establecimiento: config.dirEstablecimiento || '',
+    direccion_matriz: dirMatrizVal,
+    dir_matriz: dirMatrizVal,
+    direccion_establecimiento: config.dirEstablecimiento || dirMatrizVal,
+    dir_establecimiento: config.dirEstablecimiento || dirMatrizVal,
     establecimiento: config.codEstablecimiento || '001',
     punto_emision: config.codPuntoEmision || '001',
     lleva_contabilidad: config.obligadoContabilidad ? 'SI' : 'NO',
@@ -596,18 +689,49 @@ export async function saveEmitterConfigToSupabase(config: EmitterConfig): Promis
     correo: config.correo || ''
   };
 
-  const res = await safeUpsert('emisor_config', payload, 'id');
+  const supabase = getSupabase();
+  if (supabase && targetRuc) {
+    try {
+      const { data: existing } = await supabase.from('emisor_config').select('id').eq('ruc', targetRuc).maybeSingle();
+      if (existing?.id && isValidUuid(existing.id)) {
+        payload.id = existing.id;
+      }
+    } catch {
+      // Ignore query error
+    }
+  }
+
+  const res = await safeUpsert('emisor_config', payload, 'ruc');
   return res.success;
 }
 
 export async function saveEmitterLogoToSupabase(ruc: string, logoB64: string): Promise<boolean> {
   const targetRuc = ruc || '';
-  const payload = {
-    id: targetRuc || 'default',
+  const defaultDir = 'Matriz Principal';
+  const payload: Record<string, any> = {
     ruc: targetRuc,
-    logo_url: logoB64
+    logo_url: logoB64,
+    direccion_matriz: defaultDir,
+    dir_matriz: defaultDir
   };
-  const res = await safeUpsert('emisor_config', payload, 'id');
+
+  const supabase = getSupabase();
+  if (supabase && targetRuc) {
+    try {
+      const { data: existing } = await supabase.from('emisor_config').select('*').eq('ruc', targetRuc).maybeSingle();
+      if (existing) {
+        if (existing.id && isValidUuid(existing.id)) payload.id = existing.id;
+        if (existing.dir_matriz) payload.dir_matriz = existing.dir_matriz;
+        if (existing.direccion_matriz) payload.direccion_matriz = existing.direccion_matriz;
+        if (existing.razon_social) payload.razon_social = existing.razon_social;
+        if (existing.nombre_comercial) payload.nombre_comercial = existing.nombre_comercial;
+      }
+    } catch {
+      // Ignore query error
+    }
+  }
+
+  const res = await safeUpsert('emisor_config', payload, 'ruc');
   return res.success;
 }
 
@@ -1035,6 +1159,40 @@ export async function saveActivityLogToSupabase(log: ActivityLog): Promise<boole
 
   const res = await safeUpsert('bitacora_actividades', payload, 'id');
   return res.success;
+}
+
+export async function deleteActivityLogFromSupabase(id: string): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+  const { error } = await supabase.from('bitacora_actividades').delete().eq('id', id);
+  return !error;
+}
+
+export async function deleteRowFromSupabaseTable(
+  tableName: string,
+  matchKey: string,
+  matchValue: any
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { success: false, error: 'Cliente de Supabase no inicializado.' };
+
+  try {
+    const { error } = await supabase.from(tableName).delete().eq(matchKey, matchValue);
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Error eliminando registro en Supabase.' };
+  }
+}
+
+export async function saveRowToSupabaseTable(
+  tableName: string,
+  payload: Record<string, any>,
+  conflictField?: string
+): Promise<{ success: boolean; errorDetails?: string }> {
+  return safeUpsert(tableName, payload, conflictField);
 }
 
 // ==========================================

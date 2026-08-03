@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Product, TipoIva } from '../types';
 import { IVA_TARIFAS } from '../sri/utils';
-import { Trash2, Sparkles, Plus, PackageCheck, Receipt } from 'lucide-react';
+import { Trash2, Sparkles, Plus, PackageCheck, Receipt, Edit3, Save, X } from 'lucide-react';
+import { saveProductToSupabase } from '../lib/supabase';
 
 interface ProductCatalogProps {
   products: Product[];
@@ -17,6 +18,7 @@ export default function ProductCatalog({
   onSetProducts,
 }: ProductCatalogProps) {
   // Form states
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [price, setPrice] = useState('0.00');
@@ -26,6 +28,26 @@ export default function ProductCatalog({
   // Error/Success state
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState(false);
+
+  const startEditProduct = (prod: Product) => {
+    setEditingProduct(prod);
+    setCode(prod.codigo);
+    setName(prod.nombre);
+    setPrice(prod.precio.toFixed(2));
+    setIvaType(prod.ivaTipo);
+    setDiscountDefault((prod.descuentoDefault || 0).toFixed(2));
+    setFormError('');
+  };
+
+  const cancelEdit = () => {
+    setEditingProduct(null);
+    setCode('');
+    setName('');
+    setPrice('0.00');
+    setIvaType('4');
+    setDiscountDefault('0.00');
+    setFormError('');
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,14 +71,14 @@ export default function ProductCatalog({
       return;
     }
 
-    // Verify code exists
-    if (products.some(p => p.codigo.trim().toLowerCase() === code.trim().toLowerCase())) {
+    // Verify code exists if adding new
+    if (!editingProduct && products.some(p => p.codigo.trim().toLowerCase() === code.trim().toLowerCase())) {
       setFormError(`Ya existe un producto con el código "${code}".`);
       return;
     }
 
-    const newProduct: Product = {
-      id: 'p-' + Date.now(),
+    const productData: Product = {
+      id: editingProduct ? editingProduct.id : 'p-' + Date.now(),
       codigo: code.trim().toUpperCase(),
       nombre: name.trim(),
       precio: priceNum,
@@ -64,15 +86,18 @@ export default function ProductCatalog({
       descuentoDefault: discNum
     };
 
-    onAddProduct(newProduct);
+    if (editingProduct) {
+      const updatedProds = products.map(p => p.id === editingProduct.id ? productData : p);
+      onSetProducts(updatedProds);
+    } else {
+      onAddProduct(productData);
+    }
     
+    // Save to Supabase
+    saveProductToSupabase(productData);
+
     // Reset form
-    setCode('');
-    setName('');
-    setPrice('0.00');
-    setIvaType('4');
-    setDiscountDefault('0.00');
-    
+    cancelEdit();
     setFormSuccess(true);
     setTimeout(() => setFormSuccess(false), 3000);
   };
@@ -242,14 +267,24 @@ export default function ProductCatalog({
                         </td>
                         <td className="px-3 py-3 text-gray-500 font-sans text-[10px]">{ivaDef.label}</td>
                         <td className="px-3 py-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => onDeleteProduct(item.id)}
-                            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 rounded cursor-pointer"
-                            title="Eliminar producto de catálogo"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => startEditProduct(item)}
+                              className="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/20 rounded cursor-pointer"
+                              title="Editar producto"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onDeleteProduct(item.id)}
+                              className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 rounded cursor-pointer"
+                              title="Eliminar producto de catálogo"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
