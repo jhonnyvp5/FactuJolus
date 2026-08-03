@@ -363,6 +363,11 @@ INSERT INTO storage.buckets (id, name, public) VALUES
     ('notas-credito-xml-sin-firmar', 'notas-credito-xml-sin-firmar', true),
     ('proformas-pdf', 'proformas-pdf', true)
 ON CONFLICT (id) DO NOTHING;
+
+-- Políticas para almacenamiento en storage.objects
+ALTER TABLE IF EXISTS storage.objects ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permitir acceso total a storage objects" ON storage.objects;
+CREATE POLICY "Permitir acceso total a storage objects" ON storage.objects FOR ALL USING (true) WITH CHECK (true);
 `;
 
 function isTableMissingError(error: any): boolean {
@@ -373,6 +378,71 @@ function isTableMissingError(error: any): boolean {
 
 function isValidUuid(id: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
+// ==========================================
+// HELPER FOR SAFE UPSERT/INSERT WITH FALLBACKS
+// ==========================================
+export async function safeUpsert(
+  tableName: string,
+  payload: Record<string, any>,
+  conflictField?: string
+): Promise<{ success: boolean; errorDetails?: string }> {
+  const supabase = getSupabase();
+  if (!supabase) {
+    console.error(`[Supabase safeUpsert]: No initialized Supabase client for ${tableName}`);
+    return { success: false, errorDetails: 'Cliente Supabase no configurado.' };
+  }
+
+  // Strategy 1: Attempt Upsert with specified conflict field if provided
+  if (conflictField) {
+    try {
+      const { error } = await supabase.from(tableName).upsert(payload, { onConflict: conflictField });
+      if (!error) return { success: true };
+      console.warn(`[Supabase Upsert onConflict=${conflictField} failed for ${tableName}]:`, error.message, error.code);
+    } catch (err: any) {
+      console.warn(`[Supabase Upsert Exception on ${tableName}]:`, err?.message);
+    }
+  }
+
+  // Strategy 2: Attempt Upsert by primary key 'id' if 'id' exists in payload
+  if (payload.id) {
+    try {
+      const { error } = await supabase.from(tableName).upsert(payload, { onConflict: 'id' });
+      if (!error) return { success: true };
+      console.warn(`[Supabase Upsert onConflict=id failed for ${tableName}]:`, error.message, error.code);
+    } catch (err: any) {
+      console.warn(`[Supabase Upsert ID Exception on ${tableName}]:`, err?.message);
+    }
+  }
+
+  // Strategy 3: Check existence and perform explicit UPDATE or INSERT
+  try {
+    const matchCol = (conflictField && payload[conflictField]) ? conflictField : (payload.id ? 'id' : null);
+    if (matchCol && payload[matchCol]) {
+      const matchVal = payload[matchCol];
+      const { data: existing } = await supabase.from(tableName).select(matchCol).eq(matchCol, matchVal).maybeSingle();
+
+      if (existing) {
+        // Row exists -> perform UPDATE
+        const { error: updateErr } = await supabase.from(tableName).update(payload).eq(matchCol, matchVal);
+        if (!updateErr) return { success: true };
+        console.error(`[Supabase Update error on ${tableName}]:`, updateErr.message);
+        return { success: false, errorDetails: updateErr.message };
+      }
+    }
+
+    // Row does not exist -> perform INSERT
+    const { error: insertErr } = await supabase.from(tableName).insert(payload);
+    if (!insertErr) return { success: true };
+    
+    console.error(`[Supabase Insert error on ${tableName}]:`, insertErr.message, insertErr.code, insertErr.details);
+    return { success: false, errorDetails: insertErr.message };
+  } catch (err: any) {
+    const errorMsg = err?.message || 'Error desconocido al guardar en Supabase';
+    console.error(`[Supabase Fatal Error on ${tableName}]:`, errorMsg);
+    return { success: false, errorDetails: errorMsg };
+  }
 }
 
 // ==========================================
@@ -398,26 +468,17 @@ export async function fetchClientsFromSupabase(): Promise<Client[] | null> {
 }
 
 export async function saveClientToSupabase(client: Client): Promise<{ success: boolean; errorDetails?: string }> {
-  const supabase = getSupabase();
-  if (!supabase) return { success: false, errorDetails: 'Cliente de Supabase no inicializado.' };
-
   const spanishPayload: Record<string, any> = {
     id: client.id || `cli-${Date.now()}`,
     tipo_identificacion: client.tipoIdentificacion,
     identificacion: client.identificacion,
     nombre: client.nombre,
-    direccion: client.direccion,
-    telefono: client.telefono,
-    correo: client.correo
+    direccion: client.direccion || '',
+    telefono: client.telefono || '',
+    correo: client.correo || ''
   };
 
-  const { error } = await supabase.from('clientes').upsert(spanishPayload, { onConflict: 'identificacion' });
-
-  if (error) {
-    return { success: false, errorDetails: error.message };
-  }
-
-  return { success: true };
+  return safeUpsert('clientes', spanishPayload, 'identificacion');
 }
 
 export async function deleteClientFromSupabase(id: string, identificacion?: string): Promise<boolean> {
@@ -450,21 +511,17 @@ export async function fetchProductsFromSupabase(): Promise<Product[] | null> {
 }
 
 export async function saveProductToSupabase(product: Product): Promise<boolean> {
-  const supabase = getSupabase();
-  if (!supabase) return false;
-
   const payload: Record<string, any> = {
     id: product.id || `prod-${Date.now()}`,
     codigo: product.codigo,
     nombre: product.nombre,
     precio: product.precio,
     iva_tipo: product.ivaTipo,
-    descuento_default: product.descuentoDefault
+    descuento_default: product.descuentoDefault || 0
   };
 
-  const { error } = await supabase.from('productos').upsert(payload, { onConflict: 'codigo' });
-
-  return !error;
+  const res = await safeUpsert('productos', payload, 'codigo');
+  return res.success;
 }
 
 export async function deleteProductFromSupabase(id: string, codigo?: string): Promise<boolean> {
@@ -518,116 +575,40 @@ export async function fetchEmitterConfigFromSupabase(ruc?: string): Promise<Emit
 }
 
 export async function saveEmitterConfigToSupabase(config: EmitterConfig): Promise<boolean> {
-  const supabase = getSupabase();
-  if (!supabase) return false;
+  const targetRuc = config.ruc || '';
 
-  try {
-    const targetRuc = config.ruc || '';
+  const payload: Record<string, any> = {
+    id: targetRuc || 'default',
+    ruc: config.ruc || '',
+    razon_social: config.razonSocial || '',
+    nombre_comercial: config.nombreComercial || '',
+    direccion_matriz: config.dirMatriz || '',
+    direccion_establecimiento: config.dirEstablecimiento || '',
+    establecimiento: config.codEstablecimiento || '001',
+    punto_emision: config.codPuntoEmision || '001',
+    lleva_contabilidad: config.obligadoContabilidad ? 'SI' : 'NO',
+    contribuyente_especial: config.contribuyenteEspecial || '',
+    regimen_tributario: config.regimen || 'GENERAL',
+    ambiente: config.ambiente || '1',
+    logo_url: config.logoB64 !== undefined ? config.logoB64 : '',
+    ultimo_secuencial_factura: config.ultimoSecuencialFactura || '000000001',
+    clave_firma: config.p12Password !== undefined ? config.p12Password : '',
+    correo: config.correo || ''
+  };
 
-    // 1. Check if record exists for this RUC or default
-    let existing: any = null;
-    if (targetRuc) {
-      const { data } = await supabase.from('emisor_config').select('*').eq('ruc', targetRuc).maybeSingle();
-      existing = data;
-    }
-
-    if (!existing) {
-      const { data } = await supabase.from('emisor_config').select('*').limit(1).maybeSingle();
-      existing = data;
-    }
-
-    const payload: Record<string, any> = {
-      ruc: config.ruc || '',
-      razon_social: config.razonSocial || '',
-      nombre_comercial: config.nombreComercial || '',
-      direccion_matriz: config.dirMatriz || '',
-      direccion_establecimiento: config.dirEstablecimiento || '',
-      establecimiento: config.codEstablecimiento || '001',
-      punto_emision: config.codPuntoEmision || '001',
-      lleva_contabilidad: config.obligadoContabilidad ? 'SI' : 'NO',
-      contribuyente_especial: config.contribuyenteEspecial || '',
-      regimen_tributario: config.regimen || 'GENERAL',
-      ambiente: config.ambiente || '1',
-      logo_url: config.logoB64 !== undefined ? config.logoB64 : (existing?.logo_url || ''),
-      ultimo_secuencial_factura: config.ultimoSecuencialFactura || '000000001',
-      clave_firma: config.p12Password !== undefined ? config.p12Password : (existing?.clave_firma || ''),
-      correo: config.correo || existing?.correo || ''
-    };
-
-    if (!existing) {
-      // Create new record
-      payload.id = targetRuc || 'default';
-      const { error } = await supabase.from('emisor_config').insert(payload);
-      if (error) {
-        const { error: upsertErr } = await supabase.from('emisor_config').upsert(payload, { onConflict: 'id' });
-        return !upsertErr;
-      }
-      return true;
-    } else {
-      // Record exists: update ONLY fields that changed
-      const changesOnly: Record<string, any> = {};
-
-      if (payload.ruc !== undefined && payload.ruc !== existing.ruc) changesOnly.ruc = payload.ruc;
-      if (payload.razon_social !== undefined && payload.razon_social !== existing.razon_social) changesOnly.razon_social = payload.razon_social;
-      if (payload.nombre_comercial !== undefined && payload.nombre_comercial !== existing.nombre_comercial) changesOnly.nombre_comercial = payload.nombre_comercial;
-      if (payload.direccion_matriz !== undefined && payload.direccion_matriz !== existing.direccion_matriz) changesOnly.direccion_matriz = payload.direccion_matriz;
-      if (payload.direccion_establecimiento !== undefined && payload.direccion_establecimiento !== existing.direccion_establecimiento) changesOnly.direccion_establecimiento = payload.direccion_establecimiento;
-      if (payload.establecimiento !== undefined && payload.establecimiento !== existing.establecimiento) changesOnly.establecimiento = payload.establecimiento;
-      if (payload.punto_emision !== undefined && payload.punto_emision !== existing.punto_emision) changesOnly.punto_emision = payload.punto_emision;
-      if (payload.lleva_contabilidad !== undefined && payload.lleva_contabilidad !== existing.lleva_contabilidad) changesOnly.lleva_contabilidad = payload.lleva_contabilidad;
-      if (payload.contribuyente_especial !== undefined && payload.contribuyente_especial !== existing.contribuyente_especial) changesOnly.contribuyente_especial = payload.contribuyente_especial;
-      if (payload.regimen_tributario !== undefined && payload.regimen_tributario !== existing.regimen_tributario) changesOnly.regimen_tributario = payload.regimen_tributario;
-      if (payload.ambiente !== undefined && payload.ambiente !== existing.ambiente) changesOnly.ambiente = payload.ambiente;
-      if (config.logoB64 !== undefined && config.logoB64 !== existing.logo_url) changesOnly.logo_url = config.logoB64;
-      if (payload.ultimo_secuencial_factura !== undefined && payload.ultimo_secuencial_factura !== existing.ultimo_secuencial_factura) changesOnly.ultimo_secuencial_factura = payload.ultimo_secuencial_factura;
-      if (config.p12Password !== undefined && config.p12Password !== existing.clave_firma) changesOnly.clave_firma = config.p12Password;
-      if (payload.correo !== undefined && payload.correo !== existing.correo) changesOnly.correo = payload.correo;
-
-      if (Object.keys(changesOnly).length > 0) {
-        const { error } = await supabase.from('emisor_config').update(changesOnly).eq('id', existing.id);
-        return !error;
-      }
-      return true;
-    }
-  } catch (e) {
-    console.error('Error saving emitter config to Supabase:', e);
-    return false;
-  }
+  const res = await safeUpsert('emisor_config', payload, 'id');
+  return res.success;
 }
 
 export async function saveEmitterLogoToSupabase(ruc: string, logoB64: string): Promise<boolean> {
-  const supabase = getSupabase();
-  if (!supabase) return false;
-
-  try {
-    const targetRuc = ruc || '';
-    let existing: any = null;
-
-    if (targetRuc) {
-      const { data } = await supabase.from('emisor_config').select('id, ruc, logo_url').eq('ruc', targetRuc).maybeSingle();
-      existing = data;
-    }
-
-    if (!existing) {
-      const { data } = await supabase.from('emisor_config').select('id, ruc, logo_url').limit(1).maybeSingle();
-      existing = data;
-    }
-
-    if (existing) {
-      const { error } = await supabase.from('emisor_config').update({ logo_url: logoB64, ruc: targetRuc || existing.ruc }).eq('id', existing.id);
-      return !error;
-    } else {
-      const { error } = await supabase.from('emisor_config').insert({
-        id: targetRuc || 'default',
-        ruc: targetRuc,
-        logo_url: logoB64
-      });
-      return !error;
-    }
-  } catch (e) {
-    console.error('Error updating logo in emisor_config:', e);
-    return false;
-  }
+  const targetRuc = ruc || '';
+  const payload = {
+    id: targetRuc || 'default',
+    ruc: targetRuc,
+    logo_url: logoB64
+  };
+  const res = await safeUpsert('emisor_config', payload, 'id');
+  return res.success;
 }
 
 // ==========================================
@@ -664,9 +645,6 @@ export async function fetchInvoicesFromSupabase(): Promise<Invoice[] | null> {
 }
 
 export async function saveInvoiceToSupabase(invoice: Invoice): Promise<boolean> {
-  const supabase = getSupabase();
-  if (!supabase) return false;
-
   const spanishPayload: Record<string, any> = {
     id: invoice.id,
     secuencial: invoice.secuencial,
@@ -688,10 +666,10 @@ export async function saveInvoiceToSupabase(invoice: Invoice): Promise<boolean> 
     creador_nombre: invoice.creadorNombre
   };
 
-  const { error } = await supabase.from('facturas').upsert(spanishPayload, { onConflict: 'id' });
+  const res = await safeUpsert('facturas', spanishPayload, 'id');
 
   // Also save line items in 'factura_detalles' table
-  if (!error && invoice.detalles && invoice.detalles.length > 0) {
+  if (res.success && invoice.detalles && invoice.detalles.length > 0) {
     try {
       const lineItems = invoice.detalles.map(d => ({
         id: d.id || `${invoice.id}-${d.producto.codigo}`,
@@ -707,13 +685,15 @@ export async function saveInvoiceToSupabase(invoice: Invoice): Promise<boolean> 
         iva_calculado: d.ivaCalculado,
         total: d.total
       }));
-      await supabase.from('factura_detalles').upsert(lineItems, { onConflict: 'id' });
+      for (const item of lineItems) {
+        await safeUpsert('factura_detalles', item, 'id');
+      }
     } catch (e) {
       console.warn('Aviso guardando factura_detalles:', e);
     }
   }
 
-  return !error;
+  return res.success;
 }
 
 export async function deleteInvoiceFromSupabase(id: string): Promise<boolean> {
@@ -755,48 +735,43 @@ export async function fetchProformasFromSupabase(): Promise<Proforma[] | null> {
 }
 
 export async function saveProformaToSupabase(proforma: Proforma): Promise<boolean> {
-  const supabase = getSupabase();
-  if (!supabase) return false;
-
-  try {
-    const payload: Record<string, any> = {
-      id: proforma.id,
-      secuencial: proforma.secuencial,
-      fecha_emision: proforma.fechaEmision,
-      cliente_datos: proforma.cliente,
-      detalles: proforma.detalles,
-      resumen_impuestos: proforma.resumenImpuestos,
-      informacion_pago: proforma.informacionPago,
-      nota_dudas: proforma.notaDudas,
-      empresa_datos: {
-        nombre: proforma.empresaNombre,
-        direccion: proforma.empresaDireccion,
-        telefono: proforma.empresaTelefono,
-        correo: proforma.empresaCorreo
-      }
-    };
-
-    const { error } = await supabase.from('proformas').upsert(payload, { onConflict: 'id' });
-
-    if (!error && proforma.detalles && proforma.detalles.length > 0) {
-      const lineItems = proforma.detalles.map(d => ({
-        id: `${proforma.id}-${d.producto.codigo}`,
-        proforma_id: proforma.id,
-        producto_codigo: d.producto.codigo,
-        producto_nombre: d.producto.nombre,
-        cantidad: d.cantidad,
-        precio_unitario: d.producto.precio,
-        subtotal: d.subtotal,
-        iva_calculado: d.ivaCalculado,
-        total: d.total
-      }));
-      await supabase.from('proforma_detalles').upsert(lineItems, { onConflict: 'id' });
+  const payload: Record<string, any> = {
+    id: proforma.id,
+    secuencial: proforma.secuencial,
+    fecha_emision: proforma.fechaEmision,
+    cliente_datos: proforma.cliente,
+    detalles: proforma.detalles,
+    resumen_impuestos: proforma.resumenImpuestos,
+    informacion_pago: proforma.informacionPago,
+    nota_dudas: proforma.notaDudas,
+    empresa_datos: {
+      nombre: proforma.empresaNombre,
+      direccion: proforma.empresaDireccion,
+      telefono: proforma.empresaTelefono,
+      correo: proforma.empresaCorreo
     }
+  };
 
-    return !error;
-  } catch {
-    return false;
+  const res = await safeUpsert('proformas', payload, 'id');
+
+  if (res.success && proforma.detalles && proforma.detalles.length > 0) {
+    const lineItems = proforma.detalles.map(d => ({
+      id: `${proforma.id}-${d.producto.codigo}`,
+      proforma_id: proforma.id,
+      producto_codigo: d.producto.codigo,
+      producto_nombre: d.producto.nombre,
+      cantidad: d.cantidad,
+      precio_unitario: d.producto.precio,
+      subtotal: d.subtotal,
+      iva_calculado: d.ivaCalculado,
+      total: d.total
+    }));
+    for (const item of lineItems) {
+      await safeUpsert('proforma_detalles', item, 'id');
+    }
   }
+
+  return res.success;
 }
 
 export async function deleteProformaFromSupabase(id: string): Promise<boolean> {
@@ -843,50 +818,45 @@ export async function fetchCreditNotesFromSupabase(): Promise<CreditNote[] | nul
 }
 
 export async function saveCreditNoteToSupabase(creditNote: CreditNote): Promise<boolean> {
-  const supabase = getSupabase();
-  if (!supabase) return false;
+  const payload = {
+    id: creditNote.id,
+    secuencial: creditNote.secuencial,
+    fecha_emision: creditNote.fechaEmision,
+    factura_modificada_num: creditNote.facturaModificadaSecuencial,
+    motivo: creditNote.razonModificacion,
+    cliente_datos: creditNote.cliente,
+    detalles: creditNote.detalles,
+    clave_acceso: creditNote.claveAcceso,
+    xml: creditNote.xml,
+    xml_firmado: creditNote.xmlFirmado,
+    estado: creditNote.estado,
+    mensajes_sri: creditNote.mensajesSRI,
+    fecha_autorizacion: creditNote.fechaAutorizacion,
+    numero_autorizacion: creditNote.numeroAutorizacion,
+    info_adicional: creditNote.infoAdicional,
+    resumen_impuestos: creditNote.resumenImpuestos
+  };
 
-  try {
-    const payload = {
-      id: creditNote.id,
-      secuencial: creditNote.secuencial,
-      fecha_emision: creditNote.fechaEmision,
-      factura_modificada_num: creditNote.facturaModificadaSecuencial,
-      motivo: creditNote.razonModificacion,
-      cliente_datos: creditNote.cliente,
-      detalles: creditNote.detalles,
-      clave_acceso: creditNote.claveAcceso,
-      xml: creditNote.xml,
-      xml_firmado: creditNote.xmlFirmado,
-      estado: creditNote.estado,
-      mensajes_sri: creditNote.mensajesSRI,
-      fecha_autorizacion: creditNote.fechaAutorizacion,
-      numero_autorizacion: creditNote.numeroAutorizacion,
-      info_adicional: creditNote.infoAdicional,
-      resumen_impuestos: creditNote.resumenImpuestos
-    };
+  const res = await safeUpsert('notas_credito', payload, 'id');
 
-    const { error } = await supabase.from('notas_credito').upsert(payload, { onConflict: 'id' });
-
-    if (!error && creditNote.detalles && creditNote.detalles.length > 0) {
-      const lineItems = creditNote.detalles.map(d => ({
-        id: `${creditNote.id}-${d.producto.codigo}`,
-        nota_credito_id: creditNote.id,
-        producto_codigo: d.producto.codigo,
-        producto_nombre: d.producto.nombre,
-        cantidad: d.cantidad,
-        precio_unitario: d.producto.precio,
-        subtotal: d.subtotal,
-        iva_calculado: d.ivaCalculado,
-        total: d.total
-      }));
-      await supabase.from('nota_credito_detalles').upsert(lineItems, { onConflict: 'id' });
+  if (res.success && creditNote.detalles && creditNote.detalles.length > 0) {
+    const lineItems = creditNote.detalles.map(d => ({
+      id: `${creditNote.id}-${d.producto.codigo}`,
+      nota_credito_id: creditNote.id,
+      producto_codigo: d.producto.codigo,
+      producto_nombre: d.producto.nombre,
+      cantidad: d.cantidad,
+      precio_unitario: d.producto.precio,
+      subtotal: d.subtotal,
+      iva_calculado: d.ivaCalculado,
+      total: d.total
+    }));
+    for (const item of lineItems) {
+      await safeUpsert('nota_credito_detalles', item, 'id');
     }
-
-    return !error;
-  } catch {
-    return false;
   }
+
+  return res.success;
 }
 
 export async function deleteCreditNoteFromSupabase(id: string): Promise<boolean> {
@@ -954,26 +924,17 @@ export async function authenticateUserInSupabase(
 }
 
 export async function upsertUserInSupabase(user: PortalUser): Promise<void> {
-  const supabase = getSupabase();
-  if (!supabase) return;
+  const userPayload = {
+    id: user.id || `usr-${Date.now()}`,
+    usuario: user.nombre,
+    correo: user.correo.toLowerCase(),
+    clave_hash: user.clave,
+    role: user.role,
+    nombre: user.nombre,
+    is_temp: false
+  };
 
-  try {
-    await supabase
-      .from('usuarios_portal')
-      .upsert([
-        {
-          id: user.id || `usr-${Date.now()}`,
-          usuario: user.nombre,
-          correo: user.correo.toLowerCase(),
-          clave_hash: user.clave,
-          role: user.role,
-          nombre: user.nombre,
-          is_temp: false
-        }
-      ], { onConflict: 'correo' });
-  } catch (err) {
-    console.warn('[Supabase] Error sincronizando usuario usuarios_portal:', err);
-  }
+  await safeUpsert('usuarios_portal', userPayload, 'correo');
 }
 
 export async function deleteUserFromSupabase(id: string, email?: string): Promise<boolean> {
@@ -1010,24 +971,18 @@ export async function fetchInvitationsFromSupabase(): Promise<Invitation[] | nul
 }
 
 export async function saveInvitationToSupabase(invite: Invitation): Promise<boolean> {
-  const supabase = getSupabase();
-  if (!supabase) return false;
+  const payload = {
+    id: invite.id,
+    correo: invite.correo,
+    role: invite.role,
+    clave_temporal: invite.claveTemporal,
+    estado: invite.estado,
+    fecha_invitacion: invite.fechaCreacion,
+    nombre_invitado: invite.nombreInvitado
+  };
 
-  try {
-    const payload = {
-      id: invite.id,
-      correo: invite.correo,
-      role: invite.role,
-      clave_temporal: invite.claveTemporal,
-      estado: invite.estado,
-      fecha_invitacion: invite.fechaCreacion,
-      nombre_invitado: invite.nombreInvitado
-    };
-    const { error } = await supabase.from('invitaciones').upsert(payload, { onConflict: 'id' });
-    return !error;
-  } catch {
-    return false;
-  }
+  const res = await safeUpsert('invitaciones', payload, 'id');
+  return res.success;
 }
 
 export async function deleteInvitationFromSupabase(id: string): Promise<boolean> {
@@ -1068,24 +1023,18 @@ export async function fetchActivityLogsFromSupabase(): Promise<ActivityLog[] | n
 }
 
 export async function saveActivityLogToSupabase(log: ActivityLog): Promise<boolean> {
-  const supabase = getSupabase();
-  if (!supabase) return false;
+  const payload = {
+    id: log.id,
+    usuario_correo: log.usuarioCorreo,
+    usuario_nombre: log.usuarioNombre,
+    usuario_rol: log.usuarioRol,
+    fecha: log.fecha,
+    accion: log.accion,
+    detalles: log.detalles
+  };
 
-  try {
-    const payload = {
-      id: log.id,
-      usuario_correo: log.usuarioCorreo,
-      usuario_nombre: log.usuarioNombre,
-      usuario_rol: log.usuarioRol,
-      fecha: log.fecha,
-      accion: log.accion,
-      detalles: log.detalles
-    };
-    const { error } = await supabase.from('bitacora_actividades').upsert(payload, { onConflict: 'id' });
-    return !error;
-  } catch {
-    return false;
-  }
+  const res = await safeUpsert('bitacora_actividades', payload, 'id');
+  return res.success;
 }
 
 // ==========================================
