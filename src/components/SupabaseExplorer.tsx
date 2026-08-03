@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Database, RefreshCw, Search, Users, ShoppingBag, FileText, 
   Layers, FolderArchive, Shield, AlertTriangle, Eye, FileCode, CheckCircle, Mail, Activity, Settings,
-  Plus, Edit3, Trash2, Save, X
+  Plus, Edit3, Trash2, Save, X, Globe, Key, Copy, Code, Check
 } from 'lucide-react';
 import { 
   fetchSupabaseTableRows, 
@@ -11,7 +11,10 @@ import {
   SUPABASE_BUCKETS, 
   getSupabase,
   deleteRowFromSupabaseTable,
-  saveRowToSupabaseTable
+  saveRowToSupabaseTable,
+  saveSupabaseConfig,
+  testSupabaseConnection,
+  SUPABASE_SQL_SCRIPT
 } from '../lib/supabase';
 
 type TabType = 
@@ -47,6 +50,33 @@ export const SupabaseExplorer: React.FC = () => {
   const [editJsonText, setEditJsonText] = useState<string>('');
   const [modalError, setModalError] = useState<string | null>(null);
   const [savingRow, setSavingRow] = useState<boolean>(false);
+
+  // Supabase Connection Configuration State
+  const [sbUrl, setSbUrl] = useState(() => getSupabaseConfig().url);
+  const [sbAnonKey, setSbAnonKey] = useState(() => getSupabaseConfig().anonKey);
+  const [testingSb, setTestingSb] = useState(false);
+  const [sbTestResult, setSbTestResult] = useState<{ success: boolean; tablesExist?: boolean; message: string } | null>(null);
+  const [showSql, setShowSql] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
+
+  const copySqlToClipboard = () => {
+    navigator.clipboard.writeText(SUPABASE_SQL_SCRIPT);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 3000);
+  };
+
+  const handleTestSupabase = async () => {
+    setTestingSb(true);
+    setSbTestResult(null);
+    saveSupabaseConfig(sbUrl, sbAnonKey);
+    const res = await testSupabaseConnection();
+    setSbTestResult(res);
+    if (res.tablesExist === false) {
+      setShowSql(true);
+    }
+    setTestingSb(false);
+    loadData();
+  };
 
   const { url } = getSupabaseConfig();
 
@@ -217,7 +247,115 @@ export const SupabaseExplorer: React.FC = () => {
   ];
 
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-gray-100 dark:border-zinc-800 p-5 md:p-6 space-y-5">
+    <div className="space-y-6">
+      {/* SECCIÓN BASE DE DATOS SUPABASE */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 space-y-6">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50 flex items-center gap-2">
+            <Database className="w-5 h-5 text-indigo-500" />
+            Conexión Base de Datos Cloud (Supabase REST API)
+          </h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Conectado a la API REST de Supabase para almacenar clientes, catálogo de productos, facturas y proformas de forma persistente.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1 flex items-center gap-1.5">
+              <Globe className="w-4 h-4 text-indigo-500" /> Supabase REST API Base URL
+            </label>
+            <input
+              type="text"
+              value={sbUrl}
+              onChange={(e) => setSbUrl(e.target.value)}
+              placeholder="https://zrbmybedhtziyvkwrvzl.supabase.co"
+              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1 flex items-center gap-1.5">
+              <Key className="w-4 h-4 text-indigo-500" /> Supabase Anon Key (API Key pública)
+            </label>
+            <input
+              type="password"
+              value={sbAnonKey}
+              onChange={(e) => setSbAnonKey(e.target.value)}
+              placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={handleTestSupabase}
+              disabled={testingSb}
+              className="py-2.5 px-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium text-sm transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+            >
+              {testingSb ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Comprobando Conexión REST...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4" /> Probar Conexión Supabase API
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowSql(!showSql)}
+              className="py-2.5 px-4 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-800 dark:text-zinc-200 rounded-xl font-medium text-xs transition flex items-center gap-1.5 cursor-pointer border border-gray-200 dark:border-zinc-700"
+            >
+              <Code className="w-4 h-4 text-indigo-500" />
+              {showSql ? 'Ocultar Script SQL' : 'Ver Código SQL Tablas'}
+            </button>
+          </div>
+
+          {sbTestResult && (
+            <div className={`p-3 rounded-xl border text-xs font-semibold flex items-center gap-2 w-full sm:w-auto ${
+              sbTestResult.success 
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300' 
+                : 'bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-300'
+            }`}>
+              {sbTestResult.success ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />}
+              <span>{sbTestResult.message}</span>
+            </div>
+          )}
+        </div>
+
+        {/* CÓDIGO SQL Y BOTÓN DE COPIADO */}
+        {showSql && (
+          <div className="mt-4 p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-indigo-400 flex items-center gap-1.5">
+                <Code className="w-4 h-4" /> Script SQL para Supabase (Tablas `clients`, `products`, `invoices`, `proformas`, `usuarios_portal`)
+              </span>
+              <button
+                type="button"
+                onClick={copySqlToClipboard}
+                className="py-1.5 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+              >
+                {copiedSql ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+                {copiedSql ? '¡Copiado!' : 'Copiar Código SQL'}
+              </button>
+            </div>
+            <p className="text-[11px] text-zinc-400">
+              Pegue este código en el <strong>SQL Editor</strong> de su panel de Supabase y presione <strong>Run</strong> para crear automáticamente todas las tablas requeridas.
+            </p>
+            <pre className="p-3 bg-black/60 rounded-lg text-[11px] text-indigo-200 font-mono overflow-x-auto max-h-56 border border-zinc-800/80">
+              {SUPABASE_SQL_SCRIPT}
+            </pre>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-gray-100 dark:border-zinc-800 p-5 md:p-6 space-y-5">
       {/* HEADER & STATUS */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 dark:border-zinc-800 pb-4">
         <div>
@@ -482,6 +620,8 @@ export const SupabaseExplorer: React.FC = () => {
           </div>
         </div>
       )}
+
+      </div>
 
       {/* INSERT / EDIT MODAL */}
       {(isEditModalOpen || isInsertModalOpen) && (

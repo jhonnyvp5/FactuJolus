@@ -3,6 +3,7 @@ import { EmitterConfig, Invoice, Client, Product } from '../types';
 import { User, Image, FileText, CheckCircle, ShieldCheck, Landmark, Palette, Check } from 'lucide-react';
 import RideViewer from './RideViewer';
 import { saveEmitterLogoToSupabase } from '../lib/supabase';
+import { REGIMENES } from '../sri/utils';
 
 const TEMPLATES = [
   { id: 'oficial', name: 'Oficial SRI (Clásico)', desc: 'Diseño clásico estandarizado idéntico al PDF del SRI con columnas alternadas', color: 'from-gray-700 to-gray-800' },
@@ -277,7 +278,9 @@ export default function CompanyProfile({ config, onSaveConfig, currentUserEmail 
               <div className="bg-gray-50/50 dark:bg-zinc-950/10 p-3 rounded-xl border border-gray-250/20">
                 <span className="text-gray-400 block font-semibold text-[10px] uppercase">Régimen Impositivo</span>
                 <span className="font-bold text-indigo-600 dark:text-indigo-400 text-sm">
-                  {config.regimen ? config.regimen.replace('_', ' ') : <em className="text-gray-400 font-normal italic">Sin registrar</em>}
+                  {config.regimen ? (
+                    REGIMENES.find(r => r.code === config.regimen)?.label || config.regimen.replace(/_/g, ' ')
+                  ) : <em className="text-gray-400 font-normal italic">Sin registrar</em>}
                 </span>
               </div>
 

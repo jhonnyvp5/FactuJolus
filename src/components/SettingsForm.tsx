@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { PortalUser, EmitterConfig, RegimenTributario } from '../types';
 import { validateRuc, REGIMENES } from '../sri/utils';
 import { getCertificateInfo } from '../sri/signer';
-import { CheckCircle2, AlertCircle, Key, FileCode, Shield, RefreshCw, Database, Globe, Check, AlertTriangle, Copy, Code, Trash2, Sparkles } from 'lucide-react';
-import { getSupabaseConfig, saveSupabaseConfig, testSupabaseConnection, SUPABASE_SQL_SCRIPT, saveEmitterConfigToSupabase } from '../lib/supabase';
-import { SupabaseExplorer } from './SupabaseExplorer';
+import { CheckCircle2, AlertCircle, Key, FileCode, Shield, RefreshCw, Trash2, Sparkles, Lock, Edit3, Check } from 'lucide-react';
+import { saveEmitterConfigToSupabase } from '../lib/supabase';
 
 interface SettingsFormProps {
   config: EmitterConfig;
@@ -41,19 +40,10 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
   const [sigError, setSigError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Supabase Configuration State
-  const [sbUrl, setSbUrl] = useState(() => getSupabaseConfig().url);
-  const [sbAnonKey, setSbAnonKey] = useState(() => getSupabaseConfig().anonKey);
-  const [testingSb, setTestingSb] = useState(false);
-  const [sbTestResult, setSbTestResult] = useState<{ success: boolean; tablesExist?: boolean; message: string } | null>(null);
-  const [showSql, setShowSql] = useState(false);
-  const [copiedSql, setCopiedSql] = useState(false);
-
-  const copySqlToClipboard = () => {
-    navigator.clipboard.writeText(SUPABASE_SQL_SCRIPT);
-    setCopiedSql(true);
-    setTimeout(() => setCopiedSql(false), 3000);
-  };
+  // Edit/Lock toggle state for Emitter fields
+  const [isEditingEmitter, setIsEditingEmitter] = useState<boolean>(() => {
+    return !(config.ruc && config.razonSocial);
+  });
 
   // Sync internal state ONLY when external config prop deeply changes
   const configKeyStr = JSON.stringify(config);
@@ -180,26 +170,12 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
     }
   };
 
-  const handleTestSupabase = async () => {
-    setTestingSb(true);
-    setSbTestResult(null);
-    saveSupabaseConfig(sbUrl, sbAnonKey);
-    const res = await testSupabaseConnection();
-    setSbTestResult(res);
-    if (res.tablesExist === false) {
-      setShowSql(true);
-    }
-    setTestingSb(false);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (ruc && !validateRuc(ruc)) {
       alert('¡El número de RUC no parece válido para el algoritmo oficial de Ecuador!');
     }
-
-    saveSupabaseConfig(sbUrl, sbAnonKey);
 
     const updatedConfig: EmitterConfig = {
       ruc,
@@ -227,6 +203,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
     onSave(updatedConfig);
     await saveEmitterConfigToSupabase(updatedConfig);
 
+    setIsEditingEmitter(false);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
   };
@@ -246,20 +223,48 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
               Configure sus datos fiscales para el cálculo de claves de acceso y estructuración de los comprobantes XML del SRI.
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={handleClearExampleData}
-              className="px-3 py-1.5 text-xs font-medium text-red-650 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-900/50 dark:text-red-300 rounded-lg border border-red-200 dark:border-red-800/40 transition flex items-center gap-1.5 cursor-pointer"
-              title="Borra todos los datos de ejemplo del formulario para escribir sus nuevos datos"
+              onClick={() => setIsEditingEmitter(!isEditingEmitter)}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg border transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                isEditingEmitter 
+                  ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600' 
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-700'
+              }`}
+              title={isEditingEmitter ? "Bloquear los campos del emisor" : "Habilitar la edición de los campos del emisor"}
             >
-              <Trash2 className="w-3.5 h-3.5" />
-              Borrar Datos de Ejemplo
+              {isEditingEmitter ? (
+                <>
+                  <Lock className="w-3.5 h-3.5" /> Bloquear Campos
+                </>
+              ) : (
+                <>
+                  <Edit3 className="w-3.5 h-3.5" /> Editar Formulario
+                </>
+              )}
             </button>
             <button
               type="button"
-              onClick={handleLoadExampleData}
-              className="px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:hover:bg-indigo-900/50 dark:text-indigo-300 rounded-lg border border-indigo-200 dark:border-indigo-800/40 transition flex items-center gap-1.5 cursor-pointer"
+              onClick={() => {
+                handleClearExampleData();
+                setIsEditingEmitter(true);
+              }}
+              disabled={!isEditingEmitter}
+              className="px-3 py-1.5 text-xs font-medium text-red-650 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-900/50 dark:text-red-300 rounded-lg border border-red-200 dark:border-red-800/40 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Borra todos los datos de ejemplo del formulario para escribir sus nuevos datos"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Borrar Datos
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleLoadExampleData();
+                setIsEditingEmitter(true);
+              }}
+              disabled={!isEditingEmitter}
+              className="px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:hover:bg-indigo-900/50 dark:text-indigo-300 rounded-lg border border-indigo-200 dark:border-indigo-800/40 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               title="Cargar datos de prueba de ejemplo"
             >
               <Sparkles className="w-3.5 h-3.5" />
@@ -267,6 +272,22 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             </button>
           </div>
         </div>
+
+        {!isEditingEmitter && (
+          <div className="bg-amber-50 dark:bg-amber-950/30 p-2.5 px-4 rounded-xl border border-amber-200 dark:border-amber-800/50 flex items-center justify-between text-xs text-amber-800 dark:text-amber-300 font-medium">
+            <span className="flex items-center gap-2">
+              <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              Los campos de Configuración del Emisor están bloqueados. Haga clic en <strong>Editar Formulario</strong> para modificar.
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsEditingEmitter(true)}
+              className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold flex items-center gap-1 cursor-pointer shrink-0"
+            >
+              <Edit3 className="w-3.5 h-3.5" /> Desbloquear
+            </button>
+          </div>
+        )}
 
         {/* MODO DE TRABAJO */}
         <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100/40 dark:bg-indigo-950/20 dark:border-indigo-900/30 flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
@@ -282,15 +303,17 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
           <div className="flex bg-white dark:bg-zinc-800 p-1 rounded-lg border border-gray-200 dark:border-zinc-700">
             <button
               type="button"
+              disabled={!isEditingEmitter}
               onClick={() => setIsDemoMode(true)}
-              className={`px-3 py-1.5 text-xs font-medium rounded ${isDemoMode ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-700'}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded transition disabled:opacity-60 disabled:cursor-not-allowed ${isDemoMode ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-700'}`}
             >
               Simulador (Recomendado)
             </button>
             <button
               type="button"
+              disabled={!isEditingEmitter}
               onClick={() => setIsDemoMode(false)}
-              className={`px-3 py-1.5 text-xs font-medium rounded ${!isDemoMode ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-700'}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded transition disabled:opacity-60 disabled:cursor-not-allowed ${!isDemoMode ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-700'}`}
             >
               Conexión Real SRI
             </button>
@@ -304,10 +327,11 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <div className="relative">
               <input
                 type="text"
+                disabled={!isEditingEmitter}
                 value={ruc}
                 onChange={(e) => setRuc(e.target.value.replace(/\D/g, '').substring(0, 13))}
                 placeholder="Ej. 1792451083001"
-                className={`w-full px-4 py-2 border rounded-xl bg-gray-50 dark:bg-zinc-800 dark:border-zinc-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 ${ruc ? (rucValido ? 'border-green-300 focus:ring-green-400' : 'border-red-300 focus:ring-red-400') : 'border-gray-200 focus:ring-indigo-500'}`}
+                className={`w-full px-4 py-2 border rounded-xl bg-gray-50 dark:bg-zinc-800 dark:border-zinc-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-zinc-800/70 ${ruc ? (rucValido ? 'border-green-300 focus:ring-green-400' : 'border-red-300 focus:ring-red-400') : 'border-gray-200 focus:ring-indigo-500'}`}
                 required
               />
               {ruc && (
@@ -331,10 +355,11 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Razón Social</label>
             <input
               type="text"
+              disabled={!isEditingEmitter}
               value={razonSocial}
               onChange={(e) => setRazonSocial(e.target.value.toUpperCase())}
               placeholder="Ej. JHONNY ALEXIS VALLE PLUA S.A."
-              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase"
+              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-zinc-800/70"
               required
             />
           </div>
@@ -344,10 +369,11 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Nombre Comercial</label>
             <input
               type="text"
+              disabled={!isEditingEmitter}
               value={nombreComercial}
               onChange={(e) => setNombreComercial(e.target.value.toUpperCase())}
               placeholder="Ej. J&V SOLUCIONES DIGITALES"
-              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase"
+              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-zinc-800/70"
             />
           </div>
 
@@ -355,10 +381,12 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Régimen Tributario del SRI</label>
             <select
+              disabled={!isEditingEmitter}
               value={regimen}
               onChange={(e) => setRegimen(e.target.value as RegimenTributario)}
-              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-zinc-800/70"
             >
+              <option value="">-- Seleccione Régimen Tributario --</option>
               {REGIMENES.map((reg) => (
                 <option key={reg.code} value={reg.code}>{reg.label}</option>
               ))}
@@ -370,10 +398,11 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Correo Electrónico (Contacto Emisor)</label>
             <input
               type="email"
+              disabled={!isEditingEmitter}
               value={correo}
               onChange={(e) => setCorreo(e.target.value.toUpperCase())}
               placeholder="Ej. emisor@ejemplo.com"
-              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase"
+              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-zinc-800/70"
             />
           </div>
 
@@ -382,10 +411,11 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Teléfono (Contacto Emisor)</label>
             <input
               type="text"
+              disabled={!isEditingEmitter}
               value={telefono}
               onChange={(e) => setTelefono(e.target.value.toUpperCase())}
               placeholder="Ej. 0967590168"
-              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase"
+              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-zinc-800/70"
             />
           </div>
 
@@ -394,10 +424,11 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Dirección Matriz</label>
             <input
               type="text"
+              disabled={!isEditingEmitter}
               value={dirMatriz}
               onChange={(e) => setDirMatriz(e.target.value.toUpperCase())}
               placeholder="Ej. Av. 10 de Agosto N15-23 y Rio de Janeiro"
-              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase"
+              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-zinc-800/70"
               required
             />
           </div>
@@ -407,10 +438,11 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Dirección de Establecimiento de Emisión</label>
             <input
               type="text"
+              disabled={!isEditingEmitter}
               value={dirEstablecimiento}
               onChange={(e) => setDirEstablecimiento(e.target.value.toUpperCase())}
               placeholder="Ej. Local Central - Centro Norte de Quito"
-              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase"
+              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-zinc-800/70"
             />
           </div>
 
@@ -419,10 +451,11 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Establecimiento (001)</label>
             <input
               type="text"
+              disabled={!isEditingEmitter}
               value={codEstablecimiento}
               onChange={(e) => setCodEstablecimiento(e.target.value.replace(/\D/g, '').substring(0, 3))}
               placeholder="001"
-              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 text-center font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 text-center font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-zinc-800/70"
               required
             />
           </div>
@@ -432,10 +465,11 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Punto de Emisión (001)</label>
             <input
               type="text"
+              disabled={!isEditingEmitter}
               value={codPuntoEmision}
               onChange={(e) => setCodPuntoEmision(e.target.value.replace(/\D/g, '').substring(0, 3))}
               placeholder="001"
-              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 text-center font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 text-center font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-zinc-800/70"
               required
             />
           </div>
@@ -445,6 +479,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Secuencial Factura (9 dígitos)</label>
             <input
               type="text"
+              disabled={!isEditingEmitter}
               value={ultimoSecuencialFactura}
               onChange={(e) => setUltimoSecuencialFactura(e.target.value.replace(/\D/g, '').substring(0, 9))}
               onBlur={(e) => {
@@ -454,7 +489,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
                 }
               }}
               placeholder="Ej. 000000001"
-              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 text-center font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 text-center font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-zinc-800/70"
               required
             />
           </div>
@@ -467,9 +502,10 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <input
               id="obligado"
               type="checkbox"
+              disabled={!isEditingEmitter}
               checked={obligadoContabilidad}
               onChange={(e) => setObligadoContabilidad(e.target.checked)}
-              className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 disabled:opacity-75 disabled:cursor-not-allowed"
             />
             <label htmlFor="obligado" className="ml-2 text-sm font-medium text-gray-700 dark:text-zinc-300">
               Obligado a Llevar Contabilidad
@@ -480,10 +516,11 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-400 mb-1">Resolución Contribuyente Especial</label>
             <input
               type="text"
+              disabled={!isEditingEmitter}
               value={contribuyenteEspecial}
               onChange={(e) => setContribuyenteEspecial(e.target.value.toUpperCase())}
               placeholder="Ej. RES. 024"
-              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm uppercase"
+              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm uppercase disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-zinc-800/70"
             />
           </div>
 
@@ -491,10 +528,11 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-400 mb-1">Reg. Agente de Retención (Resolución)</label>
             <input
               type="text"
+              disabled={!isEditingEmitter}
               value={agenteRetencion}
               onChange={(e) => setAgenteRetencion(e.target.value.toUpperCase())}
               placeholder="Ej. NO. NAC-DNCR-ASC20-00000001"
-              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm uppercase"
+              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm uppercase disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-zinc-800/70"
             />
           </div>
         </div>
@@ -505,15 +543,17 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <div className="grid grid-cols-2 gap-2 bg-gray-100 dark:bg-zinc-800 p-1 rounded-xl">
               <button
                 type="button"
+                disabled={!isEditingEmitter}
                 onClick={() => setAmbiente('1')}
-                className={`py-2 text-xs font-medium rounded-lg ${ambiente === '1' ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700'}`}
+                className={`py-2 text-xs font-medium rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed ${ambiente === '1' ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700'}`}
               >
                 1 - Pruebas (CELCER)
               </button>
               <button
                 type="button"
+                disabled={!isEditingEmitter}
                 onClick={() => setAmbiente('2')}
-                className={`py-2 text-xs font-medium rounded-lg ${ambiente === '2' ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700'}`}
+                className={`py-2 text-xs font-medium rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed ${ambiente === '2' ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700'}`}
               >
                 2 - Producción (CEL)
               </button>
@@ -602,120 +642,6 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
           </div>
         )}
       </div>
-
-      {/* SECCIÓN BASE DE DATOS SUPABASE (SOLO VISIBLE PARA ROL SUPERADMIN) */}
-      {currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 space-y-6">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50 flex items-center gap-2">
-              <Database className="w-5 h-5 text-indigo-500" />
-              Conexión Base de Datos Cloud (Supabase REST API)
-            </h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Conectado a la API REST de Supabase para almacenar clientes, catálogo de productos, facturas y proformas de forma persistente.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1 flex items-center gap-1.5">
-                <Globe className="w-4 h-4 text-indigo-500" /> Supabase REST API Base URL
-              </label>
-              <input
-                type="text"
-                value={sbUrl}
-                onChange={(e) => setSbUrl(e.target.value)}
-                placeholder="https://zrbmybedhtziyvkwrvzl.supabase.co"
-                className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1 flex items-center gap-1.5">
-                <Key className="w-4 h-4 text-indigo-500" /> Supabase Anon Key (API Key pública)
-              </label>
-              <input
-                type="password"
-                value={sbAnonKey}
-                onChange={(e) => setSbAnonKey(e.target.value)}
-                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={handleTestSupabase}
-                disabled={testingSb}
-                className="py-2.5 px-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium text-sm transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-              >
-                {testingSb ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" /> Comprobando Conexión REST...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4" /> Probar Conexión Supabase API
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowSql(!showSql)}
-                className="py-2.5 px-4 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-800 dark:text-zinc-200 rounded-xl font-medium text-xs transition flex items-center gap-1.5 cursor-pointer border border-gray-200 dark:border-zinc-700"
-              >
-                <Code className="w-4 h-4 text-indigo-500" />
-                {showSql ? 'Ocultar Script SQL' : 'Ver Código SQL Tablas'}
-              </button>
-            </div>
-
-            {sbTestResult && (
-              <div className={`p-3 rounded-xl border text-xs font-semibold flex items-center gap-2 w-full sm:w-auto ${
-                sbTestResult.success 
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300' 
-                  : 'bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-300'
-              }`}>
-                {sbTestResult.success ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />}
-                <span>{sbTestResult.message}</span>
-              </div>
-            )}
-          </div>
-
-          {/* CÓDIGO SQL Y BOTÓN DE COPIADO */}
-          {showSql && (
-            <div className="mt-4 p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-indigo-400 flex items-center gap-1.5">
-                  <Code className="w-4 h-4" /> Script SQL para Supabase (Tablas `clients`, `products`, `invoices`, `proformas`, `usuarios_portal`)
-                </span>
-                <button
-                  type="button"
-                  onClick={copySqlToClipboard}
-                  className="py-1.5 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
-                >
-                  {copiedSql ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copiedSql ? '¡Copiado!' : 'Copiar Código SQL'}
-                </button>
-              </div>
-              <p className="text-[11px] text-zinc-400">
-                Pegue este código en el <strong>SQL Editor</strong> de su panel de Supabase y presione <strong>Run</strong> para crear automáticamente todas las tablas requeridas.
-              </p>
-              <pre className="p-3 bg-black/60 rounded-lg text-[11px] text-indigo-200 font-mono overflow-x-auto max-h-56 border border-zinc-800/80">
-                {SUPABASE_SQL_SCRIPT}
-              </pre>
-            </div>
-          )}
-
-          {/* EXPLORADOR DE DATOS DE SUPABASE EN TIEMPO REAL */}
-          <div className="pt-4 border-t border-gray-100 dark:border-zinc-800">
-            <SupabaseExplorer />
-          </div>
-        </div>
-      )}
 
       <div className="flex items-center justify-end gap-3">
         {saveSuccess && (

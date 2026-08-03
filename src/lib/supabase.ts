@@ -121,6 +121,7 @@ CREATE TABLE IF NOT EXISTS public.emisor_config (
     punto_emision TEXT DEFAULT '001',
     lleva_contabilidad TEXT DEFAULT 'NO',
     contribuyente_especial TEXT DEFAULT '',
+    regimen TEXT DEFAULT 'GENERAL',
     regimen_tributario TEXT DEFAULT 'GENERAL',
     ambiente TEXT DEFAULT '1',
     logo_url TEXT,
@@ -266,6 +267,7 @@ ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS correo TEXT;
 ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS logo_url TEXT;
 ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS ultimo_secuencial_factura TEXT DEFAULT '000000001';
 ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS ambiente TEXT DEFAULT '1';
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS regimen TEXT DEFAULT 'GENERAL';
 ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS regimen_tributario TEXT DEFAULT 'GENERAL';
 ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS contribuyente_especial TEXT DEFAULT '';
 
@@ -655,7 +657,7 @@ export async function fetchEmitterConfigFromSupabase(ruc?: string): Promise<Emit
       codPuntoEmision: data.punto_emision || '',
       obligadoContabilidad: data.lleva_contabilidad === 'SI' || data.lleva_contabilidad === true,
       contribuyenteEspecial: data.contribuyente_especial || '',
-      regimen: data.regimen_tributario || '',
+      regimen: data.regimen || data.regimen_tributario || '',
       ambiente: data.ambiente || '',
       logoB64: data.logo_b64 || data.logo_url || '',
       ultimoSecuencialFactura: data.ultimo_secuencial_factura || '',
@@ -688,6 +690,7 @@ export async function saveEmitterConfigToSupabase(config: EmitterConfig): Promis
     punto_emision: config.codPuntoEmision || '',
     lleva_contabilidad: config.obligadoContabilidad ? 'SI' : 'NO',
     contribuyente_especial: config.contribuyenteEspecial || '',
+    regimen: config.regimen || '',
     regimen_tributario: config.regimen || '',
     ambiente: config.ambiente || '1',
     logo_url: config.logoB64 !== undefined ? config.logoB64 : '',
@@ -748,6 +751,8 @@ export async function saveEmitterLogoToSupabase(ruc: string, logoB64: string): P
         if (existing.direccion_matriz) payload.direccion_matriz = existing.direccion_matriz;
         if (existing.razon_social) payload.razon_social = existing.razon_social;
         if (existing.nombre_comercial) payload.nombre_comercial = existing.nombre_comercial;
+        if (existing.regimen) payload.regimen = existing.regimen;
+        if (existing.regimen_tributario) payload.regimen_tributario = existing.regimen_tributario;
         if (existing.p12_nombre) payload.p12_nombre = existing.p12_nombre;
         if (existing.p12_firma_b64) payload.p12_firma_b64 = existing.p12_firma_b64;
         if (existing.p12_password) payload.p12_password = existing.p12_password;
