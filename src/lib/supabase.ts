@@ -269,27 +269,63 @@ CREATE TABLE IF NOT EXISTS public.bitacora_actividades (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Habilitar RLS y crear políticas de acceso público/anon para todas las 12 tablas
+-- Habilitar RLS y políticas de INSERT/UPDATE/DELETE/SELECT para todas las tablas especificadas
+ALTER TABLE IF EXISTS public.bitacora_actividades ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permitir todo en bitacora_actividades" ON public.bitacora_actividades;
+CREATE POLICY "Permitir todo en bitacora_actividades" ON public.bitacora_actividades FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE IF EXISTS public.emisor_config ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permitir todo en emisor_config" ON public.emisor_config;
+CREATE POLICY "Permitir todo en emisor_config" ON public.emisor_config FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE IF EXISTS public.factura_detalles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permitir todo en factura_detalles" ON public.factura_detalles;
+CREATE POLICY "Permitir todo en factura_detalles" ON public.factura_detalles FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE IF EXISTS public.invitaciones ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permitir todo en invitaciones" ON public.invitaciones;
+CREATE POLICY "Permitir todo en invitaciones" ON public.invitaciones FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE IF EXISTS public.nota_credito_detalles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permitir todo en nota_credito_detalles" ON public.nota_credito_detalles;
+CREATE POLICY "Permitir todo en nota_credito_detalles" ON public.nota_credito_detalles FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE IF EXISTS public.notas_credito ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permitir todo en notas_credito" ON public.notas_credito;
+CREATE POLICY "Permitir todo en notas_credito" ON public.notas_credito FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE IF EXISTS public.proforma_detalles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permitir todo en proforma_detalles" ON public.proforma_detalles;
+CREATE POLICY "Permitir todo en proforma_detalles" ON public.proforma_detalles FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE IF EXISTS public.usuarios_portal ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permitir todo en usuarios_portal" ON public.usuarios_portal;
+CREATE POLICY "Permitir todo en usuarios_portal" ON public.usuarios_portal FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE IF EXISTS public.clientes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permitir todo en clientes" ON public.clientes;
+CREATE POLICY "Permitir todo en clientes" ON public.clientes FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE IF EXISTS public.productos ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permitir todo en productos" ON public.productos;
+CREATE POLICY "Permitir todo en productos" ON public.productos FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE IF EXISTS public.facturas ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permitir todo en facturas" ON public.facturas;
+CREATE POLICY "Permitir todo en facturas" ON public.facturas FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE IF EXISTS public.proformas ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permitir todo en proformas" ON public.proformas;
+CREATE POLICY "Permitir todo en proformas" ON public.proformas FOR ALL USING (true) WITH CHECK (true);
+
+-- Bucle dinámico para asegurar RLS en cualquier tabla existente
 DO $$
 DECLARE
     t text;
     tables text[] := ARRAY[
-        'clientes',
-        'productos',
-        'emisor_config',
-        'facturas',
-        'factura_detalles',
-        'proformas',
-        'proforma_detalles',
-        'notas_credito',
-        'nota_credito_detalles',
-        'usuarios_portal',
-        'invitaciones',
-        'bitacora_actividades',
-        'bitacoras_actividades',
-        'clients',
-        'products',
-        'invoices'
+        'clientes', 'productos', 'emisor_config', 'facturas', 'factura_detalles',
+        'proformas', 'proforma_detalles', 'notas_credito', 'nota_credito_detalles',
+        'usuarios_portal', 'invitaciones', 'bitacora_actividades'
     ];
 BEGIN
     FOREACH t IN ARRAY tables LOOP
