@@ -40,9 +40,12 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
   const [sigError, setSigError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Edit/Lock toggle state for Emitter fields
+  // Edit/Lock toggle state for Emitter fields and Signature fields
   const [isEditingEmitter, setIsEditingEmitter] = useState<boolean>(() => {
     return !(config.ruc && config.razonSocial);
+  });
+  const [isEditingSignature, setIsEditingSignature] = useState<boolean>(() => {
+    return !(config.p12FirmaB64 || config.p12Nombre);
   });
 
   // Sync internal state ONLY when external config prop deeply changes
@@ -204,6 +207,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
     await saveEmitterConfigToSupabase(updatedConfig);
 
     setIsEditingEmitter(false);
+    setIsEditingSignature(false);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
   };
@@ -564,21 +568,63 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
 
       {/* SECCIÓN FIRMA ELECTRÓNICA */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 space-y-6">
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50 flex items-center gap-2">
-            <Key className="w-5 h-5 text-amber-500" />
-            Certificado Digital de Firma Electrónica (.p12)
-          </h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Cargue su firma .p12 otorgada por entidades acreditadas en Ecuador (Uanataca, Consejo de la Judicatura, Security Data, etc.) para realizar las transacciones reales.
-          </p>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50 flex items-center gap-2">
+              <Key className="w-5 h-5 text-amber-500" />
+              Certificado Digital de Firma Electrónica (.p12)
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Cargue su firma .p12 otorgada por entidades acreditadas en Ecuador (Uanataca, Consejo de la Judicatura, Security Data, etc.) para realizar las transacciones reales.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsEditingSignature(!isEditingSignature)}
+            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg border transition flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0 ${
+              isEditingSignature 
+                ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600' 
+                : 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-700'
+            }`}
+            title={isEditingSignature ? "Bloquear los campos de la firma electrónica" : "Habilitar la edición de la firma electrónica"}
+          >
+            {isEditingSignature ? (
+              <>
+                <Lock className="w-3.5 h-3.5" /> Bloquear Campos
+              </>
+            ) : (
+              <>
+                <Edit3 className="w-3.5 h-3.5" /> Editar Formulario
+              </>
+            )}
+          </button>
         </div>
+
+        {!isEditingSignature && (
+          <div className="bg-amber-50 dark:bg-amber-950/30 p-2.5 px-4 rounded-xl border border-amber-200 dark:border-amber-800/50 flex items-center justify-between text-xs text-amber-800 dark:text-amber-300 font-medium">
+            <span className="flex items-center gap-2">
+              <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              Los campos del Certificado de Firma (.p12) están bloqueados. Haga clic en <strong>Editar Formulario</strong> para modificar.
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsEditingSignature(true)}
+              className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold flex items-center gap-1 cursor-pointer shrink-0"
+            >
+              <Edit3 className="w-3.5 h-3.5" /> Desbloquear
+            </button>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Cargar Archivo de Firma (.p12 / .pfx)</label>
             <div className="flex items-center justify-center w-full">
-              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-2xl cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-800 dark:border-zinc-700 hover:border-indigo-500">
+              <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-2xl transition ${
+                isEditingSignature 
+                  ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-800 border-gray-300 dark:border-zinc-700 hover:border-indigo-500' 
+                  : 'cursor-not-allowed opacity-60 bg-gray-100/50 dark:bg-zinc-800/40 border-gray-200 dark:border-zinc-800'
+              }`}>
                 <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center px-4">
                   <FileCode className="w-8 h-8 text-gray-400 mb-2" />
                   <p className="text-sm text-gray-600 dark:text-gray-300 font-semibold">
@@ -586,7 +632,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
                   </p>
                   <p className="text-xs text-gray-500 mt-1">Drag and drop o click para buscar</p>
                 </div>
-                <input type="file" accept=".p12,.pfx" onChange={handleFileUpload} className="hidden" />
+                <input type="file" disabled={!isEditingSignature} accept=".p12,.pfx" onChange={handleFileUpload} className="hidden" />
               </label>
             </div>
           </div>
@@ -596,18 +642,19 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
               <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Contraseña de la Firma</label>
               <input
                 type="password"
+                disabled={!isEditingSignature}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Introduzca clave secreta de exportación"
-                className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-zinc-800/70"
               />
             </div>
 
             <button
               type="button"
               onClick={handleVerifySignature}
-              disabled={isLoadingSig || !signatureB64}
-              className={`w-full py-2.5 px-4 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2 ${!signatureB64 ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-zinc-800' : 'bg-amber-500 hover:bg-amber-600 text-white shadow-xs'}`}
+              disabled={!isEditingSignature || isLoadingSig || !signatureB64}
+              className={`w-full py-2.5 px-4 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2 ${(!signatureB64 || !isEditingSignature) ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-zinc-800' : 'bg-amber-500 hover:bg-amber-600 text-white shadow-xs'}`}
             >
               {isLoadingSig ? (
                 <>

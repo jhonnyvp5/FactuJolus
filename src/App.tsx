@@ -347,8 +347,12 @@ export default function App() {
     };
   }, [currentUser?.correo]);
 
-  // Redirect to permitted tab for USER role if they land on or click a restricted option
+  // Redirect to permitted tab for USER role or non-SUPERADMIN on restricted options
   useEffect(() => {
+    if (activeTab === 'supabase' && currentUser?.role?.toUpperCase() !== 'SUPERADMIN') {
+      setActiveTab('history');
+      return;
+    }
     if (currentUser?.role === 'USER') {
       const isAllowed = userPermissions.includes(activeTab);
       if (!isAllowed) {
@@ -758,7 +762,7 @@ export default function App() {
                 </button>
               )}
 
-              {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('settings')) && (
+              {currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
                 <button
                   onClick={() => {
                     setActiveTab('supabase');
@@ -883,7 +887,7 @@ export default function App() {
             </button>
           )}
 
-          {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('settings')) && (
+          {currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
             <button
               onClick={() => setActiveTab('supabase')}
               className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'supabase' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
@@ -1011,7 +1015,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'supabase' && (
+          {activeTab === 'supabase' && currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
             <SupabaseExplorer />
           )}
         </div>
