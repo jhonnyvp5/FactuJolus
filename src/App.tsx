@@ -41,7 +41,7 @@ const DEFAULT_CONFIG: EmitterConfig = {
   ambiente: '1', // Pruebas
   isDemoMode: true, // Default to demo simulator mode is perfect
   correo: 'jolusservices@gmail.com',
-  ultimoSecuencialFactura: '000000002',
+  ultimoSecuencialFactura: '000000001',
 };
 
 const SEED_CLIENTS: Client[] = [
@@ -147,56 +147,15 @@ export default function App() {
     // 4. Invoices History
     const savedInvoices = localStorage.getItem(invoicesKey);
     if (savedInvoices) {
-      setInvoices(JSON.parse(savedInvoices));
+      const parsed: Invoice[] = JSON.parse(savedInvoices);
+      const filtered = parsed.filter(inv => inv.id !== 'seed-inv-1');
+      if (filtered.length !== parsed.length) {
+        localStorage.setItem(invoicesKey, JSON.stringify(filtered));
+      }
+      setInvoices(filtered);
     } else {
-      // Seed an initial authorized invoice to look fully professional out of the box
-      const initialInvoice: Invoice = {
-        id: 'seed-inv-1',
-        secuencial: '000000001',
-        fechaEmision: '2026-06-10',
-        cliente: SEED_CLIENTS[0],
-        detalles: [
-          {
-            id: 'd-1',
-            producto: SEED_PRODUCTS[0],
-            cantidad: 1,
-            descuento: 100,
-            subtotal: 1400,
-            ivaCalculado: 210, // 15% of 1400
-            total: 1610
-          },
-          {
-            id: 'd-2',
-            producto: SEED_PRODUCTS[2],
-            cantidad: 4,
-            descuento: 0,
-            subtotal: 300,
-            ivaCalculado: 0,
-            total: 300
-          }
-        ],
-        formaPago: '20',
-        plazo: 30,
-        unidadTiempo: 'dias',
-        claveAcceso: '1006202601179245108300110010010000000011234567812',
-        estado: 'Autorizado',
-        fechaAutorizacion: '2026-06-10T21:12:00-05:00',
-        numeroAutorizacion: '1006202601179245108300110010010000000011234567812',
-        mensajesSRI: [{ mensaje: 'AUTORIZADO', tipo: 'INFORMATIVO' }],
-        infoAdicional: [{ id: 'a-1', nombre: 'Email', valor: SEED_CLIENTS[0].correo }],
-        resumenImpuestos: {
-          base0: 300,
-          baseIva: 1400,
-          valorIva: 210,
-          subtotal: 1700,
-          descuento: 100,
-          total: 1910
-        }
-      };
-      
-      const seedInvs = [initialInvoice];
-      localStorage.setItem(invoicesKey, JSON.stringify(seedInvs));
-      setInvoices(seedInvs);
+      localStorage.setItem(invoicesKey, JSON.stringify([]));
+      setInvoices([]);
     }
 
     // 5. Credit notes history

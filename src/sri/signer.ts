@@ -20,31 +20,61 @@ export function getCertificateInfo(p12Base64: string, passwordStr: string): Sign
     const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, false, passwordStr);
     
     // Find cert bags
+    let cert: any = null;
     const certBags = p12.getBags({ bagType: forge.pki.oids.certBag });
     const certBagList = certBags[forge.pki.oids.certBag];
-    if (!certBagList || certBagList.length === 0) {
-      throw new Error('No se encontraron certificados en la firma electrónica .p12');
+    if (certBagList && certBagList.length > 0) {
+      cert = certBagList[0].cert;
     }
-    
-    const certBag = certBagList[0];
-    const cert = certBag.cert;
+
     if (!cert) {
-      throw new Error('Certificado inválido');
+      // Fallback: search all bags in p12
+      const bagsObj = (p12 as any).bags || {};
+      for (const bagType in bagsObj) {
+        const bagArray = bagsObj[bagType];
+        if (bagArray) {
+          for (const bag of bagArray) {
+            if (bag.cert) {
+              cert = bag.cert;
+              break;
+            }
+          }
+        }
+        if (cert) break;
+      }
+    }
+
+    if (!cert) {
+      throw new Error('No se encontraron certificados válidos dentro del archivo .p12');
     }
 
     const cnAttr = cert.subject.attributes.find((attr: any) => attr.name === 'commonName' || attr.type === '2.5.4.3');
     const oAttr = cert.subject.attributes.find((attr: any) => attr.name === 'organizationName' || attr.type === '2.5.4.10');
-    const issuerAttr = cert.issuer.attributes.find((attr: any) => attr.name === 'commonName' || attr.type === '2.5.4.3');
+    const givenAttr = cert.subject.attributes.find((attr: any) => attr.name === 'givenName' || attr.type === '2.5.4.42');
+    const surAttr = cert.subject.attributes.find((attr: any) => attr.name === 'surname' || attr.type === '2.5.4.4');
+    const issuerAttr = cert.issuer.attributes.find((attr: any) => attr.name === 'commonName' || attr.type === '2.5.4.3' || attr.name === 'organizationName');
+
+    let subjectName = 'Propietario de la Firma';
+    if (cnAttr?.value) {
+      subjectName = String(cnAttr.value);
+    } else if (givenAttr?.value || surAttr?.value) {
+      subjectName = `${givenAttr?.value || ''} ${surAttr?.value || ''}`.trim();
+    } else if (oAttr?.value) {
+      subjectName = String(oAttr.value);
+    }
 
     return {
-      subject: cnAttr ? String(cnAttr.value) : 'Desconocido',
-      issuer: issuerAttr ? String(issuerAttr.value) : 'Entidad Desconocida',
+      subject: subjectName,
+      issuer: issuerAttr ? String(issuerAttr.value) : 'Entidad Certificadora Ecuador',
       validFrom: cert.validity.notBefore.toISOString(),
       validTo: cert.validity.notAfter.toISOString(),
       serialNumber: cert.serialNumber || '0'
     };
   } catch (err: any) {
-    throw new Error(`Contraceña o archivo firma incorrectos: ${err.message || err}`);
+    if (err.message && err.message.includes('No se encontraron certificados')) {
+      throw err;
+    }
+    throw new Error(`Contraseña o archivo .p12 incorrecto: ${err.message || err}`);
   }
 }
 

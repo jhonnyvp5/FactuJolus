@@ -762,4 +762,67 @@ export async function ensureSuperAdminInSupabase(): Promise<void> {
   }
 }
 
+/**
+ * Validate login credentials against usuarios_portal table in Supabase
+ */
+export async function authenticateUserInSupabase(
+  email: string,
+  pass: string
+): Promise<PortalUser | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+
+  try {
+    const cleanEmail = email.trim().toLowerCase();
+    const { data, error } = await supabase
+      .from('usuarios_portal')
+      .select('*')
+      .eq('correo', cleanEmail)
+      .maybeSingle();
+
+    if (error || !data) return null;
+
+    // Check password match (supports clave_hash or clave)
+    if (data.clave_hash === pass || data.clave === pass) {
+      return {
+        id: data.id || `supa-${Date.now()}`,
+        correo: data.correo,
+        clave: pass,
+        role: (data.role || 'USER').toUpperCase() as any,
+        nombre: data.nombre || data.usuario || data.correo.split('@')[0],
+        fechaRegistro: data.created_at || new Date().toISOString()
+      };
+    }
+  } catch (err) {
+    console.warn('[Supabase] Error en autenticación usuarios_portal:', err);
+  }
+  return null;
+}
+
+/**
+ * Upsert user into Supabase usuarios_portal
+ */
+export async function upsertUserInSupabase(user: PortalUser): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
+
+  try {
+    await supabase
+      .from('usuarios_portal')
+      .upsert([
+        {
+          usuario: user.nombre,
+          correo: user.correo.toLowerCase(),
+          clave_hash: user.clave,
+          role: user.role,
+          nombre: user.nombre,
+          is_temp: false
+        }
+      ], { onConflict: 'correo' });
+  } catch (err) {
+    console.warn('[Supabase] Error al sincronizar usuario en usuarios_portal:', err);
+  }
+}
+
+
 

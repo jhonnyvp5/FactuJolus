@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { ShieldAlert, KeyRound, Mail, User, Check, Eye, EyeOff, Lock } from 'lucide-react';
+import { ShieldAlert, KeyRound, Mail, User, Check, Eye, EyeOff, Lock, Loader2 } from 'lucide-react';
 import { PortalUser, Invitation } from '../types';
 import { logActivity } from '../lib/activityLogger';
+import { authenticateUserInSupabase, upsertUserInSupabase } from '../lib/supabase';
 
 interface LoginFormProps {
   onLoginSuccess: (user: PortalUser) => void;
@@ -13,13 +14,14 @@ export default function LoginForm({ onLoginSuccess, adminEmail }: LoginFormProps
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   
   // For setting up a new permanent password on first invitation login
   const [pendingInvitation, setPendingInvitation] = useState<Invitation | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -29,72 +31,103 @@ export default function LoginForm({ onLoginSuccess, adminEmail }: LoginFormProps
       return;
     }
 
-    // 1. Check existing users in localStorage
-    const savedUsersRaw = localStorage.getItem('sri_portal_users');
-    let registeredUsers: PortalUser[] = [];
-    if (savedUsersRaw) {
-      registeredUsers = JSON.parse(savedUsersRaw);
-    }
+    setIsLoggingIn(true);
 
-    // Check if matching registered user
-    const foundUser = registeredUsers.find(u => u.correo.toLowerCase() === cleanEmail);
+    try {
+      // 1. First, validate login credentials in Supabase usuarios_portal table
+      const supaUser = await authenticateUserInSupabase(cleanEmail, password);
 
-    if (foundUser) {
-      if (foundUser.clave === password) {
-        logActivity(foundUser, 'Inicio de Sesión', `Inicio de sesión exitoso como ${foundUser.role}.`);
-        onLoginSuccess(foundUser);
-        return;
-      } else {
-        setError('Contraseña incorrecta.');
-        return;
-      }
-    }
+      const savedUsersRaw = localStorage.getItem('sri_portal_users');
+      let registeredUsers: PortalUser[] = savedUsersRaw ? JSON.parse(savedUsersRaw) : [];
 
-    // 2. If not registered, check if this is the default admin or superadmin login
-    if (cleanEmail === 'jolusservices@gmail.com' || cleanEmail === adminEmail.toLowerCase()) {
-      const superAdmin: PortalUser = {
-        id: 'superadmin-jolusservices',
-        correo: 'jolusservices@gmail.com',
-        clave: password || 'admin123',
-        role: 'SUPERADMIN',
-        nombre: 'Anibal Joel Gualoto Indacochea',
-        fechaRegistro: new Date().toISOString()
-      };
+      if (supaUser) {
+        // Save/Sync to local storage for offline session cache
+        const idx = registeredUsers.findIndex(u => u.correo.toLowerCase() === supaUser.correo.toLowerCase());
+        if (idx >= 0) {
+          registeredUsers[idx] = supaUser;
+        } else {
+          registeredUsers.push(supaUser);
+        }
+        localStorage.setItem('sri_portal_users', JSON.stringify(registeredUsers));
 
-      const idx = registeredUsers.findIndex(u => u.correo.toLowerCase() === 'jolusservices@gmail.com');
-      if (idx >= 0) {
-        registeredUsers[idx] = superAdmin;
-      } else {
-        registeredUsers.push(superAdmin);
-      }
-      localStorage.setItem('sri_portal_users', JSON.stringify(registeredUsers));
-      logActivity(superAdmin, 'Inicio de Sesión', 'Acceso al portal con cuenta SUPERADMIN de Administrador Principal.');
-      onLoginSuccess(superAdmin);
-      return;
-    }
-
-    // 3. Check invitations for temporary password
-    const savedInvitesRaw = localStorage.getItem('sri_portal_invitations');
-    if (savedInvitesRaw) {
-      const invitations: Invitation[] = JSON.parse(savedInvitesRaw);
-      const matchedInvite = invitations.find(
-        inv => inv.correo.toLowerCase() === cleanEmail && 
-               inv.claveTemporal === password && 
-               inv.estado === 'PENDIENTE'
-      );
-
-      if (matchedInvite) {
-        // Matched an invitation! User must now set their custom password
-        setPendingInvitation(matchedInvite);
-        setError(null);
+        logActivity(supaUser, 'Inicio de Sesión', `Inicio de sesión exitoso desde Supabase (Rol: ${supaUser.role}).`);
+        setIsLoggingIn(false);
+        onLoginSuccess(supaUser);
         return;
       }
-    }
 
-    setError('Credenciales inválidas o invitación expirada/inexistente.');
+      // 2. Fallback: Check existing users in local storage
+      const foundUser = registeredUsers.find(u => u.correo.toLowerCase() === cleanEmail);
+
+      if (foundUser) {
+        if (foundUser.clave === password) {
+          logActivity(foundUser, 'Inicio de Sesión', `Inicio de sesión exitoso como ${foundUser.role}.`);
+          setIsLoggingIn(false);
+          onLoginSuccess(foundUser);
+          return;
+        } else {
+          setIsLoggingIn(false);
+          setError('Contraseña incorrecta.');
+          return;
+        }
+      }
+
+      // 3. Fallback check for default admin or superadmin login
+      if (cleanEmail === 'jolusservices@gmail.com' || cleanEmail === adminEmail.toLowerCase()) {
+        const superAdmin: PortalUser = {
+          id: 'superadmin-jolusservices',
+          correo: 'jolusservices@gmail.com',
+          clave: password || 'admin123',
+          role: 'SUPERADMIN',
+          nombre: 'Anibal Joel Gualoto Indacochea',
+          fechaRegistro: new Date().toISOString()
+        };
+
+        const idx = registeredUsers.findIndex(u => u.correo.toLowerCase() === 'jolusservices@gmail.com');
+        if (idx >= 0) {
+          registeredUsers[idx] = superAdmin;
+        } else {
+          registeredUsers.push(superAdmin);
+        }
+        localStorage.setItem('sri_portal_users', JSON.stringify(registeredUsers));
+        
+        // Try background sync to Supabase usuarios_portal
+        upsertUserInSupabase(superAdmin).catch(err => console.warn('Supabase sync notice:', err));
+
+        logActivity(superAdmin, 'Inicio de Sesión', 'Acceso al portal con cuenta SUPERADMIN de Administrador Principal.');
+        setIsLoggingIn(false);
+        onLoginSuccess(superAdmin);
+        return;
+      }
+
+      // 4. Check invitations for temporary password
+      const savedInvitesRaw = localStorage.getItem('sri_portal_invitations');
+      if (savedInvitesRaw) {
+        const invitations: Invitation[] = JSON.parse(savedInvitesRaw);
+        const matchedInvite = invitations.find(
+          inv => inv.correo.toLowerCase() === cleanEmail && 
+                 inv.claveTemporal === password && 
+                 inv.estado === 'PENDIENTE'
+        );
+
+        if (matchedInvite) {
+          // Matched an invitation! User must now set their custom password
+          setPendingInvitation(matchedInvite);
+          setIsLoggingIn(false);
+          setError(null);
+          return;
+        }
+      }
+
+      setIsLoggingIn(false);
+      setError('Credenciales inválidas o cuenta no registrada en usuarios_portal.');
+    } catch (err: any) {
+      setIsLoggingIn(false);
+      setError(`Error al validar usuario: ${err.message || 'Error de conexión'}`);
+    }
   };
 
-  const handleCreatePasswordSubmit = (e: React.FormEvent) => {
+  const handleCreatePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pendingInvitation) return;
     setError(null);
@@ -119,11 +152,14 @@ export default function LoginForm({ onLoginSuccess, adminEmail }: LoginFormProps
       fechaRegistro: new Date().toISOString()
     };
 
-    // Update registered users
+    // Update registered users in local storage
     const savedUsersRaw = localStorage.getItem('sri_portal_users');
     const registeredUsers: PortalUser[] = savedUsersRaw ? JSON.parse(savedUsersRaw) : [];
     registeredUsers.push(newUser);
     localStorage.setItem('sri_portal_users', JSON.stringify(registeredUsers));
+
+    // Sync user into Supabase usuarios_portal table
+    await upsertUserInSupabase(newUser).catch(err => console.warn('Supabase upsert notice:', err));
 
     // Mark invitation as accepted
     const savedInvitesRaw = localStorage.getItem('sri_portal_invitations');
@@ -257,38 +293,18 @@ export default function LoginForm({ onLoginSuccess, adminEmail }: LoginFormProps
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full flex justify-center py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/10 focus:outline-none transition cursor-pointer"
+                  disabled={isLoggingIn}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/10 focus:outline-none transition cursor-pointer disabled:opacity-50"
                 >
-                  Ingresar al Portal
+                  {isLoggingIn ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Validando Credenciales...
+                    </>
+                  ) : (
+                    'Ingresar al Portal'
+                  )}
                 </button>
-              </div>
-
-              {/* DEVELOPER DEMO ACCREDITATION */}
-              <div className="mt-6 pt-4 border-t border-gray-100 dark:border-zinc-800 space-y-3 bg-gray-50/50 dark:bg-zinc-950/20 p-3.5 rounded-2xl">
-                <span className="text-[10px] uppercase tracking-wider font-extrabold text-indigo-500 block text-center">
-                  🔐 Demostración & Cuentas de Prueba
-                </span>
-                
-                <div className="grid grid-cols-1 gap-2.5 text-left font-sans text-[11px] text-gray-500 dark:text-zinc-400">
-                  <div className="bg-indigo-50/45 dark:bg-indigo-950/15 p-2.5 rounded-xl border border-indigo-100/30">
-                    <span className="font-bold text-indigo-700 dark:text-indigo-400">Perfil ADMINISTRADOR (Acceso Total):</span>
-                    <div className="mt-1 font-medium">
-                      Correo: <strong className="font-mono text-gray-750 dark:text-zinc-200 select-all">{adminEmail}</strong><br />
-                      Clave: <strong className="font-mono text-gray-750 dark:text-zinc-200 select-all">admin123</strong>
-                    </div>
-                  </div>
-
-                  <div className="bg-amber-50/45 dark:bg-amber-950/10 p-2.5 rounded-xl border border-amber-100/30">
-                    <span className="font-bold text-amber-700 dark:text-amber-400">Perfil OPERADOR USER (Acceso Restringido):</span>
-                    <div className="mt-1 font-medium">
-                      Correo: <strong className="font-mono text-gray-750 dark:text-zinc-200 select-all font-bold">user@sri.com</strong><br />
-                      Clave: <strong className="font-mono text-gray-750 dark:text-zinc-200 select-all font-bold">sriuser123</strong>
-                    </div>
-                    <p className="text-[10px] text-gray-450 dark:text-zinc-500 mt-1.5 leading-relaxed">
-                      * El rol <strong>USER</strong> no tiene de acceso a llaves de firma .p12, no puede emitir Notas de Crédito, ni configurar parámetros.
-                    </p>
-                  </div>
-                </div>
               </div>
             </form>
           ) : (
@@ -361,3 +377,4 @@ export default function LoginForm({ onLoginSuccess, adminEmail }: LoginFormProps
     </div>
   );
 }
+
