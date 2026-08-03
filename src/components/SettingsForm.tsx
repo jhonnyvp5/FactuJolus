@@ -103,7 +103,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
   const handleLoadExampleData = () => {
     setRuc('1792451083001');
     setRazonSocial('VALLE PLUA JHONNY ALEXIS');
-    setNombreComercial('JOLUS SERVICES');
+    setNombreComercial('JV SOLUCIONES');
     setDirMatriz('Av. Amazonas N21-147 y Av. Colón, Quito');
     setDirEstablecimiento('Matriz - Oficinas Administrativas 3B');
     setCodEstablecimiento('001');
@@ -210,16 +210,16 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
       codEstablecimiento,
       codPuntoEmision,
       obligadoContabilidad,
-      contribuyenteEspecial: contribuyenteEspecial || undefined,
-      agenteRetencion: agenteRetencion || undefined,
+      contribuyenteEspecial: contribuyenteEspecial,
+      agenteRetencion: agenteRetencion,
       regimen,
       ambiente,
       isDemoMode,
-      p12Nombre: signatureName || undefined,
-      p12FirmaB64: signatureB64 || undefined,
-      p12Password: password || undefined,
-      correo: correo || undefined,
-      telefono: telefono || undefined,
+      p12Nombre: signatureName,
+      p12FirmaB64: signatureB64,
+      p12Password: password,
+      correo: correo,
+      telefono: telefono,
       ultimoSecuencialFactura: ultimoSecuencialFactura ? ultimoSecuencialFactura.replace(/\D/g, '').padStart(9, '0') : '000000001',
       logoB64: config.logoB64
     };
