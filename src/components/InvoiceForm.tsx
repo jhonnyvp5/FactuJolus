@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { EmitterConfig, Invoice, Client, Product, InvoiceDetail, AdicionalInfo } from '../types';
 import { generateClaveAcceso, formatSequential, METODOS_PAGO, IVA_TARIFAS, IDENTIFICACIONES } from '../sri/utils';
-import { Plus, Trash2, ShieldAlert, Sparkles, User, ShoppingBag, FileSpreadsheet, CheckCircle, FileText, Download, Loader2 } from 'lucide-react';
+import { Plus, Trash2, ShieldAlert, Sparkles, User, ShoppingBag, FileSpreadsheet, CheckCircle, FileText, Download, Loader2, Mail } from 'lucide-react';
 import { generateInvoiceXml } from '../sri/xmlTemplates';
 import { uploadInvoiceXmlSinFirmar, uploadInvoiceXmlFirmado } from '../lib/supabase';
 import RideViewer from './RideViewer';
@@ -43,9 +43,32 @@ export default function InvoiceForm({
   // Document Electronic pipeline states (Points 4, 5, 6)
   const [electAction, setElectAction] = useState<'firmar' | 'firmar_enviar'>('firmar_enviar');
   const [isProcessingSri, setIsProcessingSri] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [sriLogs, setSriLogs] = useState<string[]>([]);
   const [createdInvoice, setCreatedInvoice] = useState<Invoice | null>(null);
   const [showInvoiceRide, setShowInvoiceRide] = useState(false);
+
+  const handleManualSendEmail = async () => {
+    if (!createdInvoice) return;
+    try {
+      setIsSendingEmail(true);
+      const res = await fetch('/api/send-invoice-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoice: createdInvoice, config })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        alert(`✅ Correo de Notificación de Documento Electrónico enviado exitosamente a ${createdInvoice.cliente.correo || 'cliente'}.\n\nIncluye los adjuntos XML y PDF RIDE.`);
+      } else {
+        alert(`⚠️ Inconveniente enviando correo: ${data.message}`);
+      }
+    } catch (err: any) {
+      alert(`Error de red al enviar el correo: ${err.message || String(err)}`);
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
 
   // Since sequentials are managed via central config and incremented, keep in sync with config state
   useEffect(() => {
@@ -516,11 +539,32 @@ export default function InvoiceForm({
         newInvoice.mensajesSRI = [{ mensaje: 'DOCUMENTO FIRMADO LOCALMENTE', tipo: 'INFORMATIVO' }];
         const seqNum = parseInt(secuencialVal, 10);
         localStorage.setItem('sri_highest_secuencial', String(seqNum));
+
+        // Auto-send email notification to client with XML and PDF attached
+        if (finalBuyer.correo) {
+          try {
+            setSriLogs(prev => [...prev, `📧 Despachando correo de notificación a ${finalBuyer.correo}...`]);
+            const emailRes = await fetch('/api/send-invoice-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ invoice: newInvoice, config })
+            });
+            const emailData = await emailRes.json();
+            if (emailData.status === 'success') {
+              setSriLogs(prev => [...prev, `✅ Correo enviado exitosamente a ${finalBuyer.correo} (Factura en PDF y XML adjuntos).`]);
+            } else {
+              setSriLogs(prev => [...prev, `⚠️ Notificación de correo: ${emailData.message}`]);
+            }
+          } catch (e: any) {
+            console.warn('Error al despachar correo:', e);
+          }
+        }
+
         onAddInvoice(newInvoice);
         setCreatedInvoice(newInvoice);
         setIsProcessingSri(false);
         setSriLogs(prev => [...prev, '✓ Proceso terminado de forma local. Estado: Firmado con XAdES-BES.']);
-        alert(`¡Factura #${secuencialVal} FIRMADA con éxito! Las opciones RIDE y XML están habilitadas.`);
+        alert(`¡Factura #${secuencialVal} FIRMADA con éxito! Se despachó el correo a ${finalBuyer.correo || 'cliente'}.`);
         return;
       }
 
@@ -600,11 +644,31 @@ export default function InvoiceForm({
         
         const seqNum = parseInt(secuencialVal, 10);
         localStorage.setItem('sri_highest_secuencial', String(seqNum));
+
+        // Auto-send email notification to client with XML and PDF attached
+        if (finalBuyer.correo) {
+          try {
+            setSriLogs(prev => [...prev, `📧 Despachando notificación por correo electrónico a ${finalBuyer.correo}...`]);
+            const emailRes = await fetch('/api/send-invoice-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ invoice: newInvoice, config })
+            });
+            const emailData = await emailRes.json();
+            if (emailData.status === 'success') {
+              setSriLogs(prev => [...prev, `✅ Correo enviado exitosamente a ${finalBuyer.correo} (Factura en PDF y XML adjuntos).`]);
+            } else {
+              setSriLogs(prev => [...prev, `⚠️ Notificación de correo: ${emailData.message}`]);
+            }
+          } catch (e: any) {
+            console.warn('Error al despachar correo:', e);
+          }
+        }
         
         onAddInvoice(newInvoice);
         setCreatedInvoice(newInvoice);
         setIsProcessingSri(false);
-        alert(`✅ ¡Factura #${secuencialVal} FIRMADA, ENVIADA y AUTORIZADA correctamente por el SRI!`);
+        alert(`✅ ¡Factura #${secuencialVal} FIRMADA, ENVIADA y AUTORIZADA correctamente por el SRI!\n📧 Correo enviado a: ${finalBuyer.correo || 'cliente'}`);
       } else {
         newInvoice.estado = 'No Autorizado';
         newInvoice.mensajesSRI = autorizacion.mensajes;
@@ -1265,6 +1329,14 @@ export default function InvoiceForm({
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
             >
               <FileText className="w-3.5 h-3.5" /> Visualizar RIDE (Factura PDF)
+            </button>
+            <button
+              type="button"
+              onClick={handleManualSendEmail}
+              disabled={isSendingEmail}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+            >
+              <Mail className="w-3.5 h-3.5" /> {isSendingEmail ? 'Enviando...' : 'Re-Enviar Correo al Cliente'}
             </button>
             <button
               type="button"

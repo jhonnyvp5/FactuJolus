@@ -3,6 +3,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { getCertificateInfo, signXmlDocument } from './src/sri/signer';
 import { enviarComprobanteSri, consultarAutorizacionSri } from './src/sri/soap';
+import { sendInvoiceEmail } from './src/sri/emailService';
 
 async function startServer() {
   const app = express();
@@ -71,6 +72,21 @@ async function startServer() {
       res.json({ status: 'success', data: result });
     } catch (err: any) {
       res.status(400).json({ status: 'error', message: err.message || String(err) });
+    }
+  });
+
+  // Endpoint to send electronic document email notification with attachments (XML + PDF) to client
+  app.post('/api/send-invoice-email', async (req, res) => {
+    try {
+      const { invoice, config, recipientEmail } = req.body;
+      if (!invoice) {
+        return res.status(400).json({ status: 'error', message: 'Falta el objeto de la factura para enviar por correo.' });
+      }
+
+      const result = await sendInvoiceEmail(invoice, config || {}, recipientEmail);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ status: 'error', message: err.message || String(err), emailSent: false });
     }
   });
 

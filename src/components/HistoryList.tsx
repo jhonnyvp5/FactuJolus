@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Invoice, CreditNote, EmitterConfig, EstadoComprobante } from '../types';
 import { generateInvoiceXml, generateCreditNoteXml } from '../sri/xmlTemplates';
-import { Search, Filter, RefreshCw, Send, ShieldCheck, Download, Printer, AlertTriangle, HelpCircle, ArrowDownCircle, Trash2 } from 'lucide-react';
+import { Search, Filter, RefreshCw, Send, ShieldCheck, Download, Printer, AlertTriangle, HelpCircle, ArrowDownCircle, Trash2, Mail } from 'lucide-react';
 
 interface HistoryListProps {
   config: EmitterConfig;
@@ -34,7 +34,29 @@ export default function HistoryList({
 
   // Loading states
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
   const [selectedErrorDoc, setSelectedErrorDoc] = useState<Invoice | CreditNote | null>(null);
+
+  const handleSendEmail = async (doc: Invoice) => {
+    try {
+      setSendingEmailId(doc.id);
+      const res = await fetch('/api/send-invoice-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoice: doc, config })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        alert(`✅ Correo de Notificación de Documento Electrónico enviado exitosamente a ${doc.cliente.correo || 'cliente'}.\n\nIncluye los adjuntos XML y PDF RIDE.`);
+      } else {
+        alert(`⚠️ Inconveniente enviando correo: ${data.message}`);
+      }
+    } catch (err: any) {
+      alert(`Error al despachar el correo: ${err.message || String(err)}`);
+    } finally {
+      setSendingEmailId(null);
+    }
+  };
 
   // Combine into single document list Sorted by date descending
   const allDocuments: (Invoice | CreditNote)[] = [];
@@ -196,6 +218,14 @@ export default function HistoryList({
             numeroAutorizacion: autorizacion.numeroAutorizacion,
             mensajesSRI: autorizacion.mensajes
           });
+
+          // Auto-send email notification to client
+          fetch('/api/send-invoice-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ invoice: { ...doc, estado: 'Autorizado', fechaAutorizacion: autorizacion.fechaAutorizacion, numeroAutorizacion: autorizacion.numeroAutorizacion }, config })
+          }).catch(err => console.warn('Error en despacho automático de correo:', err));
+
         } else {
           onUpdateCreditNote(doc.id, {
             estado: 'Autorizado',
@@ -204,7 +234,7 @@ export default function HistoryList({
             mensajesSRI: autorizacion.mensajes
           });
         }
-        alert(`✅ ¡Comprobante ${isInvoice ? 'Factura' : 'Nota de Crédito'} #${doc.secuencial} AUTORIZADO con éxito por el SRI!`);
+        alert(`✅ ¡Comprobante ${isInvoice ? 'Factura' : 'Nota de Crédito'} #${doc.secuencial} AUTORIZADO con éxito por el SRI!\n${isInvoice ? '📧 Correo enviado a: ' + doc.cliente.correo : ''}`);
       } else {
         if (isInvoice) {
           onUpdateInvoice(doc.id, { estado: 'No Autorizado', mensajesSRI: autorizacion.mensajes });
@@ -628,6 +658,19 @@ export default function HistoryList({
                             <Printer className="w-3 h-3 text-indigo-500" />
                             RIDE
                           </button>
+
+                          {/* Email notification button for invoices */}
+                          {isInvoice && (
+                            <button
+                              onClick={() => handleSendEmail(doc as Invoice)}
+                              disabled={sendingEmailId === doc.id}
+                              className="p-1 px-2 border border-blue-100 hover:bg-blue-50 hover:text-blue-700 dark:border-zinc-800 dark:hover:bg-zinc-800 text-gray-700 dark:text-zinc-300 rounded-lg flex items-center gap-1 cursor-pointer text-[11px] disabled:opacity-50"
+                              title={`Enviar correo de notificación con factura adjunta (XML y PDF) a ${doc.cliente.correo || 'cliente'}`}
+                            >
+                              <Mail className="w-3 h-3 text-blue-500" />
+                              {sendingEmailId === doc.id ? 'Enviando...' : 'Enviar Correo'}
+                            </button>
+                          )}
 
                           {/* XML descriptor download */}
                           {(doc.xml || doc.xmlFirmado) && (
