@@ -32,20 +32,21 @@ const STORAGE_KEYS = {
   CREDIT_NOTES: 'sri_credit_notes_history',
 };
 
-// Initial Core Seed Data
+// Initial Core Seed Data - Empty by default, fetched from emisor_config table in Supabase
 const DEFAULT_CONFIG: EmitterConfig = {
-  ruc: '1792451083001',
-  razonSocial: 'VALLE PLUA JHONNY ALEXIS',
-  nombreComercial: 'JOLUS SERVICES',
-  dirMatriz: 'Av. Amazonas N21-147 y Av. Colón, Quito',
-  dirEstablecimiento: 'Matriz - Oficinas Administrativas 3B',
+  ruc: '',
+  razonSocial: '',
+  nombreComercial: '',
+  dirMatriz: '',
+  dirEstablecimiento: '',
   codEstablecimiento: '001',
   codPuntoEmision: '001',
   obligadoContabilidad: true,
   regimen: 'RIMPE_EMPRENDEDOR',
   ambiente: '1', // Pruebas
-  isDemoMode: true, // Default to demo simulator mode is perfect
-  correo: 'jolusservices@gmail.com',
+  isDemoMode: true,
+  correo: '',
+  telefono: '',
   ultimoSecuencialFactura: '000000001',
 };
 
@@ -124,7 +125,14 @@ export default function App() {
     // 1. Config
     const savedConfig = localStorage.getItem(configKey);
     if (savedConfig) {
-      setConfig(JSON.parse(savedConfig));
+      const parsed = JSON.parse(savedConfig);
+      // Clean up legacy example hardcoded data if present
+      if (parsed.ruc === '1792451083001' || parsed.razonSocial === 'VALLE PLUA JHONNY ALEXIS') {
+        setConfig(DEFAULT_CONFIG);
+        localStorage.setItem(configKey, JSON.stringify(DEFAULT_CONFIG));
+      } else {
+        setConfig(parsed);
+      }
     } else {
       const initialConfig = email ? { ...DEFAULT_CONFIG, correo: email } : DEFAULT_CONFIG;
       localStorage.setItem(configKey, JSON.stringify(initialConfig));
@@ -212,10 +220,20 @@ export default function App() {
 
       // 5. Config
       const dbConfig = await fetchEmitterConfigFromSupabase();
-      if (dbConfig && dbConfig.ruc && isMounted) {
+      if (dbConfig && isMounted) {
         setConfig(prev => ({ ...prev, ...dbConfig }));
         const key = getUserStorageKey(STORAGE_KEYS.CONFIG, currentUser?.correo);
         localStorage.setItem(key, JSON.stringify({ ...config, ...dbConfig }));
+      } else if (!dbConfig && isMounted) {
+        // If no record exists in emisor_config, ensure hardcoded sample data isn't shown
+        setConfig(prev => {
+          if (prev.ruc === '1792451083001' || prev.razonSocial === 'VALLE PLUA JHONNY ALEXIS') {
+            const key = getUserStorageKey(STORAGE_KEYS.CONFIG, currentUser?.correo);
+            localStorage.setItem(key, JSON.stringify(DEFAULT_CONFIG));
+            return DEFAULT_CONFIG;
+          }
+          return prev;
+        });
       }
 
       // Auto migrate local items to Supabase

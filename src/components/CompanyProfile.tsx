@@ -269,35 +269,43 @@ export default function CompanyProfile({ config, onSaveConfig, currentUserEmail 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-sans leading-relaxed">
               <div className="bg-gray-50/50 dark:bg-zinc-950/10 p-3 rounded-xl border border-gray-250/20">
                 <span className="text-gray-400 block font-semibold text-[10px] uppercase">RUC / Identificación tributaria</span>
-                <span className="font-mono font-bold text-gray-900 dark:text-gray-100 text-sm">{config.ruc}</span>
+                <span className="font-mono font-bold text-gray-900 dark:text-gray-100 text-sm">
+                  {config.ruc || <em className="text-gray-400 font-normal italic">Sin registrar</em>}
+                </span>
               </div>
 
               <div className="bg-gray-50/50 dark:bg-zinc-950/10 p-3 rounded-xl border border-gray-250/20">
                 <span className="text-gray-400 block font-semibold text-[10px] uppercase">Régimen Impositivo</span>
                 <span className="font-bold text-indigo-600 dark:text-indigo-400 text-sm">
-                  {config.regimen.replace('_', ' ')}
+                  {config.regimen ? config.regimen.replace('_', ' ') : <em className="text-gray-400 font-normal italic">Sin registrar</em>}
                 </span>
               </div>
 
               <div className="bg-gray-50/50 dark:bg-zinc-950/10 p-3 rounded-xl border border-gray-250/20 sm:col-span-2">
                 <span className="text-gray-400 block font-semibold text-[10px] uppercase">Razón Social</span>
-                <span className="font-bold text-gray-800 dark:text-gray-150">{config.razonSocial}</span>
+                <span className="font-bold text-gray-800 dark:text-gray-150">
+                  {config.razonSocial || <em className="text-gray-400 font-normal italic">Sin registrar</em>}
+                </span>
               </div>
 
               <div className="bg-gray-50/50 dark:bg-zinc-950/10 p-3 rounded-xl border border-gray-250/20 sm:col-span-2">
                 <span className="text-gray-400 block font-semibold text-[10px] uppercase">Nombre Comercial</span>
-                <span className="font-medium text-gray-700 dark:text-zinc-300">{config.nombreComercial}</span>
+                <span className="font-medium text-gray-700 dark:text-zinc-300">
+                  {config.nombreComercial || <em className="text-gray-400 font-normal italic">Sin registrar</em>}
+                </span>
               </div>
 
               <div className="bg-gray-50/50 dark:bg-zinc-950/10 p-3 rounded-xl border border-gray-250/20 sm:col-span-2">
                 <span className="text-gray-400 block font-semibold text-[10px] uppercase">Dirección Matriz / Oficinas</span>
-                <span className="text-gray-700 dark:text-zinc-300">{config.dirMatriz}</span>
+                <span className="text-gray-700 dark:text-zinc-300">
+                  {config.dirMatriz || <em className="text-gray-400 font-normal italic">Sin registrar</em>}
+                </span>
               </div>
 
               <div className="bg-gray-50/50 dark:bg-zinc-950/10 p-3 rounded-xl border border-gray-250/20">
                 <span className="text-gray-400 block font-semibold text-[10px] uppercase">Punto de Emisión configurado</span>
                 <span className="font-mono font-bold text-gray-800 dark:text-gray-200">
-                  {config.codEstablecimiento}-{config.codPuntoEmision}
+                  {config.codEstablecimiento || '001'}-{config.codPuntoEmision || '001'}
                 </span>
               </div>
 
@@ -311,14 +319,14 @@ export default function CompanyProfile({ config, onSaveConfig, currentUserEmail 
               <div className="bg-gray-50/50 dark:bg-zinc-950/10 p-3 rounded-xl border border-gray-250/20">
                 <span className="text-gray-400 block font-semibold text-[10px] uppercase">Correo Electrónico Emisor</span>
                 <span className="font-medium text-gray-850 dark:text-gray-200">
-                  {config.correo || 'No registrado'}
+                  {config.correo || <em className="text-gray-400 font-normal italic">Sin registrar</em>}
                 </span>
               </div>
 
               <div className="bg-gray-50/50 dark:bg-zinc-950/10 p-3 rounded-xl border border-gray-250/20">
                 <span className="text-gray-400 block font-semibold text-[10px] uppercase">Siguiente Secuencial Factura</span>
                 <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-sm">
-                  {config.ultimoSecuencialFactura || '000000002'}
+                  {config.ultimoSecuencialFactura || '000000001'}
                 </span>
               </div>
             </div>
