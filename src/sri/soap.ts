@@ -1,16 +1,33 @@
 import https from 'https';
-import crypto from 'crypto';
 import { SriMessage } from '../types';
 
 // SSL options for supporting legacy renegotiation on the SRI servers (required with OpenSSL 3 / Node.js 18+)
-const SSL_OP_LEGACY_SERVER_CONNECT = crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT || 0x00000004;
-const SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION = (crypto.constants as any).SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION || 0x00040000;
+const SSL_OP_LEGACY_SERVER_CONNECT = 0x00000004;
+const SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION = 0x00040000;
 
 /**
  * Realiza una petición SOAP al SRI utilizando TLS v1.0/1.2 compatible con sus servidores legacy (resuelve ECONNRESET y fallos de fetch).
  * Incluye reintentos automáticos para lidiar con la inestabilidad de los servidores del SRI.
  */
 async function soapRequest(urlStr: string, xmlBody: string, retriesRemaining = 3): Promise<string> {
+  // If running in browser client environment without Node https module
+  if (typeof window !== 'undefined' || !(https as any)?.request) {
+    try {
+      const response = await fetch(urlStr, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/xml;charset=UTF-8' },
+        body: xmlBody
+      });
+      return await response.text();
+    } catch (err: any) {
+      if (retriesRemaining > 0) {
+        await new Promise(r => setTimeout(r, 1000));
+        return soapRequest(urlStr, xmlBody, retriesRemaining - 1);
+      }
+      throw err;
+    }
+  }
+
   try {
     return await new Promise<string>((resolve, reject) => {
       try {

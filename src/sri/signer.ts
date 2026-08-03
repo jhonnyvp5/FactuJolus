@@ -1,5 +1,4 @@
 import forge from 'node-forge';
-import crypto from 'crypto';
 import { signInvoiceXml, signCreditNoteXml } from 'ec-sri-invoice-signer';
 
 export interface SignatureInfo {
@@ -87,8 +86,13 @@ export function getCertificateInfo(p12Base64: string, passwordStr: string): Sign
 export function signXmlDocument(xmlContent: string, p12B64: string | undefined, passwordStr: string | undefined, isDemo: boolean = true): string {
   if (isDemo || !p12B64 || !passwordStr) {
     // Generate high fidelity simulated XAdES-BES signature block
-    const mockHash = crypto.createHash('sha1').update(xmlContent).digest('base64');
-    const mockSignature = crypto.createHash('sha1').update(mockHash + 'SALT').digest('hex').substring(0, 128);
+    const md1 = forge.md.sha1.create();
+    md1.update(xmlContent, 'utf8');
+    const mockHash = forge.util.encode64(md1.digest().getBytes());
+
+    const md2 = forge.md.sha1.create();
+    md2.update(mockHash + 'SALT', 'utf8');
+    const mockSignature = md2.digest().toHex().substring(0, 128);
     
     // Locate root closing tag to insert signature block (before closing tag of factura/notaCredito)
     const matches = xmlContent.match(/<\/(factura|notaCredito)>/);

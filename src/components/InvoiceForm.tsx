@@ -4,6 +4,7 @@ import { generateClaveAcceso, formatSequential, METODOS_PAGO, IVA_TARIFAS, IDENT
 import { Plus, Trash2, ShieldAlert, Sparkles, User, ShoppingBag, FileSpreadsheet, CheckCircle, FileText, Download, Loader2, Mail } from 'lucide-react';
 import { generateInvoiceXml } from '../sri/xmlTemplates';
 import { uploadInvoiceXmlSinFirmar, uploadInvoiceXmlFirmado } from '../lib/supabase';
+import { apiSignXml, apiSendSri, apiAuthorizeSri, apiSendInvoiceEmail } from '../lib/apiClient';
 import RideViewer from './RideViewer';
 
 interface InvoiceFormProps {
@@ -52,19 +53,14 @@ export default function InvoiceForm({
     if (!createdInvoice) return;
     try {
       setIsSendingEmail(true);
-      const res = await fetch('/api/send-invoice-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoice: createdInvoice, config })
-      });
-      const data = await res.json();
+      const data = await apiSendInvoiceEmail(createdInvoice, config);
       if (data.status === 'success') {
-        alert(`✅ Correo de Notificación de Documento Electrónico enviado exitosamente a ${createdInvoice.cliente.correo || 'cliente'}.\n\nIncluye los adjuntos XML y PDF RIDE.`);
+        alert(`✅ Correo de Notificación de Documento Electrónico procesado exitosamente para ${createdInvoice.cliente.correo || 'cliente'}.\n\nIncluye los adjuntos XML y PDF RIDE.`);
       } else {
         alert(`⚠️ Inconveniente enviando correo: ${data.message}`);
       }
     } catch (err: any) {
-      alert(`Error de red al enviar el correo: ${err.message || String(err)}`);
+      alert(`Error al procesar el correo: ${err.message || String(err)}`);
     } finally {
       setIsSendingEmail(false);
     }
@@ -507,20 +503,15 @@ export default function InvoiceForm({
 
       // 2. Electronic signature via XAdES-BES
       setSriLogs(prev => [...prev, '✍️ Conectando con Servicio de Firma Electrónica (XAdES-BES)...']);
-      const signRes = await fetch('/api/sign-xml', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          xmlContent: rawXml,
-          p12Base64: config.isDemoMode ? undefined : config.p12FirmaB64,
-          password: config.isDemoMode ? undefined : config.p12Password,
-          isDemo: config.isDemoMode
-        })
-      });
+      const signData = await apiSignXml(
+        rawXml,
+        config.isDemoMode ? undefined : config.p12FirmaB64,
+        config.isDemoMode ? undefined : config.p12Password,
+        config.isDemoMode
+      );
 
-      const signData = await signRes.json();
-      if (signData.status !== 'success') {
-        throw new Error(`Firma Electrónica no autorizada: ${signData.message}`);
+      if (signData.status !== 'success' || !signData.signedXml) {
+        throw new Error(`Firma Electrónica no autorizada: ${signData.message || 'Error al firmar'}`);
       }
 
       const signedXml = signData.signedXml;
@@ -544,12 +535,7 @@ export default function InvoiceForm({
         if (finalBuyer.correo) {
           try {
             setSriLogs(prev => [...prev, `📧 Despachando correo de notificación a ${finalBuyer.correo}...`]);
-            const emailRes = await fetch('/api/send-invoice-email', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ invoice: newInvoice, config })
-            });
-            const emailData = await emailRes.json();
+            const emailData = await apiSendInvoiceEmail(newInvoice, config, finalBuyer.correo);
             if (emailData.status === 'success') {
               setSriLogs(prev => [...prev, `✅ Correo enviado exitosamente a ${finalBuyer.correo} (Factura en PDF y XML adjuntos).`]);
             } else {
@@ -571,20 +557,10 @@ export default function InvoiceForm({
       // If action is firmar_enviar (Default)
       setSriLogs(prev => [...prev, '📡 Transmitiendo XML firmado a los servidores de RECEPCIÓN del SRI (SOAP)...']);
       
-      const sendRes = await fetch('/api/send-sri', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          signedXml,
-          claveAcceso: currentClaveAcceso,
-          ambiente: config.ambiente,
-          isDemo: config.isDemoMode
-        })
-      });
+      const sendResult = await apiSendSri(signedXml, currentClaveAcceso, config.ambiente, config.isDemoMode);
 
-      const sendResult = await sendRes.json();
-      if (sendResult.status !== 'success') {
-        throw new Error(`Fallo transmisión SOAP SRI: ${sendResult.message}`);
+      if (sendResult.status !== 'success' || !sendResult.data) {
+        throw new Error(`Fallo transmisión SOAP SRI: ${sendResult.message || 'Sin respuesta de recepción'}`);
       }
 
       const recepcion = sendResult.data;
@@ -613,19 +589,10 @@ export default function InvoiceForm({
       setSriLogs(prev => [...prev, '✓ Comprobante aceptado en recepción. Iniciando consulta de AUTORIZACIÓN (SOAP)...']);
 
       // 4. Query authorization
-      const authRes = await fetch('/api/authorize-sri', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          claveAcceso: currentClaveAcceso,
-          ambiente: config.ambiente,
-          isDemo: config.isDemoMode
-        })
-      });
+      const authResult = await apiAuthorizeSri(currentClaveAcceso, config.ambiente, config.isDemoMode);
 
-      const authResult = await authRes.json();
-      if (authResult.status !== 'success') {
-        throw new Error(`Error en consulta de Autorización SRI: ${authResult.message}`);
+      if (authResult.status !== 'success' || !authResult.data) {
+        throw new Error(`Error en consulta de Autorización SRI: ${authResult.message || 'Sin respuesta de autorización'}`);
       }
 
       const autorizacion = authResult.data;
@@ -649,12 +616,7 @@ export default function InvoiceForm({
         if (finalBuyer.correo) {
           try {
             setSriLogs(prev => [...prev, `📧 Despachando notificación por correo electrónico a ${finalBuyer.correo}...`]);
-            const emailRes = await fetch('/api/send-invoice-email', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ invoice: newInvoice, config })
-            });
-            const emailData = await emailRes.json();
+            const emailData = await apiSendInvoiceEmail(newInvoice, config, finalBuyer.correo);
             if (emailData.status === 'success') {
               setSriLogs(prev => [...prev, `✅ Correo enviado exitosamente a ${finalBuyer.correo} (Factura en PDF y XML adjuntos).`]);
             } else {

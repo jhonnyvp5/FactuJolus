@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PortalUser, EmitterConfig, RegimenTributario } from '../types';
 import { validateRuc, REGIMENES } from '../sri/utils';
 import { getCertificateInfo } from '../sri/signer';
+import { apiCheckSignature } from '../lib/apiClient';
 import { CheckCircle2, AlertCircle, Key, FileCode, Shield, RefreshCw, Trash2, Sparkles, Lock, Edit3, Check } from 'lucide-react';
 import { saveEmitterConfigToSupabase } from '../lib/supabase';
 
@@ -138,36 +139,15 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
     setSigError(null);
     setSigDetails(null);
 
-    // 1. Try server API endpoint
     try {
-      const res = await fetch('/api/check-signature', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ p12Base64: signatureB64, password })
-      });
-
-      if (res.ok) {
-        const result = await res.json();
-        if (result.status === 'success') {
-          setSigDetails(result.info);
-          setIsLoadingSig(false);
-          return;
-        } else if (result.message) {
-          setSigError(result.message);
-          setIsLoadingSig(false);
-          return;
-        }
+      const result = await apiCheckSignature(signatureB64, password);
+      if (result.status === 'success' && result.info) {
+        setSigDetails(result.info);
+      } else {
+        setSigError(result.message || 'No se pudo validar la firma electrónica con la contraseña proporcionada.');
       }
-    } catch (err) {
-      console.warn('API check-signature network issue, using client-side validation fallback:', err);
-    }
-
-    // 2. Client-side fallback using forge directly in browser
-    try {
-      const info = getCertificateInfo(signatureB64, password);
-      setSigDetails(info);
     } catch (err: any) {
-      setSigError(err.message || 'No se pudo validar la firma electrónica con la contraseña proporcionada.');
+      setSigError(err.message || 'Error al validar la firma electrónica.');
     } finally {
       setIsLoadingSig(false);
     }

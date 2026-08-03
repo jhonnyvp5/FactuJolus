@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Invoice, CreditNote, EmitterConfig, EstadoComprobante } from '../types';
 import { generateInvoiceXml, generateCreditNoteXml } from '../sri/xmlTemplates';
 import { Search, Filter, RefreshCw, Send, ShieldCheck, Download, Printer, AlertTriangle, HelpCircle, ArrowDownCircle, Trash2, Mail } from 'lucide-react';
+import { apiSignXml, apiSendSri, apiAuthorizeSri, apiSendInvoiceEmail } from '../lib/apiClient';
 
 interface HistoryListProps {
   config: EmitterConfig;
@@ -40,14 +41,9 @@ export default function HistoryList({
   const handleSendEmail = async (doc: Invoice) => {
     try {
       setSendingEmailId(doc.id);
-      const res = await fetch('/api/send-invoice-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoice: doc, config })
-      });
-      const data = await res.json();
+      const data = await apiSendInvoiceEmail(doc, config);
       if (data.status === 'success') {
-        alert(`✅ Correo de Notificación de Documento Electrónico enviado exitosamente a ${doc.cliente.correo || 'cliente'}.\n\nIncluye los adjuntos XML y PDF RIDE.`);
+        alert(`✅ Correo de Notificación de Documento Electrónico procesado exitosamente para ${doc.cliente.correo || 'cliente'}.\n\nIncluye los adjuntos XML y PDF RIDE.`);
       } else {
         alert(`⚠️ Inconveniente enviando correo: ${data.message}`);
       }
@@ -123,21 +119,16 @@ export default function HistoryList({
         onUpdateCreditNote(doc.id, { xml: rawXml, estado: 'Borrador' });
       }
 
-      // 2. Sign XML via server endpoint
-      const signRes = await fetch('/api/sign-xml', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          xmlContent: rawXml,
-          p12Base64: config.isDemoMode ? undefined : config.p12FirmaB64,
-          password: config.isDemoMode ? undefined : config.p12Password,
-          isDemo: config.isDemoMode
-        })
-      });
+      // 2. Sign XML via server or client fallback
+      const signData = await apiSignXml(
+        rawXml,
+        config.isDemoMode ? undefined : config.p12FirmaB64,
+        config.isDemoMode ? undefined : config.p12Password,
+        config.isDemoMode
+      );
 
-      const signData = await signRes.json();
-      if (signData.status !== 'success') {
-        throw new Error(`Error de Firma Electrónica: ${signData.message}`);
+      if (signData.status !== 'success' || !signData.signedXml) {
+        throw new Error(`Error de Firma Electrónica: ${signData.message || 'Error al firmar'}`);
       }
 
       const signedXml = signData.signedXml;
@@ -149,20 +140,10 @@ export default function HistoryList({
       }
 
       // 3. Transmit to SRI Reception soap endpoint
-      const sendRes = await fetch('/api/send-sri', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          signedXml,
-          claveAcceso: doc.claveAcceso,
-          ambiente: config.ambiente,
-          isDemo: config.isDemoMode
-        })
-      });
+      const sendResult = await apiSendSri(signedXml, doc.claveAcceso, config.ambiente, config.isDemoMode);
 
-      const sendResult = await sendRes.json();
-      if (sendResult.status !== 'success') {
-        throw new Error(`Error de conexión SRI: ${sendResult.message}`);
+      if (sendResult.status !== 'success' || !sendResult.data) {
+        throw new Error(`Error de conexión SRI: ${sendResult.message || 'Sin respuesta'}`);
       }
 
       const recepcion = sendResult.data;
@@ -194,37 +175,26 @@ export default function HistoryList({
       }
 
       // 4. Query background authorization status
-      const authRes = await fetch('/api/authorize-sri', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          claveAcceso: doc.claveAcceso,
-          ambiente: config.ambiente,
-          isDemo: config.isDemoMode
-        })
-      });
+      const authResult = await apiAuthorizeSri(doc.claveAcceso, config.ambiente, config.isDemoMode);
 
-      const authResult = await authRes.json();
-      if (authResult.status !== 'success') {
-        throw new Error(`Error consultando autorización: ${authResult.message}`);
+      if (authResult.status !== 'success' || !authResult.data) {
+        throw new Error(`Error consultando autorización: ${authResult.message || 'Sin respuesta'}`);
       }
 
       const autorizacion = authResult.data;
       if (autorizacion.estado === 'AUTORIZADO') {
         if (isInvoice) {
-          onUpdateInvoice(doc.id, {
-            estado: 'Autorizado',
+          const updatedInv = {
+            ...doc,
+            estado: 'Autorizado' as const,
             fechaAutorizacion: autorizacion.fechaAutorizacion,
             numeroAutorizacion: autorizacion.numeroAutorizacion,
             mensajesSRI: autorizacion.mensajes
-          });
+          };
+          onUpdateInvoice(doc.id, updatedInv);
 
           // Auto-send email notification to client
-          fetch('/api/send-invoice-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ invoice: { ...doc, estado: 'Autorizado', fechaAutorizacion: autorizacion.fechaAutorizacion, numeroAutorizacion: autorizacion.numeroAutorizacion }, config })
-          }).catch(err => console.warn('Error en despacho automático de correo:', err));
+          apiSendInvoiceEmail(updatedInv, config).catch(err => console.warn('Error en despacho automático de correo:', err));
 
         } else {
           onUpdateCreditNote(doc.id, {
