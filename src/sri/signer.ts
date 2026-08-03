@@ -1,3 +1,7 @@
+import { Buffer } from 'buffer';
+if (typeof globalThis !== 'undefined' && !(globalThis as any).Buffer) {
+  (globalThis as any).Buffer = Buffer;
+}
 import forge from 'node-forge';
 import { signInvoiceXml, signCreditNoteXml } from 'ec-sri-invoice-signer';
 
