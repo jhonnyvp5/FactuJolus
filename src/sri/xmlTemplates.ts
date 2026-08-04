@@ -70,7 +70,26 @@ export function generateInvoiceXml(invoice: Invoice, config: EmitterConfig): str
   }
 
   // Details
-  const detailsXml = invoice.detalles.map(det => {
+  const itemsToProcess = (invoice.detalles && invoice.detalles.length > 0) ? invoice.detalles : [
+    {
+      id: 'default-1',
+      producto: {
+        id: 'p1',
+        codigo: '001',
+        nombre: 'PRODUCTO O SERVICIO',
+        precio: invoice.resumenImpuestos?.subtotal || 1.0,
+        ivaTipo: '4',
+        descuentoDefault: 0
+      },
+      cantidad: 1,
+      descuento: 0,
+      subtotal: invoice.resumenImpuestos?.subtotal || 1.0,
+      ivaCalculado: invoice.resumenImpuestos?.valorIva || 0.15,
+      total: invoice.resumenImpuestos?.total || 1.15
+    }
+  ];
+
+  const detailsXml = itemsToProcess.map(det => {
     let pctCode = '0';
     let rateStr = '0.00';
     
@@ -86,16 +105,22 @@ export function generateInvoiceXml(invoice: Invoice, config: EmitterConfig): str
       pctCode = '7';
     }
 
-    const detailTotalSinImp = det.subtotal;
-    const itemIvaVal = det.ivaCalculado;
+    const codigoClean = escapeXml(det.producto.codigo || '001');
+    const nombreClean = escapeXml(det.producto.nombre || 'PRODUCTO O SERVICIO');
+    const cantFormatted = formatQty(det.cantidad > 0 ? det.cantidad : 1);
+    const unitPrice = det.producto.precio > 0 ? det.producto.precio : (det.subtotal || 1);
+    const precioFormatted = Number(unitPrice).toFixed(4);
+    const descFormatted = formatNum(det.descuento || 0);
+    const detailTotalSinImp = det.subtotal > 0 ? det.subtotal : (det.cantidad * unitPrice);
+    const itemIvaVal = det.ivaCalculado || 0;
 
     return `
     <detalle>
-      <codigoPrincipal>${escapeXml(det.producto.codigo)}</codigoPrincipal>
-      <descripcion>${escapeXml(det.producto.nombre)}</descripcion>
-      <cantidad>${formatQty(det.cantidad)}</cantidad>
-      <precioUnitario>${Number(det.producto.precio).toFixed(4)}</precioUnitario>
-      <descuento>${formatNum(det.descuento)}</descuento>
+      <codigoPrincipal>${codigoClean}</codigoPrincipal>
+      <descripcion>${nombreClean}</descripcion>
+      <cantidad>${cantFormatted}</cantidad>
+      <precioUnitario>${precioFormatted}</precioUnitario>
+      <descuento>${descFormatted}</descuento>
       <precioTotalSinImpuesto>${formatNum(detailTotalSinImp)}</precioTotalSinImpuesto>
       <impuestos>
         <impuesto>
@@ -142,24 +167,31 @@ export function generateInvoiceXml(invoice: Invoice, config: EmitterConfig): str
     agenteRetencionXml = `\n    <agenteRetencion>${escapeXml(config.agenteRetencion)}</agenteRetencion>`;
   }
 
+  const estabFormatted = (config.codEstablecimiento || '001').toString().trim().padStart(3, '0');
+  const ptoEmiFormatted = (config.codPuntoEmision || '001').toString().trim().padStart(3, '0');
+  const secuencialFormatted = (invoice.secuencial || '1').toString().trim().padStart(9, '0');
+  const rucFormatted = (config.ruc || '1792451083001').toString().trim().padStart(13, '0');
+  const dirMatrizClean = escapeXml(config.dirMatriz || config.dirEstablecimiento || 'Quito - Ecuador');
+  const dirEstabClean = escapeXml(config.dirEstablecimiento || config.dirMatriz || 'Quito - Ecuador');
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <factura id="comprobante" version="1.1.0">
   <infoTributaria>
-    <ambiente>${config.ambiente}</ambiente>
+    <ambiente>${config.ambiente || '1'}</ambiente>
     <tipoEmision>1</tipoEmision>
-    <razonSocial>${escapeXml(config.razonSocial)}</razonSocial>
-    <nombreComercial>${escapeXml(config.nombreComercial || config.razonSocial)}</nombreComercial>
-    <ruc>${config.ruc}</ruc>
+    <razonSocial>${escapeXml(config.razonSocial || 'EMISOR')}</razonSocial>
+    <nombreComercial>${escapeXml(config.nombreComercial || config.razonSocial || 'EMISOR')}</nombreComercial>
+    <ruc>${rucFormatted}</ruc>
     <claveAcceso>${invoice.claveAcceso}</claveAcceso>
     <codDoc>01</codDoc>
-    <estab>${config.codEstablecimiento}</estab>
-    <ptoEmi>${config.codPuntoEmision}</ptoEmi>
-    <secuencial>${invoice.secuencial}</secuencial>
-    <dirMatriz>${escapeXml(config.dirMatriz)}</dirMatriz>${agenteRetencionXml}${regimenCommentsXml}
+    <estab>${estabFormatted}</estab>
+    <ptoEmi>${ptoEmiFormatted}</ptoEmi>
+    <secuencial>${secuencialFormatted}</secuencial>
+    <dirMatriz>${dirMatrizClean}</dirMatriz>${agenteRetencionXml}${regimenCommentsXml}
   </infoTributaria>
   <infoFactura>
     <fechaEmision>${fechaEmiFormatted}</fechaEmision>
-    <dirEstablecimiento>${escapeXml(config.dirEstablecimiento || config.dirMatriz)}</dirEstablecimiento>${config.contribuyenteEspecial ? `\n    <contribuyenteEspecial>${escapeXml(config.contribuyenteEspecial)}</contribuyenteEspecial>` : ''}
+    <dirEstablecimiento>${dirEstabClean}</dirEstablecimiento>${config.contribuyenteEspecial ? `\n    <contribuyenteEspecial>${escapeXml(config.contribuyenteEspecial)}</contribuyenteEspecial>` : ''}
     <obligadoContabilidad>${config.obligadoContabilidad ? 'SI' : 'NO'}</obligadoContabilidad>
     <tipoIdentificacionComprador>${invoice.cliente.tipoIdentificacion}</tipoIdentificacionComprador>
     <razonSocialComprador>${escapeXml(invoice.cliente.nombre)}</razonSocialComprador>
@@ -214,7 +246,26 @@ export function generateCreditNoteXml(creditNote: CreditNote, config: EmitterCon
   }
 
   // Details
-  const detailsXml = creditNote.detalles.map(det => {
+  const itemsToProcess = (creditNote.detalles && creditNote.detalles.length > 0) ? creditNote.detalles : [
+    {
+      id: 'default-nc-1',
+      producto: {
+        id: 'p1',
+        codigo: '001',
+        nombre: 'PRODUCTO O SERVICIO',
+        precio: creditNote.resumenImpuestos?.subtotal || 1.0,
+        ivaTipo: '4',
+        descuentoDefault: 0
+      },
+      cantidad: 1,
+      descuento: 0,
+      subtotal: creditNote.resumenImpuestos?.subtotal || 1.0,
+      ivaCalculado: creditNote.resumenImpuestos?.valorIva || 0.15,
+      total: creditNote.resumenImpuestos?.total || 1.15
+    }
+  ];
+
+  const detailsXml = itemsToProcess.map(det => {
     let pctCode = '0';
     let rateStr = '0.00';
     
@@ -230,16 +281,22 @@ export function generateCreditNoteXml(creditNote: CreditNote, config: EmitterCon
       pctCode = '7';
     }
 
-    const detailTotalSinImp = det.subtotal;
-    const itemIvaVal = det.ivaCalculado;
+    const codigoClean = escapeXml(det.producto.codigo || '001');
+    const nombreClean = escapeXml(det.producto.nombre || 'PRODUCTO O SERVICIO');
+    const cantFormatted = formatQty(det.cantidad > 0 ? det.cantidad : 1);
+    const unitPrice = det.producto.precio > 0 ? det.producto.precio : (det.subtotal || 1);
+    const precioFormatted = Number(unitPrice).toFixed(4);
+    const descFormatted = formatNum(det.descuento || 0);
+    const detailTotalSinImp = det.subtotal > 0 ? det.subtotal : (det.cantidad * unitPrice);
+    const itemIvaVal = det.ivaCalculado || 0;
 
     return `
     <detalle>
-      <codigoInterno>${escapeXml(det.producto.codigo)}</codigoInterno>
-      <descripcion>${escapeXml(det.producto.nombre)}</descripcion>
-      <cantidad>${formatQty(det.cantidad)}</cantidad>
-      <precioUnitario>${Number(det.producto.precio).toFixed(4)}</precioUnitario>
-      <descuento>${formatNum(det.descuento)}</descuento>
+      <codigoInterno>${codigoClean}</codigoInterno>
+      <descripcion>${nombreClean}</descripcion>
+      <cantidad>${cantFormatted}</cantidad>
+      <precioUnitario>${precioFormatted}</precioUnitario>
+      <descuento>${descFormatted}</descuento>
       <precioTotalSinImpuesto>${formatNum(detailTotalSinImp)}</precioTotalSinImpuesto>
       <impuestos>
         <impuesto>
@@ -274,30 +331,42 @@ export function generateCreditNoteXml(creditNote: CreditNote, config: EmitterCon
     agenteRetencionXml = `\n    <agenteRetencion>${escapeXml(config.agenteRetencion)}</agenteRetencion>`;
   }
 
+  const estabFormatted = (config.codEstablecimiento || '001').toString().trim().padStart(3, '0');
+  const ptoEmiFormatted = (config.codPuntoEmision || '001').toString().trim().padStart(3, '0');
+  const secuencialFormatted = (creditNote.secuencial || '1').toString().trim().padStart(9, '0');
+  const rucFormatted = (config.ruc || '1792451083001').toString().trim().padStart(13, '0');
+  const dirMatrizClean = escapeXml(config.dirMatriz || config.dirEstablecimiento || 'Quito - Ecuador');
+  const dirEstabClean = escapeXml(config.dirEstablecimiento || config.dirMatriz || 'Quito - Ecuador');
+
+  let formattedDocMod = creditNote.facturaModificadaSecuencial || '001-001-000000001';
+  if (!formattedDocMod.includes('-')) {
+    formattedDocMod = `${estabFormatted}-${ptoEmiFormatted}-${formattedDocMod.padStart(9, '0')}`;
+  }
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <notaCredito id="comprobante" version="1.0.0">
   <infoTributaria>
-    <ambiente>${config.ambiente}</ambiente>
+    <ambiente>${config.ambiente || '1'}</ambiente>
     <tipoEmision>1</tipoEmision>
-    <razonSocial>${escapeXml(config.razonSocial)}</razonSocial>
-    <nombreComercial>${escapeXml(config.nombreComercial || config.razonSocial)}</nombreComercial>
-    <ruc>${config.ruc}</ruc>
+    <razonSocial>${escapeXml(config.razonSocial || 'EMISOR')}</razonSocial>
+    <nombreComercial>${escapeXml(config.nombreComercial || config.razonSocial || 'EMISOR')}</nombreComercial>
+    <ruc>${rucFormatted}</ruc>
     <claveAcceso>${creditNote.claveAcceso}</claveAcceso>
     <codDoc>04</codDoc>
-    <estab>${config.codEstablecimiento}</estab>
-    <ptoEmi>${config.codPuntoEmision}</ptoEmi>
-    <secuencial>${creditNote.secuencial}</secuencial>
-    <dirMatriz>${escapeXml(config.dirMatriz)}</dirMatriz>${agenteRetencionXml}${regimenCommentsXml}
+    <estab>${estabFormatted}</estab>
+    <ptoEmi>${ptoEmiFormatted}</ptoEmi>
+    <secuencial>${secuencialFormatted}</secuencial>
+    <dirMatriz>${dirMatrizClean}</dirMatriz>${agenteRetencionXml}${regimenCommentsXml}
   </infoTributaria>
   <infoNotaCredito>
     <fechaEmision>${fechaEmiFormatted}</fechaEmision>
-    <dirEstablecimiento>${escapeXml(config.dirEstablecimiento || config.dirMatriz)}</dirEstablecimiento>
+    <dirEstablecimiento>${dirEstabClean}</dirEstablecimiento>
     <tipoIdentificacionComprador>${creditNote.cliente.tipoIdentificacion}</tipoIdentificacionComprador>
     <razonSocialComprador>${escapeXml(creditNote.cliente.nombre)}</razonSocialComprador>
     <identificacionComprador>${creditNote.cliente.identificacion}</identificacionComprador>${config.contribuyenteEspecial ? `\n    <contribuyenteEspecial>${escapeXml(config.contribuyenteEspecial)}</contribuyenteEspecial>` : ''}
     <obligadoContabilidad>${config.obligadoContabilidad ? 'SI' : 'NO'}</obligadoContabilidad>
     <codDocModificado>01</codDocModificado>
-    <numDocModificado>${creditNote.facturaModificadaSecuencial}</numDocModificado>
+    <numDocModificado>${formattedDocMod}</numDocModificado>
     <fechaEmisionDocSustento>${fechaModFormatted}</fechaEmisionDocSustento>
     <totalSinImpuestos>${formatNum(creditNote.resumenImpuestos.subtotal)}</totalSinImpuestos>
     <valorModificacion>${formatNum(creditNote.resumenImpuestos.total)}</valorModificacion>
