@@ -4,7 +4,7 @@ import { generateClaveAcceso, formatSequential, METODOS_PAGO, IVA_TARIFAS, IDENT
 import { Plus, Trash2, ShieldAlert, Sparkles, User, ShoppingBag, FileSpreadsheet, CheckCircle, FileText, Download, Loader2, Mail } from 'lucide-react';
 import { generateInvoiceXml } from '../sri/xmlTemplates';
 import { uploadInvoiceXmlSinFirmar, uploadInvoiceXmlFirmado } from '../lib/supabase';
-import { apiSignXml, apiSendSri, apiAuthorizeSri, apiSendInvoiceEmail } from '../lib/apiClient';
+import { apiSignXml, apiSendSri, apiAuthorizeSri, apiSendInvoiceEmail, apiSriLookup } from '../lib/apiClient';
 import RideViewer from './RideViewer';
 
 interface InvoiceFormProps {
@@ -359,18 +359,17 @@ export default function InvoiceForm({
     setSriLookupSuccess(false);
 
     try {
-      const resp = await fetch(`/api/sri-lookup?id=${encodeURIComponent(buyerIdent)}`);
-      const data = await resp.json();
-      if (!resp.ok || data.status === 'error') {
-        throw new Error(data.message || 'Error consultando la base de datos de clientes.');
+      const res = await apiSriLookup(buyerIdent);
+      if (res.status === 'error' || !res.client) {
+        throw new Error(res.message || 'Error consultando la base de datos de clientes.');
       }
 
-      const clientInfo = data.client;
+      const clientInfo = res.client;
       setBuyerTipoIdent(clientInfo.tipoIdentificacion);
-      setBuyerName(clientInfo.nombre.toUpperCase());
-      setBuyerDir(clientInfo.direccion.toUpperCase());
-      setBuyerTel(clientInfo.telefono.toUpperCase());
-      setBuyerEmail(clientInfo.correo.toUpperCase());
+      setBuyerName((clientInfo.nombre || '').toUpperCase());
+      setBuyerDir((clientInfo.direccion || '').toUpperCase());
+      setBuyerTel((clientInfo.telefono || '').toUpperCase());
+      setBuyerEmail((clientInfo.correo || '').toUpperCase());
       setSriLookupSuccess(true);
 
     } catch (err: any) {
