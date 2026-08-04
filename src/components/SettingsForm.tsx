@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { PortalUser, EmitterConfig, RegimenTributario } from '../types';
 import { validateRuc, REGIMENES } from '../sri/utils';
 import { getCertificateInfo } from '../sri/signer';
-import { apiCheckSignature } from '../lib/apiClient';
-import { CheckCircle2, AlertCircle, Key, FileCode, Shield, RefreshCw, Trash2, Sparkles, Lock, Edit3, Check } from 'lucide-react';
+import { apiCheckSignature, apiTestSmtp } from '../lib/apiClient';
+import { CheckCircle2, AlertCircle, Key, FileCode, Shield, RefreshCw, Trash2, Sparkles, Lock, Edit3, Check, Mail, Server, Send } from 'lucide-react';
 import { saveEmitterConfigToSupabase } from '../lib/supabase';
 
 interface SettingsFormProps {
@@ -29,6 +29,15 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
   const [ambiente, setAmbiente] = useState<'1' | '2'>(config.ambiente);
   const [isDemoMode, setIsDemoMode] = useState(config.isDemoMode);
   const [ultimoSecuencialFactura, setUltimoSecuencialFactura] = useState(config.ultimoSecuencialFactura || '000000002');
+
+  // SMTP Email Server settings
+  const [smtpHost, setSmtpHost] = useState(config.smtpHost || '');
+  const [smtpPort, setSmtpPort] = useState(config.smtpPort ? String(config.smtpPort) : '587');
+  const [smtpUser, setSmtpUser] = useState(config.smtpUser || '');
+  const [smtpPass, setSmtpPass] = useState(config.smtpPass || '');
+  const [smtpFrom, setSmtpFrom] = useState(config.smtpFrom || '');
+  const [isTestingSmtp, setIsTestingSmtp] = useState(false);
+  const [smtpTestResult, setSmtpTestResult] = useState<{ status: string; message: string } | null>(null);
 
   // Digital Signature local assets
   const [password, setPassword] = useState(config.p12Password || '');
@@ -68,6 +77,11 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
     setAmbiente(config.ambiente || '1');
     setIsDemoMode(config.isDemoMode ?? true);
     setUltimoSecuencialFactura(config.ultimoSecuencialFactura || '');
+    setSmtpHost(config.smtpHost || '');
+    setSmtpPort(config.smtpPort ? String(config.smtpPort) : '587');
+    setSmtpUser(config.smtpUser || '');
+    setSmtpPass(config.smtpPass || '');
+    setSmtpFrom(config.smtpFrom || '');
     setPassword(config.p12Password || '');
     setSignatureB64(config.p12FirmaB64 || '');
     setSignatureName(config.p12Nombre || '');
@@ -153,6 +167,34 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
     }
   };
 
+  const handleTestSmtp = async () => {
+    if (!smtpHost || !smtpUser || !smtpPass) {
+      alert('Por favor complete primero los campos de Servidor SMTP, Usuario y Contraseña.');
+      return;
+    }
+    const testRecipient = prompt('Ingrese la dirección de correo a la que desea enviar el correo de prueba:', correo || smtpUser || 'cliente@ejemplo.com');
+    if (!testRecipient) return;
+
+    setIsTestingSmtp(true);
+    setSmtpTestResult(null);
+
+    try {
+      const res = await apiTestSmtp({
+        host: smtpHost,
+        port: Number(smtpPort) || 587,
+        user: smtpUser,
+        pass: smtpPass,
+        from: smtpFrom || undefined,
+        recipient: testRecipient
+      });
+      setSmtpTestResult(res);
+    } catch (err: any) {
+      setSmtpTestResult({ status: 'error', message: err.message || String(err) });
+    } finally {
+      setIsTestingSmtp(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -180,6 +222,11 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
       correo: correo,
       telefono: telefono,
       ultimoSecuencialFactura: ultimoSecuencialFactura ? ultimoSecuencialFactura.replace(/\D/g, '').padStart(9, '0') : '000000001',
+      smtpHost,
+      smtpPort,
+      smtpUser,
+      smtpPass,
+      smtpFrom,
       logoB64: config.logoB64
     };
 
@@ -665,6 +712,150 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
               <div><strong>Valido Desde:</strong> {new Date(sigDetails.validFrom).toLocaleDateString()}</div>
               <div><strong>Válido Hasta (Expiración):</strong> {new Date(sigDetails.validTo).toLocaleDateString()}</div>
               <div className="sm:col-span-2"><strong>Número Serial:</strong> {sigDetails.serialNumber}</div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* SECCIÓN SERVIDOR DE CORREO SMTP */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50 flex items-center gap-2">
+              <Mail className="w-5 h-5 text-blue-600" />
+              Servidor de Correo para Notificaciones a Clientes (SMTP)
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Configure las credenciales de su correo (Gmail, Outlook, Yahoo, cPanel o SendGrid) para despachar automáticamente las facturas autorizadas (XML y PDF RIDE) directamente al correo del cliente.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setSmtpHost('smtp.gmail.com');
+                setSmtpPort('587');
+                setSmtpUser(correo || 'mi_cuenta@gmail.com');
+                setSmtpFrom(`${nombreComercial || 'JOLUS SERVICES'} <${correo || 'mi_cuenta@gmail.com'}>`);
+              }}
+              className="px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-800/40 transition cursor-pointer"
+              title="Cargar configuración rápida para Gmail"
+            >
+              Gmail
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSmtpHost('smtp.office365.com');
+                setSmtpPort('587');
+                setSmtpUser(correo || 'mi_cuenta@outlook.com');
+                setSmtpFrom(`${nombreComercial || 'JOLUS SERVICES'} <${correo || 'mi_cuenta@outlook.com'}>`);
+              }}
+              className="px-2.5 py-1 text-xs font-medium text-sky-700 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/40 dark:text-sky-300 rounded-lg border border-sky-200 dark:border-sky-800/40 transition cursor-pointer"
+              title="Cargar configuración rápida para Outlook / Office 365"
+            >
+              Outlook
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="md:col-span-2">
+            <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">Servidor SMTP Host</label>
+            <input
+              type="text"
+              value={smtpHost}
+              onChange={(e) => setSmtpHost(e.target.value)}
+              placeholder="Ej: smtp.gmail.com o mail.midominio.com"
+              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">Puerto SMTP</label>
+            <input
+              type="text"
+              value={smtpPort}
+              onChange={(e) => setSmtpPort(e.target.value)}
+              placeholder="587 o 465"
+              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">Usuario / Email SMTP</label>
+            <input
+              type="email"
+              value={smtpUser}
+              onChange={(e) => setSmtpUser(e.target.value)}
+              placeholder="facturacion@midominio.com"
+              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">Contraseña de Aplicación / SMTP</label>
+            <input
+              type="password"
+              value={smtpPass}
+              onChange={(e) => setSmtpPass(e.target.value)}
+              placeholder="Clave SMTP o Contraseña de Aplicación"
+              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">Remitente Personalizado (De)</label>
+            <input
+              type="text"
+              value={smtpFrom}
+              onChange={(e) => setSmtpFrom(e.target.value)}
+              placeholder='JOLUS SERVICES <factura@jolus.com.ec>'
+              className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+        </div>
+
+        <div className="bg-blue-50/70 dark:bg-blue-950/20 p-3.5 rounded-xl border border-blue-100 dark:border-blue-900/30 text-xs text-blue-900 dark:text-blue-300 space-y-1">
+          <p className="font-semibold flex items-center gap-1.5">
+            💡 Instrucciones para cuentas Gmail:
+          </p>
+          <p>
+            Si utiliza Gmail, active la Verificación en 2 Pasos en su cuenta de Google y genere una <strong>Contraseña de Aplicación</strong> de 16 caracteres (Seguridad &gt; Contraseñas de Aplicaciones) para ingresarla en la casilla de contraseña.
+          </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={handleTestSmtp}
+            disabled={isTestingSmtp || !smtpHost || !smtpUser || !smtpPass}
+            className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium rounded-xl text-sm transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+          >
+            {isTestingSmtp ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                Probando conexión con {smtpHost}...
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4" />
+                Probar Conexión SMTP (Enviar Correo de Prueba)
+              </>
+            )}
+          </button>
+        </div>
+
+        {smtpTestResult && (
+          <div className={`p-4 rounded-xl border text-sm flex items-start gap-2 ${smtpTestResult.status === 'success' ? 'bg-green-50 border-green-200 text-green-900 dark:bg-green-950/20 dark:border-green-900 dark:text-green-300' : 'bg-red-50 border-red-200 text-red-900 dark:bg-red-950/20 dark:border-red-900 dark:text-red-300'}`}>
+            {smtpTestResult.status === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            )}
+            <div>
+              <p className="font-semibold">{smtpTestResult.status === 'success' ? '¡Conexión SMTP exitosa!' : 'Inconveniente con el servidor SMTP'}</p>
+              <p className="text-xs mt-0.5 leading-relaxed">{smtpTestResult.message}</p>
             </div>
           </div>
         )}

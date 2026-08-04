@@ -96,58 +96,83 @@ JOLUS SERVICES`;
       }
     ];
 
-    // Read SMTP config from environment if available
-    const smtpHost = process.env.SMTP_HOST || process.env.EMAIL_HOST;
-    const smtpPort = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587', 10);
-    const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
-    const smtpPass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
-    const fromAddress = process.env.SMTP_FROM || `JOLUS SERVICES <info_fact_electronica@jolus.com.ec>`;
+    // Read SMTP config from emitter config or environment variables
+    const smtpHost = (config.smtpHost || process.env.SMTP_HOST || process.env.EMAIL_HOST || '').trim();
+    const smtpPort = parseInt(String(config.smtpPort || process.env.SMTP_PORT || process.env.EMAIL_PORT || '587'), 10);
+    const smtpUser = (config.smtpUser || process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+    const smtpPass = (config.smtpPass || process.env.SMTP_PASS || process.env.EMAIL_PASS || '').trim();
+    
+    const companyDisplayName = config.nombreComercial || config.razonSocial || 'JOLUS SERVICES';
+    const companyEmail = config.correo || 'info_fact_electronica@jolus.com.ec';
+    const defaultFrom = `${companyDisplayName} <${smtpUser || companyEmail}>`;
+    const fromAddress = (config.smtpFrom || process.env.SMTP_FROM || defaultFrom).trim();
 
     if (smtpHost && smtpUser && smtpPass) {
-      const transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: smtpPort,
-        secure: smtpPort === 465,
-        auth: {
-          user: smtpUser,
-          pass: smtpPass
+      try {
+        const transporter = nodemailer.createTransport({
+          host: smtpHost,
+          port: smtpPort,
+          secure: smtpPort === 465, // true for 465, false for 587/25
+          auth: {
+            user: smtpUser,
+            pass: smtpPass
+          },
+          tls: {
+            rejectUnauthorized: false // Allow self-signed certificates in custom SMTPs
+          }
+        });
+
+        const info = await transporter.sendMail({
+          from: fromAddress,
+          to: recipient,
+          subject,
+          text: bodyText,
+          html: bodyHtml,
+          attachments
+        });
+
+        return {
+          status: 'success',
+          message: `✅ Correo enviado exitosamente a ${recipient} a través de ${smtpHost} con la factura en PDF y XML adjuntos.`,
+          emailSent: true,
+          recipient,
+          subject,
+          details: { messageId: info.messageId, smtpHost }
+        };
+      } catch (smtpErr: any) {
+        console.error('Error enviando por servidor SMTP configurado:', smtpErr);
+        let detailedError = smtpErr.message || String(smtpErr);
+        if (detailedError.includes('EAUTH') || detailedError.includes('Invalid login') || detailedError.includes('535')) {
+          detailedError = `Error de autenticación SMTP (${smtpUser}): Credenciales o contraseña de aplicación incorrectas. En Gmail, use una Contraseña de Aplicación de 16 caracteres.`;
+        } else if (detailedError.includes('ETIMEDOUT') || detailedError.includes('ESOCKETTIMEDOUT')) {
+          detailedError = `Tiempo de espera agotado al conectar al servidor SMTP ${smtpHost}:${smtpPort}. Verifique el host y puerto.`;
         }
-      });
-
-      const info = await transporter.sendMail({
-        from: fromAddress,
-        to: recipient,
-        subject,
-        text: bodyText,
-        html: bodyHtml,
-        attachments
-      });
-
-      return {
-        status: 'success',
-        message: `Correo enviado exitosamente a ${recipient} con la factura en PDF y XML adjuntos.`,
-        emailSent: true,
-        recipient,
-        subject,
-        details: { messageId: info.messageId }
-      };
+        
+        return {
+          status: 'error',
+          message: `No se pudo enviar el correo a ${recipient}: ${detailedError}`,
+          emailSent: false,
+          recipient,
+          subject
+        };
+      }
     } else {
-      // Create a test/ethereal or simulated transport for environments without explicit SMTP credentials
-      // This ensures 100% reliable execution in both Pruebas and Producción demo servers!
-      console.log(`[EMAIL SERVICE JOLUS SERVICES] Simulación de correo generada para ${recipient}:`);
+      // SMTP not configured yet
+      console.log(`[EMAIL SERVICE JOLUS SERVICES] Notificación preparada para ${recipient} (Sin SMTP configurado):`);
       console.log(`Subject: ${subject}`);
       console.log(`Adjuntos: ${claveAcceso}.xml, ${claveAcceso}.pdf`);
 
       return {
         status: 'success',
-        message: `Notificación enviada a ${recipient}. (Factura en PDF y XML adjuntos procesados correctamente)`,
+        message: `⚠️ Notificación generada para ${recipient}. Para enviar correos reales a los buzones de sus clientes, configure su servidor SMTP (ej. Gmail, Outlook) en Configuración > Servidor de Correo (SMTP).`,
         emailSent: true,
         recipient,
         subject,
         details: {
           simulated: true,
           attachmentsCount: 2,
-          attachmentsNames: [`${claveAcceso}.xml`, `${claveAcceso}.pdf`]
+          attachmentsNames: [`${claveAcceso}.xml`, `${claveAcceso}.pdf`],
+          note: 'Configure SMTP en Configuración > Servidor de Correo (SMTP) para envío real a inboxes de clientes.'
         }
       };
     }
@@ -160,5 +185,45 @@ JOLUS SERVICES`;
       recipient: customRecipientEmail || invoice.cliente?.correo || '',
       subject: 'Notificacion de documento electronico'
     };
+  }
+}
+
+export async function testSmtpConnection(params: { host: string; port: number; user: string; pass: string; from?: string; recipient: string }) {
+  try {
+    const { host, port, user, pass, from, recipient } = params;
+    if (!host || !user || !pass || !recipient) {
+      throw new Error('Faltan datos requeridos (Host, Usuario, Contraseña, Destinatario).');
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: host.trim(),
+      port: Number(port) || 587,
+      secure: Number(port) === 465,
+      auth: {
+        user: user.trim(),
+        pass: pass.trim()
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+
+    const sender = from || `Facturación Electrónica <${user.trim()}>`;
+
+    const info = await transporter.sendMail({
+      from: sender,
+      to: recipient.trim(),
+      subject: 'PRUEBA DE CONEXION SMTP - FACTURACION ELECTRONICA',
+      text: 'Este es un correo de prueba enviado desde su sistema de Facturación Electrónica para verificar la conexión SMTP.',
+      html: `<div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <h3 style="color: #2563eb; margin-top: 0;">✅ ¡Conexión SMTP Exitosa!</h3>
+        <p>Su servidor de correo <strong>${host}</strong> está correctamente configurado.</p>
+        <p style="font-size: 13px; color: #64748b;">Los comprobantes electrónicos (XML y PDF RIDE) ahora se enviarán automáticamente a los correos de sus clientes desde su propia cuenta de correo.</p>
+      </div>`
+    });
+
+    return { status: 'success', message: `✅ Mensaje de prueba enviado exitosamente a ${recipient}`, messageId: info.messageId };
+  } catch (err: any) {
+    return { status: 'error', message: `Fallo de conexión SMTP: ${err.message || String(err)}` };
   }
 }

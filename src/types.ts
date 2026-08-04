@@ -24,6 +24,11 @@ export interface EmitterConfig {
   correo?: string; // Correo electrónico del emisor
   telefono?: string; // Teléfono del emisor
   ultimoSecuencialFactura?: string; // Siguiente secuencial de factura a emitir (9 dígitos)
+  smtpHost?: string; // Servidor SMTP (ej: smtp.gmail.com)
+  smtpPort?: string | number; // Puerto SMTP (ej: 587 o 465)
+  smtpUser?: string; // Usuario / Correo SMTP
+  smtpPass?: string; // Contraseña o App Password
+  smtpFrom?: string; // Remitente (ej: Facturación <correo@dominio.com>)
 }
 
 export interface Client {

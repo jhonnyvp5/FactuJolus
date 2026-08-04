@@ -1,7 +1,7 @@
 import express from 'express';
 import { getCertificateInfo, signXmlDocument } from './sri/signer';
 import { enviarComprobanteSri, consultarAutorizacionSri } from './sri/soap';
-import { sendInvoiceEmail } from './sri/emailService';
+import { sendInvoiceEmail, testSmtpConnection } from './sri/emailService';
 
 export const apiRouter = express.Router();
 
@@ -83,6 +83,17 @@ apiRouter.post('/api/send-invoice-email', async (req, res) => {
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ status: 'error', message: err.message || String(err), emailSent: false });
+  }
+});
+
+// Endpoint to test SMTP credentials
+apiRouter.post('/api/test-smtp', async (req, res) => {
+  try {
+    const { host, port, user, pass, from, recipient } = req.body;
+    const result = await testSmtpConnection({ host, port, user, pass, from, recipient });
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ status: 'error', message: err.message || String(err) });
   }
 });
 

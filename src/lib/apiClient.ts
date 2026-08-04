@@ -156,6 +156,33 @@ export async function apiSendInvoiceEmail(
 }
 
 /**
+ * Test SMTP connection
+ */
+export async function apiTestSmtp(params: {
+  host: string;
+  port: number;
+  user: string;
+  pass: string;
+  from?: string;
+  recipient: string;
+}): Promise<{ status: 'success' | 'error'; message: string; messageId?: string }> {
+  const serverRes = await safeFetchJson<{ status: 'success' | 'error'; message: string; messageId?: string }>('/api/test-smtp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params)
+  });
+
+  if (serverRes.ok && serverRes.data) {
+    return serverRes.data;
+  }
+
+  return {
+    status: 'error',
+    message: serverRes.rawText || 'No se pudo conectar con el servidor backend de correo.'
+  };
+}
+
+/**
  * Check Signature: Tries server endpoint first. If missing/404/HTML (e.g. on Vercel), executes client-side fallback.
  */
 export async function apiCheckSignature(
