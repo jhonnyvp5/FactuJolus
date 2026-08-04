@@ -13,6 +13,7 @@ export default defineConfig(() => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        crypto: path.resolve(__dirname, './src/lib/cryptoShim.ts'),
       },
     },
     server: {

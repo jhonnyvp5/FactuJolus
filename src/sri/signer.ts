@@ -1,9 +1,20 @@
 import { Buffer } from 'buffer';
-if (typeof globalThis !== 'undefined' && !(globalThis as any).Buffer) {
-  (globalThis as any).Buffer = Buffer;
-}
 import forge from 'node-forge';
 import { signInvoiceXml, signCreditNoteXml } from 'ec-sri-invoice-signer';
+import cryptoShim from '../lib/cryptoShim';
+
+if (typeof globalThis !== 'undefined') {
+  (globalThis as any).Buffer = (globalThis as any).Buffer || Buffer;
+  if ((globalThis as any).crypto) {
+    if (!(globalThis as any).crypto.randomUUID) {
+      try {
+        (globalThis as any).crypto.randomUUID = cryptoShim.randomUUID;
+      } catch (e) {}
+    }
+  } else {
+    (globalThis as any).crypto = cryptoShim;
+  }
+}
 
 export interface SignatureInfo {
   subject: string;
