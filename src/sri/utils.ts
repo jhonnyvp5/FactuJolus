@@ -77,8 +77,8 @@ export function generateClaveAcceso({
   const key48 = [
     dateFormatted,
     tipoComprobante,
-    (ruc || '1792451083001').toString().trim().padStart(13, '0'),
-    ambiente || '1',
+    ruc.padStart(13, '0'),
+    ambiente,
     serie,
     secuencial.padStart(9, '0'),
     codigoNumerico.padStart(8, '0'),
@@ -95,10 +95,8 @@ export function generateClaveAcceso({
   return `${key48}${checkDigit}`;
 }
 
-export function establecerSerie(establecimiento?: string, puntoEmision?: string): string {
-  const estab = (establecimiento || '001').toString().trim().padStart(3, '0');
-  const pto = (puntoEmision || '001').toString().trim().padStart(3, '0');
-  return `${estab}${pto}`;
+export function establecerSerie(establecimiento: string, puntoEmision: string): string {
+  return `${establecimiento.padStart(3, '0')}${puntoEmision.padStart(3, '0')}`;
 }
 
 // Validate Ecuadorian Identification (Cédula de Identidad)

@@ -1,6 +1,9 @@
 import forge from 'node-forge';
 
-const generateFallbackUUID = (): string => {
+export const randomUUID = (): string => {
+  if (typeof globalThis !== 'undefined' && globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
@@ -8,31 +11,10 @@ const generateFallbackUUID = (): string => {
   });
 };
 
-export const randomUUID = (): string => {
-  try {
-    if (
-      typeof globalThis !== 'undefined' &&
-      globalThis.crypto &&
-      typeof globalThis.crypto.randomUUID === 'function' &&
-      globalThis.crypto.randomUUID !== randomUUID
-    ) {
-      return globalThis.crypto.randomUUID();
-    }
-  } catch (e) {}
-  return generateFallbackUUID();
-};
-
 export const getRandomValues = <T extends ArrayBufferView | null>(array: T): T => {
-  try {
-    if (
-      typeof globalThis !== 'undefined' &&
-      globalThis.crypto &&
-      typeof globalThis.crypto.getRandomValues === 'function' &&
-      globalThis.crypto.getRandomValues !== getRandomValues
-    ) {
-      return globalThis.crypto.getRandomValues(array as any);
-    }
-  } catch (e) {}
+  if (typeof globalThis !== 'undefined' && globalThis.crypto && typeof globalThis.crypto.getRandomValues === 'function') {
+    return globalThis.crypto.getRandomValues(array as any);
+  }
   if (array) {
     const bytes = new Uint8Array(array.buffer, array.byteOffset, array.byteLength);
     for (let i = 0; i < bytes.length; i++) {

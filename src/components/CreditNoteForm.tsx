@@ -257,16 +257,6 @@ export default function CreditNoteForm({
       return;
     }
 
-    if (!details || details.length === 0) {
-      alert('Debe agregar al menos un ítem o producto a la Nota de Crédito.');
-      return;
-    }
-
-    if (details.some(d => !d.producto.nombre || !d.producto.nombre.trim() || d.producto.precio <= 0)) {
-      alert('Por favor, revise que todos los productos agregados tengan un nombre válido y precio mayor a 0.');
-      return;
-    }
-
     const finalBuyer: Client = {
       id: 'c-' + Date.now(),
       tipoIdentificacion: buyerTipoIdent,
