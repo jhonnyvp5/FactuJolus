@@ -796,110 +796,110 @@ export default function App() {
       {/* CORE HUB LAYOUT */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
         
-        {/* DESKTOP TABS NAVBAR (HIDDEN ON TABLET/MOBILE IN FAVOR OF COLLAPSIBLE SIDE DRAWER) */}
-        <div className="hidden lg:flex flex-wrap bg-white dark:bg-zinc-900 p-1 rounded-2xl border border-gray-100 dark:border-zinc-850 shadow-xs max-w-6xl mx-auto print:hidden gap-1 justify-center animate-fade-in">
+        {/* DESKTOP TABS NAVBAR (COMPACT, MODERN, MINIMALIST & TECH-FORWARD) */}
+        <nav className="hidden lg:flex bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md p-1.5 rounded-2xl border border-gray-200/80 dark:border-zinc-800 shadow-xs max-w-7xl mx-auto print:hidden items-center justify-start xl:justify-center overflow-x-auto no-scrollbar gap-1 animate-fade-in scroll-smooth">
           
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('history')) && (
             <button
                onClick={() => setActiveTab('history')}
-               className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'history' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
+               className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'history' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
             >
-              <History className="w-3.5 h-3.5" />
-              Historial
+              <History className="w-4 h-4 shrink-0" />
+              <span>Historial</span>
             </button>
           )}
 
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('new-invoice')) && (
             <button
               onClick={() => setActiveTab('new-invoice')}
-              className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'new-invoice' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
+              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'new-invoice' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
             >
-              <Plus className="w-3.5 h-3.5" />
-              Emitir Factura
+              <Plus className="w-4 h-4 shrink-0" />
+              <span>Emitir Factura</span>
             </button>
           )}
 
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('proformas')) && (
             <button
               onClick={() => setActiveTab('proformas')}
-              className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'proformas' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
+              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'proformas' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
             >
-              <FileText className="w-3.5 h-3.5" />
-              Generar Proforma
+              <FileText className="w-4 h-4 shrink-0" />
+              <span>Proforma</span>
             </button>
           )}
 
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('new-nc')) && (
             <button
               onClick={() => setActiveTab('new-nc')}
-              className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'new-nc' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
+              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'new-nc' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
             >
-              <ArrowLeftRight className="w-3.5 h-3.5" />
-              Nota de Crédito
+              <ArrowLeftRight className="w-4 h-4 shrink-0" />
+              <span>Nota Crédito</span>
             </button>
           )}
 
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('products')) && (
             <button
               onClick={() => setActiveTab('products')}
-              className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'products' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
+              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'products' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
             >
-              <Package className="w-3.5 h-3.5" />
-              Productos
+              <Package className="w-4 h-4 shrink-0" />
+              <span>Productos</span>
             </button>
           )}
 
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('clients')) && (
             <button
               onClick={() => setActiveTab('clients')}
-              className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'clients' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
+              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'clients' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
             >
-              <Users className="w-3.5 h-3.5" />
-              Clientes
+              <Users className="w-4 h-4 shrink-0" />
+              <span>Clientes</span>
             </button>
           )}
 
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('profile')) && (
             <button
               onClick={() => setActiveTab('profile')}
-              className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'profile' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
+              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'profile' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
             >
-              <User className="w-3.5 h-3.5" />
-              Mi Perfil
+              <User className="w-4 h-4 shrink-0" />
+              <span>Mi Perfil</span>
             </button>
           )}
 
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('settings')) && (
             <button
               onClick={() => setActiveTab('settings')}
-              className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
+              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'settings' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
             >
-              <Settings className="w-3.5 h-3.5" />
-              Configuración SRI
+              <Settings className="w-4 h-4 shrink-0" />
+              <span>Configuración</span>
             </button>
           )}
 
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN') && (
             <button
               onClick={() => setActiveTab('users')}
-              className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'users' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
+              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'users' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
             >
-              <Users className="w-3.5 h-3.5" />
-              Gestión Usuarios
+              <ShieldCheck className="w-4 h-4 shrink-0" />
+              <span>Usuarios</span>
             </button>
           )}
 
           {currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
             <button
               onClick={() => setActiveTab('supabase')}
-              className={`flex-1 min-w-[130px] sm:min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'supabase' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-600 dark:text-gray-450 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
+              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'supabase' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
             >
-              <Database className="w-3.5 h-3.5 text-emerald-500" />
-              Base de Datos Supabase
+              <Database className="w-4 h-4 shrink-0 text-emerald-500" />
+              <span>Supabase</span>
             </button>
           )}
           
-        </div>         
+        </nav>         
 
         {/* TAB PORTALS */}
         <div className="transition-opacity duration-200">

@@ -5,6 +5,17 @@ import { sendInvoiceEmail, testSmtpConnection } from './sri/emailService';
 
 export const apiRouter = express.Router();
 
+// CORS middleware for Vercel and multi-domain compatibility
+apiRouter.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 // Middlewares to parse bodies
 apiRouter.use(express.json({ limit: '10mb' }));
 apiRouter.use(express.urlencoded({ limit: '10mb', extended: true }));
@@ -12,7 +23,7 @@ apiRouter.use(express.urlencoded({ limit: '10mb', extended: true }));
 // --- API Routes ---
 
 // Check and extract details from electronic signature (.p12)
-apiRouter.post('/api/check-signature', (req, res) => {
+apiRouter.post(['/check-signature', '/api/check-signature'], (req, res) => {
   try {
     const { p12Base64, password } = req.body;
     if (!p12Base64 || !password) {
@@ -27,7 +38,7 @@ apiRouter.post('/api/check-signature', (req, res) => {
 });
 
 // Sign and envelope the XML document according to SRI XAdES specifications
-apiRouter.post('/api/sign-xml', (req, res) => {
+apiRouter.post(['/sign-xml', '/api/sign-xml'], (req, res) => {
   try {
     const { xmlContent, p12Base64, password, isDemo } = req.body;
     if (!xmlContent) {
@@ -42,7 +53,7 @@ apiRouter.post('/api/sign-xml', (req, res) => {
 });
 
 // Proxy: Transmit signed XML to SRI reception soap endpoint
-apiRouter.post('/api/send-sri', async (req, res) => {
+apiRouter.post(['/send-sri', '/api/send-sri'], async (req, res) => {
   try {
     const { signedXml, claveAcceso, ambiente, isDemo } = req.body;
     if (!signedXml || !claveAcceso || !ambiente) {
@@ -57,7 +68,7 @@ apiRouter.post('/api/send-sri', async (req, res) => {
 });
 
 // Proxy: Query status from SRI authorization soap endpoint
-apiRouter.post('/api/authorize-sri', async (req, res) => {
+apiRouter.post(['/authorize-sri', '/api/authorize-sri'], async (req, res) => {
   try {
     const { claveAcceso, ambiente, isDemo } = req.body;
     if (!claveAcceso || !ambiente) {
@@ -72,7 +83,7 @@ apiRouter.post('/api/authorize-sri', async (req, res) => {
 });
 
 // Endpoint to send electronic document email notification with attachments (XML + PDF) to client
-apiRouter.post('/api/send-invoice-email', async (req, res) => {
+apiRouter.post(['/send-invoice-email', '/api/send-invoice-email'], async (req, res) => {
   try {
     const { invoice, config, recipientEmail } = req.body;
     if (!invoice) {
@@ -87,7 +98,7 @@ apiRouter.post('/api/send-invoice-email', async (req, res) => {
 });
 
 // Endpoint to test SMTP credentials
-apiRouter.post('/api/test-smtp', async (req, res) => {
+apiRouter.post(['/test-smtp', '/api/test-smtp'], async (req, res) => {
   try {
     const { host, port, user, pass, from, recipient } = req.body;
     const result = await testSmtpConnection({ host, port, user, pass, from, recipient });
@@ -97,12 +108,12 @@ apiRouter.post('/api/test-smtp', async (req, res) => {
   }
 });
 
-apiRouter.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', time: new Date() });
+apiRouter.get(['/health', '/api/health', '/'], (req, res) => {
+  res.json({ status: 'ok', platform: 'Vercel / Express', time: new Date() });
 });
 
 // SRI client database lookup (real live lookup against official SRI servers + deterministic simulator backup)
-apiRouter.get('/api/sri-lookup', async (req, res) => {
+apiRouter.get(['/sri-lookup', '/api/sri-lookup'], async (req, res) => {
   try {
     const { id } = req.query;
     if (!id || typeof id !== 'string') {
