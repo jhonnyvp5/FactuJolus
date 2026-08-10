@@ -237,9 +237,9 @@ export default function HistoryList({
     document.body.removeChild(link);
   };
 
-  const handleDelete = (doc: Invoice | CreditNote) => {
+  const handleDelete = async (doc: Invoice | CreditNote) => {
     const isInvoice = !('facturaModificadaSecuencial' in doc);
-    if (!confirm(`¿Está seguro de eliminar de su historial local el comprobante ${isInvoice ? 'Factura' : 'Nota de Crédito'} #${doc.secuencial}?`)) {
+    if (!confirm(`¿Está seguro de eliminar el comprobante ${isInvoice ? 'Factura' : 'Nota de Crédito'} #${doc.secuencial}? Esta acción borrará el registro de la base de datos de Supabase (tablas "facturas" y "factura_detalles") y del historial local.`)) {
       return;
     }
     if (isInvoice) {
@@ -517,7 +517,6 @@ export default function HistoryList({
                       <td className="px-5 py-4 text-center">
                         <input
                           type="checkbox"
-                          disabled={!canBeDeleted}
                           checked={selectedIds.includes(doc.id)}
                           onChange={(e) => {
                             if (e.target.checked) {
@@ -526,7 +525,7 @@ export default function HistoryList({
                               setSelectedIds(prev => prev.filter(id => id !== doc.id));
                             }
                           }}
-                          className={`rounded text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 border-gray-350 dark:border-zinc-705 dark:bg-zinc-800 ${canBeDeleted ? 'cursor-pointer' : 'opacity-20 cursor-not-allowed'}`}
+                          className="rounded text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 border-gray-350 dark:border-zinc-705 dark:bg-zinc-800 cursor-pointer"
                         />
                       </td>
 
@@ -653,16 +652,14 @@ export default function HistoryList({
                             </button>
                           )}
 
-                          {/* Delete local drafts, rejects, or unauthorized */}
-                          {canBeDeleted && (
-                            <button
-                              onClick={() => handleDelete(doc)}
-                              className="p-1 text-red-400 hover:text-red-750 hover:text-red-650 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 rounded cursor-pointer animate-fade-in"
-                              title="Eliminar este comprobante del historial"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          {/* Delete button for removing invoice and invoice details from Supabase & local history */}
+                          <button
+                            onClick={() => handleDelete(doc)}
+                            className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg cursor-pointer transition animate-fade-in"
+                            title="Eliminar este comprobante y sus detalles de Supabase"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
 
                         </div>
                       </td>

@@ -858,6 +858,13 @@ export async function deleteInvoiceFromSupabase(id: string): Promise<boolean> {
   const supabase = getSupabase();
   if (!supabase) return false;
 
+  // First delete details from factura_detalles table to ensure clean cascade/deletion
+  try {
+    await supabase.from('factura_detalles').delete().eq('factura_id', id);
+  } catch (e) {
+    console.warn('Aviso borrando factura_detalles en Supabase:', e);
+  }
+
   const { error } = await supabase.from('facturas').delete().eq('id', id);
   return !error;
 }
