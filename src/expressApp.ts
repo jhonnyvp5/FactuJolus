@@ -108,7 +108,7 @@ apiRouter.post(['/test-smtp', '/api/test-smtp'], async (req, res) => {
   }
 });
 
-apiRouter.get(['/health', '/api/health', '/'], (req, res) => {
+apiRouter.get(['/health', '/api/health'], (req, res) => {
   res.json({ status: 'ok', platform: 'Vercel / Express', time: new Date() });
 });
 
