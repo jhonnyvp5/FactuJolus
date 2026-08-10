@@ -170,6 +170,7 @@ CREATE TABLE IF NOT EXISTS public.factura_detalles (
     precio_unitario NUMERIC(12,4),
     descuento NUMERIC(12,4),
     subtotal NUMERIC(12,4),
+    iva_tipo TEXT DEFAULT '4',
     iva_calculado NUMERIC(12,4),
     total NUMERIC(12,4),
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -274,6 +275,7 @@ ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS contribuyent
 ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS creador_nombre TEXT;
 ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS resumen_impuestos JSONB;
 ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS info_adicional JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE IF EXISTS public.factura_detalles ADD COLUMN IF NOT EXISTS iva_tipo TEXT DEFAULT '4';
 
 ALTER TABLE IF EXISTS public.usuarios_portal ADD COLUMN IF NOT EXISTS is_temp BOOLEAN DEFAULT FALSE;
 ALTER TABLE IF EXISTS public.invitaciones ADD COLUMN IF NOT EXISTS nombre_invitado TEXT;
@@ -837,6 +839,7 @@ export async function saveInvoiceToSupabase(invoice: Invoice): Promise<boolean> 
         precio_unitario: d.producto.precio,
         descuento: d.descuento || 0,
         subtotal: d.subtotal,
+        iva_tipo: d.producto.ivaTipo || '4',
         iva_calculado: d.ivaCalculado,
         total: d.total
       }));
