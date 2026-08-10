@@ -1,20 +1,9 @@
 import { Buffer } from 'buffer';
-import forge from 'node-forge';
+import * as forgeModule from 'node-forge';
 import { signInvoiceXml, signCreditNoteXml } from 'ec-sri-invoice-signer';
 import cryptoShim from '../lib/cryptoShim';
 
-if (typeof globalThis !== 'undefined') {
-  (globalThis as any).Buffer = (globalThis as any).Buffer || Buffer;
-  if ((globalThis as any).crypto) {
-    if (!(globalThis as any).crypto.randomUUID) {
-      try {
-        (globalThis as any).crypto.randomUUID = cryptoShim.randomUUID;
-      } catch (e) {}
-    }
-  } else {
-    (globalThis as any).crypto = cryptoShim;
-  }
-}
+const forge: any = (forgeModule as any).default || forgeModule;
 
 export interface SignatureInfo {
   subject: string;
