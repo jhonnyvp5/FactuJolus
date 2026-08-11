@@ -268,7 +268,7 @@ export default function App() {
 
     const syncWithSupabase = async () => {
       // 1. Clients
-      const dbClients = await fetchClientsFromSupabase();
+      const dbClients = await fetchClientsFromSupabase(currentUser?.correo, currentUser?.role);
       if (dbClients && dbClients.length > 0 && isMounted) {
         setClients(dbClients);
         const key = getUserStorageKey(STORAGE_KEYS.CLIENTS, currentUser?.correo);
@@ -276,7 +276,7 @@ export default function App() {
       }
 
       // 2. Products
-      const dbProducts = await fetchProductsFromSupabase();
+      const dbProducts = await fetchProductsFromSupabase(currentUser?.correo, currentUser?.role);
       if (dbProducts && dbProducts.length > 0 && isMounted) {
         setProducts(dbProducts);
         const key = getUserStorageKey(STORAGE_KEYS.PRODUCTS, currentUser?.correo);
@@ -284,7 +284,7 @@ export default function App() {
       }
 
       // 3. Invoices
-      const dbInvoices = await fetchInvoicesFromSupabase();
+      const dbInvoices = await fetchInvoicesFromSupabase(currentUser?.correo, currentUser?.role);
       if (dbInvoices && isMounted) {
         setInvoices(dbInvoices);
         const key = getUserStorageKey(STORAGE_KEYS.INVOICES, currentUser?.correo);
@@ -292,7 +292,7 @@ export default function App() {
       }
 
       // 4. Credit Notes
-      const dbCreditNotes = await fetchCreditNotesFromSupabase();
+      const dbCreditNotes = await fetchCreditNotesFromSupabase(currentUser?.correo, currentUser?.role);
       if (dbCreditNotes && isMounted) {
         setCreditNotes(dbCreditNotes);
         const key = getUserStorageKey(STORAGE_KEYS.CREDIT_NOTES, currentUser?.correo);
@@ -300,7 +300,7 @@ export default function App() {
       }
 
       // 5. Config
-      const dbConfig = await fetchEmitterConfigFromSupabase();
+      const dbConfig = await fetchEmitterConfigFromSupabase(undefined, currentUser?.correo, currentUser?.role);
       if (dbConfig && dbConfig.ruc && isMounted) {
         setConfig(prev => ({ ...prev, ...dbConfig }));
         const key = getUserStorageKey(STORAGE_KEYS.CONFIG, currentUser?.correo);
@@ -368,7 +368,7 @@ export default function App() {
     setConfig(newConfig);
     const key = getUserStorageKey(STORAGE_KEYS.CONFIG, currentUser?.correo);
     localStorage.setItem(key, JSON.stringify(newConfig));
-    saveEmitterConfigToSupabase(newConfig);
+    saveEmitterConfigToSupabase(newConfig, currentUser?.correo);
     if (currentUser) {
       logActivity(
         currentUser,
@@ -383,7 +383,7 @@ export default function App() {
     setClients(updated);
     const key = getUserStorageKey(STORAGE_KEYS.CLIENTS, currentUser?.correo);
     localStorage.setItem(key, JSON.stringify(updated));
-    saveClientToSupabase(client);
+    saveClientToSupabase(client, currentUser?.correo);
   };
 
   const handleAddProduct = (product: Product) => {
@@ -391,20 +391,21 @@ export default function App() {
     setProducts(updated);
     const key = getUserStorageKey(STORAGE_KEYS.PRODUCTS, currentUser?.correo);
     localStorage.setItem(key, JSON.stringify(updated));
-    saveProductToSupabase(product);
+    saveProductToSupabase(product, currentUser?.correo);
   };
 
   const handleAddInvoice = (invoice: Invoice) => {
     // Append the operator name as developer/creator of the document
     const invoiceWithCreator: Invoice = {
       ...invoice,
-      creadorNombre: currentUser ? (currentUser.nombre || currentUser.correo.split('@')[0].toUpperCase()) : 'ADMINISTRADOR'
+      creadorNombre: currentUser ? (currentUser.nombre || currentUser.correo.split('@')[0].toUpperCase()) : 'ADMINISTRADOR',
+      usuarioCorreo: currentUser?.correo
     };
     const updated = [invoiceWithCreator, ...invoices];
     setInvoices(updated);
     const invoicesKey = getUserStorageKey(STORAGE_KEYS.INVOICES, currentUser?.correo);
     localStorage.setItem(invoicesKey, JSON.stringify(updated));
-    saveInvoiceToSupabase(invoiceWithCreator);
+    saveInvoiceToSupabase(invoiceWithCreator, currentUser?.correo);
 
     // Log the event
     if (currentUser) {
@@ -428,14 +429,14 @@ export default function App() {
     setConfig(updatedConfig);
     const configKey = getUserStorageKey(STORAGE_KEYS.CONFIG, currentUser?.correo);
     localStorage.setItem(configKey, JSON.stringify(updatedConfig));
-    saveEmitterConfigToSupabase(updatedConfig);
+    saveEmitterConfigToSupabase(updatedConfig, currentUser?.correo);
   };
 
   const handleUpdateInvoice = (id: string, updatedParams: Partial<Invoice>) => {
     const updatedInvs = invoices.map(inv => {
       if (inv.id === id) {
-        const newInv = { ...inv, ...updatedParams };
-        saveInvoiceToSupabase(newInv);
+        const newInv = { ...inv, ...updatedParams, usuarioCorreo: currentUser?.correo };
+        saveInvoiceToSupabase(newInv, currentUser?.correo);
         return newInv;
       }
       return inv;
@@ -449,13 +450,14 @@ export default function App() {
     // Append the operator name as developer/creator of the document
     const ncWithCreator: CreditNote = {
       ...nc,
-      creadorNombre: currentUser ? (currentUser.nombre || currentUser.correo.split('@')[0].toUpperCase()) : 'ADMINISTRADOR'
+      creadorNombre: currentUser ? (currentUser.nombre || currentUser.correo.split('@')[0].toUpperCase()) : 'ADMINISTRADOR',
+      usuarioCorreo: currentUser?.correo
     };
     const updated = [ncWithCreator, ...creditNotes];
     setCreditNotes(updated);
     const cnKey = getUserStorageKey(STORAGE_KEYS.CREDIT_NOTES, currentUser?.correo);
     localStorage.setItem(cnKey, JSON.stringify(updated));
-    saveCreditNoteToSupabase(ncWithCreator);
+    saveCreditNoteToSupabase(ncWithCreator, currentUser?.correo);
 
     // Log the event
     if (currentUser) {

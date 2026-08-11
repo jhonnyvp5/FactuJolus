@@ -93,16 +93,25 @@ export default function ProformaForm({
 
   // Load existing proformas on mount or user change
   useEffect(() => {
-    const saved = localStorage.getItem(getUserStorageKey('sri_proformas'));
-    if (saved) {
-      try {
-        setProformas(JSON.parse(saved));
-      } catch (e) {
-        console.error('Error loading proformas', e);
+    const loadProformas = async () => {
+      const dbProformas = await fetchProformasFromSupabase(currentUserEmail);
+      if (dbProformas && dbProformas.length > 0) {
+        setProformas(dbProformas);
+        localStorage.setItem(getUserStorageKey('sri_proformas'), JSON.stringify(dbProformas));
+        return;
       }
-    } else {
-      setProformas([]);
-    }
+      const saved = localStorage.getItem(getUserStorageKey('sri_proformas'));
+      if (saved) {
+        try {
+          setProformas(JSON.parse(saved));
+        } catch (e) {
+          console.error('Error loading proformas', e);
+        }
+      } else {
+        setProformas([]);
+      }
+    };
+    loadProformas();
     
     // Set initial sequential
     const storedSeq = localStorage.getItem(getUserStorageKey('sri_proforma_highest_secuencial'));
@@ -403,7 +412,7 @@ export default function ProformaForm({
 
     setProformas(updatedList);
     localStorage.setItem(getUserStorageKey('sri_proformas'), JSON.stringify(updatedList));
-    saveProformaToSupabase(newProforma);
+    saveProformaToSupabase(newProforma, currentUserEmail);
 
     // Reset Form
     setSelectedClientId('');

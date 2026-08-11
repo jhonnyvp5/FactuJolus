@@ -29,6 +29,7 @@ export interface EmitterConfig {
   smtpUser?: string; // Usuario / Correo SMTP
   smtpPass?: string; // Contraseña o App Password
   smtpFrom?: string; // Remitente (ej: Facturación <correo@dominio.com>)
+  usuarioCorreo?: string;
 }
 
 export interface Client {
@@ -39,6 +40,7 @@ export interface Client {
   direccion: string;
   telefono: string;
   correo: string;
+  usuarioCorreo?: string;
 }
 
 export interface Product {
@@ -48,6 +50,7 @@ export interface Product {
   precio: number;
   ivaTipo: TipoIva;
   descuentoDefault: number;
+  usuarioCorreo?: string;
 }
 
 export interface InvoiceDetail {
@@ -92,6 +95,7 @@ export interface Invoice {
     total: number;
   };
   creadorNombre?: string; // Nombre del usuario que generó la factura
+  usuarioCorreo?: string;
 }
 
 export interface CreditNoteDetail {
@@ -131,6 +135,7 @@ export interface CreditNote {
     total: number;
   };
   creadorNombre?: string; // Nombre del usuario que generó el comprobante
+  usuarioCorreo?: string;
 }
 
 export interface SriMessage {
@@ -212,5 +217,6 @@ export interface Proforma {
   ivaOptionLabel?: string;
   ivaOption?: string;
   templateId?: string;
+  usuarioCorreo?: string;
 }
 

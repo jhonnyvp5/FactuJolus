@@ -271,11 +271,24 @@ ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS ambiente TEX
 ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS regimen TEXT DEFAULT 'GENERAL';
 ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS regimen_tributario TEXT DEFAULT 'GENERAL';
 ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS contribuyente_especial TEXT DEFAULT '';
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
+
+ALTER TABLE IF EXISTS public.clientes ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
+ALTER TABLE IF EXISTS public.productos ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
 
 ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS creador_nombre TEXT;
 ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS resumen_impuestos JSONB;
 ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS info_adicional JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
+
 ALTER TABLE IF EXISTS public.factura_detalles ADD COLUMN IF NOT EXISTS iva_tipo TEXT DEFAULT '4';
+ALTER TABLE IF EXISTS public.factura_detalles ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
+
+ALTER TABLE IF EXISTS public.proformas ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
+ALTER TABLE IF EXISTS public.proforma_detalles ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
+
+ALTER TABLE IF EXISTS public.notas_credito ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
+ALTER TABLE IF EXISTS public.nota_credito_detalles ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
 
 ALTER TABLE IF EXISTS public.usuarios_portal ADD COLUMN IF NOT EXISTS is_temp BOOLEAN DEFAULT FALSE;
 ALTER TABLE IF EXISTS public.invitaciones ADD COLUMN IF NOT EXISTS nombre_invitado TEXT;
@@ -498,7 +511,9 @@ export async function safeUpsert(
 
     // Strategy 3: Check existence and perform explicit UPDATE or INSERT
     try {
-      const matchCol = (conflictField && currentPayload[conflictField] !== undefined) ? conflictField : (currentPayload.id !== undefined && isValidUuid(currentPayload.id) ? 'id' : null);
+      const matchCol = (conflictField && currentPayload[conflictField] !== undefined)
+        ? conflictField
+        : (currentPayload.id !== undefined ? 'id' : null);
       if (matchCol && currentPayload[matchCol] !== undefined) {
         const matchVal = currentPayload[matchCol];
         const { data: existing } = await supabase.from(tableName).select(matchCol).eq(matchCol, matchVal).maybeSingle();
@@ -546,26 +561,32 @@ export async function safeUpsert(
 // ==========================================
 // 1. CLIENTES
 // ==========================================
-export async function fetchClientsFromSupabase(): Promise<Client[] | null> {
+export async function fetchClientsFromSupabase(userEmail?: string, userRole?: string): Promise<Client[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
   const { data, error } = await supabase.from('clientes').select('*').order('created_at', { ascending: false });
 
-  if (error) return null;
+  if (error || !data) return null;
 
-  return data ? data.map(item => ({
+  const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
+  const filtered = (userEmail && !isSuperAdmin)
+    ? data.filter(item => !item.usuario_correo || item.usuario_correo === userEmail)
+    : data;
+
+  return filtered.map(item => ({
     id: item.id || `cli-${Date.now()}`,
     tipoIdentificacion: item.tipo_identificacion || item.tipoIdentificacion || '05',
     identificacion: item.identificacion,
     nombre: item.nombre,
     direccion: item.direccion || '',
     telefono: item.telefono || '',
-    correo: item.correo || ''
-  })) : [];
+    correo: item.correo || '',
+    usuarioCorreo: item.usuario_correo
+  }));
 }
 
-export async function saveClientToSupabase(client: Client): Promise<{ success: boolean; errorDetails?: string }> {
+export async function saveClientToSupabase(client: Client, userEmail?: string): Promise<{ success: boolean; errorDetails?: string }> {
   const spanishPayload: Record<string, any> = {
     id: client.id || `cli-${Date.now()}`,
     tipo_identificacion: client.tipoIdentificacion,
@@ -573,7 +594,8 @@ export async function saveClientToSupabase(client: Client): Promise<{ success: b
     nombre: client.nombre,
     direccion: client.direccion || '',
     telefono: client.telefono || '',
-    correo: client.correo || ''
+    correo: client.correo || '',
+    usuario_correo: userEmail || client.usuarioCorreo || ''
   };
 
   return safeUpsert('clientes', spanishPayload, 'identificacion');
@@ -590,32 +612,39 @@ export async function deleteClientFromSupabase(id: string, identificacion?: stri
 // ==========================================
 // 2. PRODUCTOS
 // ==========================================
-export async function fetchProductsFromSupabase(): Promise<Product[] | null> {
+export async function fetchProductsFromSupabase(userEmail?: string, userRole?: string): Promise<Product[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
   const { data, error } = await supabase.from('productos').select('*').order('created_at', { ascending: false });
 
-  if (error) return null;
+  if (error || !data) return null;
 
-  return data ? data.map(item => ({
+  const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
+  const filtered = (userEmail && !isSuperAdmin)
+    ? data.filter(item => !item.usuario_correo || item.usuario_correo === userEmail)
+    : data;
+
+  return filtered.map(item => ({
     id: item.id || `prod-${Date.now()}`,
     codigo: item.codigo,
     nombre: item.nombre,
     precio: Number(item.precio) || 0,
     ivaTipo: item.iva_tipo || item.ivaTipo || '4',
-    descuentoDefault: Number(item.descuento_default ?? item.descuentoDefault ?? 0)
-  })) : [];
+    descuentoDefault: Number(item.descuento_default ?? item.descuentoDefault ?? 0),
+    usuarioCorreo: item.usuario_correo
+  }));
 }
 
-export async function saveProductToSupabase(product: Product): Promise<boolean> {
+export async function saveProductToSupabase(product: Product, userEmail?: string): Promise<boolean> {
   const payload: Record<string, any> = {
     id: product.id || `prod-${Date.now()}`,
     codigo: product.codigo,
     nombre: product.nombre,
     precio: product.precio,
     iva_tipo: product.ivaTipo,
-    descuento_default: product.descuentoDefault || 0
+    descuento_default: product.descuentoDefault || 0,
+    usuario_correo: userEmail || product.usuarioCorreo || ''
   };
 
   const res = await safeUpsert('productos', payload, 'codigo');
@@ -633,7 +662,7 @@ export async function deleteProductFromSupabase(id: string, codigo?: string): Pr
 // ==========================================
 // 3. EMISOR CONFIG (emisor_config)
 // ==========================================
-export async function fetchEmitterConfigFromSupabase(ruc?: string): Promise<EmitterConfig | null> {
+export async function fetchEmitterConfigFromSupabase(ruc?: string, userEmail?: string, userRole?: string): Promise<EmitterConfig | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
@@ -642,11 +671,18 @@ export async function fetchEmitterConfigFromSupabase(ruc?: string): Promise<Emit
     if (ruc) {
       const res = await supabase.from('emisor_config').select('*').eq('ruc', ruc).maybeSingle();
       data = res.data;
-    }
-    if (!data) {
+    } else if (userEmail && userRole?.toUpperCase() !== 'SUPERADMIN') {
+      const resUser = await supabase.from('emisor_config').select('*').eq('usuario_correo', userEmail).maybeSingle();
+      data = resUser.data;
+      if (!data) {
+        const resAll = await supabase.from('emisor_config').select('*').limit(1).maybeSingle();
+        data = resAll.data;
+      }
+    } else {
       const res = await supabase.from('emisor_config').select('*').limit(1).maybeSingle();
       data = res.data;
     }
+
     if (!data) return null;
 
     return {
@@ -666,15 +702,16 @@ export async function fetchEmitterConfigFromSupabase(ruc?: string): Promise<Emit
       p12Nombre: data.p12_nombre || '',
       p12FirmaB64: data.p12_firma_b64 || '',
       p12Password: data.p12_password || data.clave_firma || '',
-      correo: data.correo || '',
-      isDemoMode: false
+      correo: data.correo || userEmail || '',
+      isDemoMode: false,
+      usuarioCorreo: data.usuario_correo
     };
   } catch {
     return null;
   }
 }
 
-export async function saveEmitterConfigToSupabase(config: EmitterConfig): Promise<boolean> {
+export async function saveEmitterConfigToSupabase(config: EmitterConfig, userEmail?: string): Promise<boolean> {
   const targetRuc = config.ruc ? config.ruc.trim() : '';
   if (!targetRuc) {
     return false;
@@ -702,7 +739,8 @@ export async function saveEmitterConfigToSupabase(config: EmitterConfig): Promis
     p12_nombre: config.p12Nombre || '',
     p12_firma_b64: config.p12FirmaB64 || '',
     p12_password: config.p12Password !== undefined ? config.p12Password : '',
-    correo: config.correo || ''
+    correo: config.correo || userEmail || '',
+    usuario_correo: userEmail || config.usuarioCorreo || ''
   };
 
   const supabase = getSupabase();
@@ -721,7 +759,7 @@ export async function saveEmitterConfigToSupabase(config: EmitterConfig): Promis
   return res.success;
 }
 
-export async function saveEmitterLogoToSupabase(ruc: string, logoB64: string): Promise<boolean> {
+export async function saveEmitterLogoToSupabase(ruc: string, logoB64: string, userEmail?: string): Promise<boolean> {
   let targetRuc = ruc ? ruc.trim() : '';
 
   const supabase = getSupabase();
@@ -741,7 +779,8 @@ export async function saveEmitterLogoToSupabase(ruc: string, logoB64: string): P
   const payload: Record<string, any> = {
     ruc: targetRuc,
     logo_url: logoB64,
-    logo_b64: logoB64
+    logo_b64: logoB64,
+    usuario_correo: userEmail || ''
   };
 
   if (supabase && targetRuc) {
@@ -771,15 +810,20 @@ export async function saveEmitterLogoToSupabase(ruc: string, logoB64: string): P
 // ==========================================
 // 4. FACTURAS & 5. FACTURA_DETALLES
 // ==========================================
-export async function fetchInvoicesFromSupabase(): Promise<Invoice[] | null> {
+export async function fetchInvoicesFromSupabase(userEmail?: string, userRole?: string): Promise<Invoice[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
   const { data, error } = await supabase.from('facturas').select('*').order('created_at', { ascending: false });
 
-  if (error) return null;
+  if (error || !data) return null;
 
-  return data ? data.map(item => ({
+  const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
+  const filtered = (userEmail && !isSuperAdmin)
+    ? data.filter(item => !item.usuario_correo || item.usuario_correo === userEmail)
+    : data;
+
+  return filtered.map(item => ({
     id: item.id,
     secuencial: item.secuencial,
     fechaEmision: item.fecha_emision || item.fechaEmision,
@@ -797,11 +841,12 @@ export async function fetchInvoicesFromSupabase(): Promise<Invoice[] | null> {
     numeroAutorizacion: item.numero_autorizacion || item.numeroAutorizacion,
     infoAdicional: typeof item.info_adicional === 'string' ? JSON.parse(item.info_adicional) : (item.info_adicional || []),
     resumenImpuestos: typeof item.resumen_impuestos === 'string' ? JSON.parse(item.resumen_impuestos) : item.resumen_impuestos,
-    creadorNombre: item.creador_nombre || item.creadorNombre
-  })) : [];
+    creadorNombre: item.creador_nombre || item.creadorNombre,
+    usuarioCorreo: item.usuario_correo
+  }));
 }
 
-export async function saveInvoiceToSupabase(invoice: Invoice): Promise<boolean> {
+export async function saveInvoiceToSupabase(invoice: Invoice, userEmail?: string): Promise<boolean> {
   const spanishPayload: Record<string, any> = {
     id: invoice.id,
     secuencial: invoice.secuencial,
@@ -820,34 +865,42 @@ export async function saveInvoiceToSupabase(invoice: Invoice): Promise<boolean> 
     numero_autorizacion: invoice.numeroAutorizacion,
     info_adicional: invoice.infoAdicional,
     resumen_impuestos: invoice.resumenImpuestos,
-    creador_nombre: invoice.creadorNombre
+    creador_nombre: invoice.creadorNombre,
+    usuario_correo: userEmail || invoice.usuarioCorreo || ''
   };
 
   const res = await safeUpsert('facturas', spanishPayload, 'id');
 
-  // Also save line items in 'factura_detalles' table
-  if (res.success && invoice.detalles && invoice.detalles.length > 0) {
+  // Always save line items in 'factura_detalles' table
+  if (invoice.detalles && invoice.detalles.length > 0) {
     try {
-      const lineItems = invoice.detalles.map(d => ({
-        id: d.id || `${invoice.id}-${d.producto.codigo}`,
+      const supabase = getSupabase();
+      if (supabase) {
+        await supabase.from('factura_detalles').delete().eq('factura_id', invoice.id);
+      }
+
+      const lineItems = invoice.detalles.map((d, index) => ({
+        id: (d.id && d.id.length > 5) ? d.id : `${invoice.id}-det-${index + 1}`,
         factura_id: invoice.id,
         factura_secuencial: invoice.secuencial,
-        producto_id: d.producto.id,
-        producto_codigo: d.producto.codigo,
-        producto_nombre: d.producto.nombre,
-        cantidad: d.cantidad,
-        precio_unitario: d.producto.precio,
-        descuento: d.descuento || 0,
-        subtotal: d.subtotal,
-        iva_tipo: d.producto.ivaTipo || '4',
-        iva_calculado: d.ivaCalculado,
-        total: d.total
+        producto_id: d.producto?.id || '',
+        producto_codigo: d.producto?.codigo || '',
+        producto_nombre: d.producto?.nombre || '',
+        cantidad: Number(d.cantidad) || 0,
+        precio_unitario: Number(d.producto?.precio) || 0,
+        descuento: Number(d.descuento) || 0,
+        subtotal: Number(d.subtotal) || 0,
+        iva_tipo: String(d.producto?.ivaTipo || '4'),
+        iva_calculado: Number(d.ivaCalculado) || 0,
+        total: Number(d.total) || 0,
+        usuario_correo: userEmail || invoice.usuarioCorreo || ''
       }));
+
       for (const item of lineItems) {
         await safeUpsert('factura_detalles', item, 'id');
       }
     } catch (e) {
-      console.warn('Aviso guardando factura_detalles:', e);
+      console.warn('Aviso guardando factura_detalles en Supabase:', e);
     }
   }
 
@@ -872,7 +925,7 @@ export async function deleteInvoiceFromSupabase(id: string): Promise<boolean> {
 // ==========================================
 // 6. PROFORMAS & 7. PROFORMA_DETALLES
 // ==========================================
-export async function fetchProformasFromSupabase(): Promise<Proforma[] | null> {
+export async function fetchProformasFromSupabase(userEmail?: string, userRole?: string): Promise<Proforma[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
@@ -880,7 +933,12 @@ export async function fetchProformasFromSupabase(): Promise<Proforma[] | null> {
     const { data, error } = await supabase.from('proformas').select('*').order('created_at', { ascending: false });
     if (error || !data) return null;
 
-    return data.map(item => ({
+    const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
+    const filtered = (userEmail && !isSuperAdmin)
+      ? data.filter(item => !item.usuario_correo || item.usuario_correo === userEmail)
+      : data;
+
+    return filtered.map(item => ({
       id: item.id,
       secuencial: item.secuencial,
       fechaEmision: item.fecha_emision || item.fechaEmision,
@@ -892,14 +950,15 @@ export async function fetchProformasFromSupabase(): Promise<Proforma[] | null> {
       empresaNombre: item.empresa_datos?.nombre || item.empresa_nombre || item.empresaNombre,
       empresaDireccion: item.empresa_datos?.direccion || item.empresa_direccion || item.empresaDireccion,
       empresaTelefono: item.empresa_datos?.telefono || item.empresa_telefono || item.empresaTelefono,
-      empresaCorreo: item.empresa_datos?.correo || item.empresa_correo || item.empresaCorreo
+      empresaCorreo: item.empresa_datos?.correo || item.empresa_correo || item.empresaCorreo,
+      usuarioCorreo: item.usuario_correo
     }));
   } catch {
     return null;
   }
 }
 
-export async function saveProformaToSupabase(proforma: Proforma): Promise<boolean> {
+export async function saveProformaToSupabase(proforma: Proforma, userEmail?: string): Promise<boolean> {
   const payload: Record<string, any> = {
     id: proforma.id,
     secuencial: proforma.secuencial,
@@ -914,25 +973,35 @@ export async function saveProformaToSupabase(proforma: Proforma): Promise<boolea
       direccion: proforma.empresaDireccion,
       telefono: proforma.empresaTelefono,
       correo: proforma.empresaCorreo
-    }
+    },
+    usuario_correo: userEmail || proforma.usuarioCorreo || ''
   };
 
   const res = await safeUpsert('proformas', payload, 'id');
 
-  if (res.success && proforma.detalles && proforma.detalles.length > 0) {
-    const lineItems = proforma.detalles.map(d => ({
-      id: `${proforma.id}-${d.producto.codigo}`,
-      proforma_id: proforma.id,
-      producto_codigo: d.producto.codigo,
-      producto_nombre: d.producto.nombre,
-      cantidad: d.cantidad,
-      precio_unitario: d.producto.precio,
-      subtotal: d.subtotal,
-      iva_calculado: d.ivaCalculado,
-      total: d.total
-    }));
-    for (const item of lineItems) {
-      await safeUpsert('proforma_detalles', item, 'id');
+  if (proforma.detalles && proforma.detalles.length > 0) {
+    try {
+      const supabase = getSupabase();
+      if (supabase) {
+        await supabase.from('proforma_detalles').delete().eq('proforma_id', proforma.id);
+      }
+      const lineItems = proforma.detalles.map((d, idx) => ({
+        id: `${proforma.id}-d${idx + 1}`,
+        proforma_id: proforma.id,
+        producto_codigo: d.producto?.codigo || '',
+        producto_nombre: d.producto?.nombre || '',
+        cantidad: d.cantidad || 0,
+        precio_unitario: d.producto?.precio || 0,
+        subtotal: d.subtotal || 0,
+        iva_calculado: d.ivaCalculado || 0,
+        total: d.total || 0,
+        usuario_correo: userEmail || proforma.usuarioCorreo || ''
+      }));
+      for (const item of lineItems) {
+        await safeUpsert('proforma_detalles', item, 'id');
+      }
+    } catch (e) {
+      console.warn('Aviso guardando proforma_detalles:', e);
     }
   }
 
@@ -949,7 +1018,7 @@ export async function deleteProformaFromSupabase(id: string): Promise<boolean> {
 // ==========================================
 // 8. NOTAS_CREDITO & 9. NOTA_CREDITO_DETALLES
 // ==========================================
-export async function fetchCreditNotesFromSupabase(): Promise<CreditNote[] | null> {
+export async function fetchCreditNotesFromSupabase(userEmail?: string, userRole?: string): Promise<CreditNote[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
@@ -957,7 +1026,12 @@ export async function fetchCreditNotesFromSupabase(): Promise<CreditNote[] | nul
     const { data, error } = await supabase.from('notas_credito').select('*').order('created_at', { ascending: false });
     if (error || !data) return null;
 
-    return data.map(item => ({
+    const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
+    const filtered = (userEmail && !isSuperAdmin)
+      ? data.filter(item => !item.usuario_correo || item.usuario_correo === userEmail)
+      : data;
+
+    return filtered.map(item => ({
       id: item.id,
       secuencial: item.secuencial,
       fechaEmision: item.fecha_emision,
@@ -975,49 +1049,62 @@ export async function fetchCreditNotesFromSupabase(): Promise<CreditNote[] | nul
       fechaAutorizacion: item.fecha_autorizacion,
       numeroAutorizacion: item.numero_autorizacion,
       infoAdicional: typeof item.info_adicional === 'string' ? JSON.parse(item.info_adicional) : (item.info_adicional || []),
-      resumenImpuestos: typeof item.resumen_impuestos === 'string' ? JSON.parse(item.resumen_impuestos) : item.resumen_impuestos
+      resumenImpuestos: typeof item.resumen_impuestos === 'string' ? JSON.parse(item.resumen_impuestos) : item.resumen_impuestos,
+      usuarioCorreo: item.usuario_correo
     }));
   } catch {
     return null;
   }
 }
 
-export async function saveCreditNoteToSupabase(creditNote: CreditNote): Promise<boolean> {
-  const payload = {
+export async function saveCreditNoteToSupabase(creditNote: CreditNote, userEmail?: string): Promise<boolean> {
+  const payload: Record<string, any> = {
     id: creditNote.id,
     secuencial: creditNote.secuencial,
     fecha_emision: creditNote.fechaEmision,
     factura_modificada_num: creditNote.facturaModificadaSecuencial,
+    factura_modificada_clave: creditNote.facturaModificadaClaveAcceso,
+    fecha_emision_modificado: creditNote.fechaEmisionModificado,
     motivo: creditNote.razonModificacion,
     cliente_datos: creditNote.cliente,
     detalles: creditNote.detalles,
     clave_acceso: creditNote.claveAcceso,
     xml: creditNote.xml,
     xml_firmado: creditNote.xmlFirmado,
-    estado: creditNote.estado,
+    estado: creditNote.estado || 'Borrador',
     mensajes_sri: creditNote.mensajesSRI,
     fecha_autorizacion: creditNote.fechaAutorizacion,
     numero_autorizacion: creditNote.numeroAutorizacion,
     info_adicional: creditNote.infoAdicional,
-    resumen_impuestos: creditNote.resumenImpuestos
+    resumen_impuestos: creditNote.resumenImpuestos,
+    usuario_correo: userEmail || creditNote.usuarioCorreo || ''
   };
 
   const res = await safeUpsert('notas_credito', payload, 'id');
 
-  if (res.success && creditNote.detalles && creditNote.detalles.length > 0) {
-    const lineItems = creditNote.detalles.map(d => ({
-      id: `${creditNote.id}-${d.producto.codigo}`,
-      nota_credito_id: creditNote.id,
-      producto_codigo: d.producto.codigo,
-      producto_nombre: d.producto.nombre,
-      cantidad: d.cantidad,
-      precio_unitario: d.producto.precio,
-      subtotal: d.subtotal,
-      iva_calculado: d.ivaCalculado,
-      total: d.total
-    }));
-    for (const item of lineItems) {
-      await safeUpsert('nota_credito_detalles', item, 'id');
+  if (creditNote.detalles && creditNote.detalles.length > 0) {
+    try {
+      const supabase = getSupabase();
+      if (supabase) {
+        await supabase.from('nota_credito_detalles').delete().eq('nota_credito_id', creditNote.id);
+      }
+      const lineItems = creditNote.detalles.map((d, idx) => ({
+        id: `${creditNote.id}-d${idx + 1}`,
+        nota_credito_id: creditNote.id,
+        producto_codigo: d.producto?.codigo || '',
+        producto_nombre: d.producto?.nombre || '',
+        cantidad: d.cantidad || 0,
+        precio_unitario: d.producto?.precio || 0,
+        subtotal: d.subtotal || 0,
+        iva_calculado: d.ivaCalculado || 0,
+        total: d.total || 0,
+        usuario_correo: userEmail || creditNote.usuarioCorreo || ''
+      }));
+      for (const item of lineItems) {
+        await safeUpsert('nota_credito_detalles', item, 'id');
+      }
+    } catch (e) {
+      console.warn('Aviso guardando nota_credito_detalles:', e);
     }
   }
 
