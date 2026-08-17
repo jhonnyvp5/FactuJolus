@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { EmitterConfig, Invoice, Client, Product } from '../types';
-import { User, Image, FileText, CheckCircle, ShieldCheck, Landmark, Palette, Check } from 'lucide-react';
+import { EmitterConfig, Invoice, Client, Product, PortalUser } from '../types';
+import { User, Image, FileText, CheckCircle, ShieldCheck, Landmark, Palette, Check, Settings, Building2 } from 'lucide-react';
 import RideViewer from './RideViewer';
 import { saveEmitterLogoToSupabase } from '../lib/supabase';
 import { REGIMENES } from '../sri/utils';
@@ -22,9 +22,11 @@ interface CompanyProfileProps {
   config: EmitterConfig;
   onSaveConfig: (updatedConfig: EmitterConfig) => void;
   currentUserEmail?: string;
+  currentUser?: PortalUser | null;
+  onNavigateToSettings?: () => void;
 }
 
-export default function CompanyProfile({ config, onSaveConfig, currentUserEmail }: CompanyProfileProps) {
+export default function CompanyProfile({ config, onSaveConfig, currentUserEmail, currentUser, onNavigateToSettings }: CompanyProfileProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(config.logoB64 || null);
   const [showModelPreview, setShowModelPreview] = useState(false);
@@ -81,10 +83,12 @@ export default function CompanyProfile({ config, onSaveConfig, currentUserEmail 
       setLogoPreview(b64);
       const updated = {
         ...config,
-        logoB64: b64
+        logoB64: b64,
+        empresaRuc: config.empresaRuc || currentUser?.empresaRuc || config.ruc,
+        empresaNombre: config.empresaNombre || currentUser?.empresaNombre || config.razonSocial
       };
       onSaveConfig(updated);
-      await saveEmitterLogoToSupabase(config.ruc, b64);
+      await saveEmitterLogoToSupabase(config.ruc || currentUser?.empresaRuc || '', b64, currentUser?.correo);
       setUploadSuccess(true);
       setTimeout(() => setUploadSuccess(false), 3000);
     };
@@ -96,11 +100,14 @@ export default function CompanyProfile({ config, onSaveConfig, currentUserEmail 
 
   const handleRemoveLogo = async () => {
     setLogoPreview(null);
-    onSaveConfig({
+    const updated = {
       ...config,
-      logoB64: undefined
-    });
-    await saveEmitterLogoToSupabase(config.ruc, '');
+      logoB64: undefined,
+      empresaRuc: config.empresaRuc || currentUser?.empresaRuc || config.ruc,
+      empresaNombre: config.empresaNombre || currentUser?.empresaNombre || config.razonSocial
+    };
+    onSaveConfig(updated);
+    await saveEmitterLogoToSupabase(config.ruc || currentUser?.empresaRuc || '', '', currentUser?.correo);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -262,10 +269,22 @@ export default function CompanyProfile({ config, onSaveConfig, currentUserEmail 
         {/* PROFILE VISUALIZATION TABLE & MODEL RIDE INVOICE TRIGGER */}
         <div className="bg-white p-6 rounded-2xl border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 md:col-span-2 flex flex-col justify-between space-y-6">
           <div className="space-y-4">
-            <h3 className="font-bold text-gray-900 dark:text-gray-100 border-b border-gray-50 dark:border-zinc-805 pb-2 text-sm flex items-center gap-1.5">
-              <Landmark className="w-4.5 h-4.5 text-indigo-650 text-indigo-600" />
-              Ficha del Emisor autorizada por el SRI
-            </h3>
+            <div className="flex items-center justify-between border-b border-gray-50 dark:border-zinc-805 pb-2">
+              <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm flex items-center gap-1.5">
+                <Landmark className="w-4.5 h-4.5 text-indigo-600" />
+                Ficha del Emisor autorizada por el SRI
+              </h3>
+              {onNavigateToSettings && (currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN') && (
+                <button
+                  type="button"
+                  onClick={onNavigateToSettings}
+                  className="px-2.5 py-1 text-[11px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/40 dark:text-indigo-400 rounded-lg transition flex items-center gap-1 cursor-pointer border border-indigo-200/50 dark:border-indigo-800/50"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  Editar Emisor / Firma P12
+                </button>
+              )}
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-sans leading-relaxed">
               <div className="bg-gray-50/50 dark:bg-zinc-950/10 p-3 rounded-xl border border-gray-250/20">

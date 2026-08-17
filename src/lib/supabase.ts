@@ -83,10 +83,28 @@ export async function testSupabaseConnection(): Promise<{ success: boolean; tabl
   }
 }
 
-export const SUPABASE_SQL_SCRIPT = `-- SCRIPT DE CREACIÓN DE TABLAS Y BUCKETS EN SUPABASE - JOLUS SERVICES PORTAL SRI
--- Copie y pegue este código completo en el "SQL Editor" de su panel de Supabase y haga clic en "Run".
+export const SUPABASE_SQL_SCRIPT = `-- =========================================================================
+-- SCRIPT DE MIGRACIÓN SUPABASE - PORTAL FACTURACIÓN ELECTRÓNICA SRI
+-- Ejecute este script completo en el SQL Editor de Supabase
+-- =========================================================================
 
--- 1. TABLA DE CLIENTES
+-- 1. TABLA DE EMPRESAS / INQUILINOS (MULTI-TENANCY)
+CREATE TABLE IF NOT EXISTS public.empresas_inquilinos (
+    id TEXT PRIMARY KEY,
+    ruc VARCHAR(20) UNIQUE NOT NULL,
+    razon_social TEXT NOT NULL,
+    nombre_comercial TEXT,
+    admin_correo VARCHAR(255) NOT NULL,
+    estado VARCHAR(30) DEFAULT 'ACTIVO',
+    fecha_inicio DATE DEFAULT CURRENT_DATE,
+    fecha_expiracion DATE DEFAULT (CURRENT_DATE + INTERVAL '1 year'),
+    limite_comprobantes INT DEFAULT 100,
+    limite_usuarios INT DEFAULT 3,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 2. TABLA DE CLIENTES
 CREATE TABLE IF NOT EXISTS public.clientes (
     id TEXT PRIMARY KEY,
     tipo_identificacion TEXT NOT NULL,
@@ -95,10 +113,13 @@ CREATE TABLE IF NOT EXISTS public.clientes (
     direccion TEXT,
     telefono TEXT,
     correo TEXT,
+    usuario_correo TEXT,
+    empresa_ruc VARCHAR(20),
+    empresa_nombre TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. TABLA DE PRODUCTOS
+-- 3. TABLA DE PRODUCTOS
 CREATE TABLE IF NOT EXISTS public.productos (
     id TEXT PRIMARY KEY,
     codigo TEXT NOT NULL UNIQUE,
@@ -106,17 +127,22 @@ CREATE TABLE IF NOT EXISTS public.productos (
     precio NUMERIC(12,4) NOT NULL DEFAULT 0,
     iva_tipo TEXT DEFAULT '4',
     descuento_default NUMERIC(5,2) DEFAULT 0,
+    usuario_correo TEXT,
+    empresa_ruc VARCHAR(20),
+    empresa_nombre TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. TABLA DE CONFIGURACIÓN EMISOR
+-- 4. TABLA DE CONFIGURACIÓN EMISOR
 CREATE TABLE IF NOT EXISTS public.emisor_config (
     id TEXT PRIMARY KEY DEFAULT 'default',
-    ruc TEXT,
+    ruc TEXT UNIQUE,
     razon_social TEXT,
     nombre_comercial TEXT,
     direccion_matriz TEXT,
+    dir_matriz TEXT,
     direccion_establecimiento TEXT,
+    dir_establecimiento TEXT,
     establecimiento TEXT DEFAULT '001',
     punto_emision TEXT DEFAULT '001',
     lleva_contabilidad TEXT DEFAULT 'NO',
@@ -132,10 +158,13 @@ CREATE TABLE IF NOT EXISTS public.emisor_config (
     p12_firma_b64 TEXT,
     p12_password TEXT,
     correo TEXT,
+    usuario_correo TEXT,
+    empresa_ruc VARCHAR(20),
+    empresa_nombre TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. TABLA DE FACTURAS
+-- 5. TABLA DE FACTURAS
 CREATE TABLE IF NOT EXISTS public.facturas (
     id TEXT PRIMARY KEY,
     secuencial TEXT NOT NULL,
@@ -155,10 +184,14 @@ CREATE TABLE IF NOT EXISTS public.facturas (
     info_adicional JSONB DEFAULT '[]'::jsonb,
     resumen_impuestos JSONB,
     creador_nombre TEXT,
+    creador_correo TEXT,
+    usuario_correo TEXT,
+    empresa_ruc VARCHAR(20),
+    empresa_nombre TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 5. TABLA DE FACTURA DETALLES
+-- 6. TABLA DE FACTURA DETALLES
 CREATE TABLE IF NOT EXISTS public.factura_detalles (
     id TEXT PRIMARY KEY,
     factura_id TEXT REFERENCES public.facturas(id) ON DELETE CASCADE,
@@ -173,10 +206,12 @@ CREATE TABLE IF NOT EXISTS public.factura_detalles (
     iva_tipo TEXT DEFAULT '4',
     iva_calculado NUMERIC(12,4),
     total NUMERIC(12,4),
+    usuario_correo TEXT,
+    empresa_ruc VARCHAR(20),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 6. TABLA DE PROFORMAS
+-- 7. TABLA DE PROFORMAS
 CREATE TABLE IF NOT EXISTS public.proformas (
     id TEXT PRIMARY KEY,
     secuencial TEXT NOT NULL,
@@ -187,10 +222,14 @@ CREATE TABLE IF NOT EXISTS public.proformas (
     informacion_pago TEXT,
     nota_dudas TEXT,
     empresa_datos JSONB,
+    creador_correo TEXT,
+    usuario_correo TEXT,
+    empresa_ruc VARCHAR(20),
+    empresa_nombre TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 7. TABLA DE PROFORMA DETALLES
+-- 8. TABLA DE PROFORMA DETALLES
 CREATE TABLE IF NOT EXISTS public.proforma_detalles (
     id TEXT PRIMARY KEY,
     proforma_id TEXT REFERENCES public.proformas(id) ON DELETE CASCADE,
@@ -201,10 +240,12 @@ CREATE TABLE IF NOT EXISTS public.proforma_detalles (
     subtotal NUMERIC(12,4),
     iva_calculado NUMERIC(12,4),
     total NUMERIC(12,4),
+    usuario_correo TEXT,
+    empresa_ruc VARCHAR(20),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 8. TABLA DE NOTAS DE CRÉDITO
+-- 9. TABLA DE NOTAS DE CRÉDITO
 CREATE TABLE IF NOT EXISTS public.notas_credito (
     id TEXT PRIMARY KEY,
     secuencial TEXT NOT NULL,
@@ -221,10 +262,14 @@ CREATE TABLE IF NOT EXISTS public.notas_credito (
     fecha_autorizacion TEXT,
     numero_autorizacion TEXT,
     resumen_impuestos JSONB,
+    creador_correo TEXT,
+    usuario_correo TEXT,
+    empresa_ruc VARCHAR(20),
+    empresa_nombre TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 9. TABLA DE NOTA DE CRÉDITO DETALLES
+-- 10. TABLA DE NOTA DE CRÉDITO DETALLES
 CREATE TABLE IF NOT EXISTS public.nota_credito_detalles (
     id TEXT PRIMARY KEY,
     nota_credito_id TEXT REFERENCES public.notas_credito(id) ON DELETE CASCADE,
@@ -235,10 +280,12 @@ CREATE TABLE IF NOT EXISTS public.nota_credito_detalles (
     subtotal NUMERIC(12,4),
     iva_calculado NUMERIC(12,4),
     total NUMERIC(12,4),
+    usuario_correo TEXT,
+    empresa_ruc VARCHAR(20),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 10. TABLA DE USUARIOS DEL PORTAL
+-- 11. TABLA DE USUARIOS DEL PORTAL
 CREATE TABLE IF NOT EXISTS public.usuarios_portal (
     id TEXT PRIMARY KEY,
     usuario TEXT,
@@ -247,10 +294,12 @@ CREATE TABLE IF NOT EXISTS public.usuarios_portal (
     role VARCHAR(20) NOT NULL DEFAULT 'USER',
     nombre TEXT,
     is_temp BOOLEAN DEFAULT FALSE,
+    empresa_ruc VARCHAR(20),
+    empresa_nombre TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 11. TABLA DE INVITACIONES
+-- 12. TABLA DE INVITACIONES
 CREATE TABLE IF NOT EXISTS public.invitaciones (
     id TEXT PRIMARY KEY,
     correo VARCHAR(255) NOT NULL,
@@ -259,41 +308,13 @@ CREATE TABLE IF NOT EXISTS public.invitaciones (
     estado TEXT DEFAULT 'PENDIENTE',
     fecha_invitacion TEXT,
     nombre_invitado TEXT,
+    creador_correo TEXT,
+    empresa_ruc VARCHAR(20),
+    empresa_nombre TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ALTER MIGRATIONS PARA ASEGURAR COLUMNAS EN TABLAS EXISTENTES
-ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS clave_firma TEXT;
-ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS correo TEXT;
-ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS logo_url TEXT;
-ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS ultimo_secuencial_factura TEXT DEFAULT '000000001';
-ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS ambiente TEXT DEFAULT '1';
-ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS regimen TEXT DEFAULT 'GENERAL';
-ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS regimen_tributario TEXT DEFAULT 'GENERAL';
-ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS contribuyente_especial TEXT DEFAULT '';
-ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
-
-ALTER TABLE IF EXISTS public.clientes ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
-ALTER TABLE IF EXISTS public.productos ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
-
-ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS creador_nombre TEXT;
-ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS resumen_impuestos JSONB;
-ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS info_adicional JSONB DEFAULT '[]'::jsonb;
-ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
-
-ALTER TABLE IF EXISTS public.factura_detalles ADD COLUMN IF NOT EXISTS iva_tipo TEXT DEFAULT '4';
-ALTER TABLE IF EXISTS public.factura_detalles ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
-
-ALTER TABLE IF EXISTS public.proformas ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
-ALTER TABLE IF EXISTS public.proforma_detalles ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
-
-ALTER TABLE IF EXISTS public.notas_credito ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
-ALTER TABLE IF EXISTS public.nota_credito_detalles ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
-
-ALTER TABLE IF EXISTS public.usuarios_portal ADD COLUMN IF NOT EXISTS is_temp BOOLEAN DEFAULT FALSE;
-ALTER TABLE IF EXISTS public.invitaciones ADD COLUMN IF NOT EXISTS nombre_invitado TEXT;
-
--- 12. TABLA DE BITÁCORA DE ACTIVIDADES
+-- 13. TABLA DE BITÁCORA DE ACTIVIDADES
 CREATE TABLE IF NOT EXISTS public.bitacora_actividades (
     id TEXT PRIMARY KEY,
     usuario_correo TEXT,
@@ -302,66 +323,96 @@ CREATE TABLE IF NOT EXISTS public.bitacora_actividades (
     fecha TEXT,
     accion TEXT,
     detalles TEXT,
+    empresa_ruc VARCHAR(20),
+    empresa_nombre TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Habilitar RLS y políticas de INSERT/UPDATE/DELETE/SELECT para todas las tablas especificadas
-ALTER TABLE IF EXISTS public.bitacora_actividades ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Permitir todo en bitacora_actividades" ON public.bitacora_actividades;
-CREATE POLICY "Permitir todo en bitacora_actividades" ON public.bitacora_actividades FOR ALL USING (true) WITH CHECK (true);
+-- =========================================================================
+-- ALTER MIGRATIONS PARA AGREGAR COLUMNAS DE EMPRESA A TABLAS EXISTENTES
+-- =========================================================================
+ALTER TABLE IF EXISTS public.clientes ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
+ALTER TABLE IF EXISTS public.clientes ADD COLUMN IF NOT EXISTS empresa_ruc VARCHAR(20);
+ALTER TABLE IF EXISTS public.clientes ADD COLUMN IF NOT EXISTS empresa_nombre TEXT;
 
-ALTER TABLE IF EXISTS public.emisor_config ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Permitir todo en emisor_config" ON public.emisor_config;
-CREATE POLICY "Permitir todo en emisor_config" ON public.emisor_config FOR ALL USING (true) WITH CHECK (true);
+ALTER TABLE IF EXISTS public.productos ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
+ALTER TABLE IF EXISTS public.productos ADD COLUMN IF NOT EXISTS empresa_ruc VARCHAR(20);
+ALTER TABLE IF EXISTS public.productos ADD COLUMN IF NOT EXISTS empresa_nombre TEXT;
 
-ALTER TABLE IF EXISTS public.factura_detalles ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Permitir todo en factura_detalles" ON public.factura_detalles;
-CREATE POLICY "Permitir todo en factura_detalles" ON public.factura_detalles FOR ALL USING (true) WITH CHECK (true);
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS clave_firma TEXT;
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS correo TEXT;
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS logo_url TEXT;
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS logo_b64 TEXT;
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS ultimo_secuencial_factura TEXT DEFAULT '000000001';
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS ambiente TEXT DEFAULT '1';
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS regimen TEXT DEFAULT 'GENERAL';
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS regimen_tributario TEXT DEFAULT 'GENERAL';
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS contribuyente_especial TEXT DEFAULT '';
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS empresa_ruc VARCHAR(20);
+ALTER TABLE IF EXISTS public.emisor_config ADD COLUMN IF NOT EXISTS empresa_nombre TEXT;
 
-ALTER TABLE IF EXISTS public.invitaciones ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Permitir todo en invitaciones" ON public.invitaciones;
-CREATE POLICY "Permitir todo en invitaciones" ON public.invitaciones FOR ALL USING (true) WITH CHECK (true);
+ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS creador_nombre TEXT;
+ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS creador_correo TEXT;
+ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS resumen_impuestos JSONB;
+ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS info_adicional JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
+ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS empresa_ruc VARCHAR(20);
+ALTER TABLE IF EXISTS public.facturas ADD COLUMN IF NOT EXISTS empresa_nombre TEXT;
 
-ALTER TABLE IF EXISTS public.nota_credito_detalles ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Permitir todo en nota_credito_detalles" ON public.nota_credito_detalles;
-CREATE POLICY "Permitir todo en nota_credito_detalles" ON public.nota_credito_detalles FOR ALL USING (true) WITH CHECK (true);
+ALTER TABLE IF EXISTS public.factura_detalles ADD COLUMN IF NOT EXISTS iva_tipo TEXT DEFAULT '4';
+ALTER TABLE IF EXISTS public.factura_detalles ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
+ALTER TABLE IF EXISTS public.factura_detalles ADD COLUMN IF NOT EXISTS empresa_ruc VARCHAR(20);
 
-ALTER TABLE IF EXISTS public.notas_credito ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Permitir todo en notas_credito" ON public.notas_credito;
-CREATE POLICY "Permitir todo en notas_credito" ON public.notas_credito FOR ALL USING (true) WITH CHECK (true);
+ALTER TABLE IF EXISTS public.proformas ADD COLUMN IF NOT EXISTS creador_correo TEXT;
+ALTER TABLE IF EXISTS public.proformas ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
+ALTER TABLE IF EXISTS public.proformas ADD COLUMN IF NOT EXISTS empresa_ruc VARCHAR(20);
+ALTER TABLE IF EXISTS public.proformas ADD COLUMN IF NOT EXISTS empresa_nombre TEXT;
 
-ALTER TABLE IF EXISTS public.proforma_detalles ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Permitir todo en proforma_detalles" ON public.proforma_detalles;
-CREATE POLICY "Permitir todo en proforma_detalles" ON public.proforma_detalles FOR ALL USING (true) WITH CHECK (true);
+ALTER TABLE IF EXISTS public.proforma_detalles ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
+ALTER TABLE IF EXISTS public.proforma_detalles ADD COLUMN IF NOT EXISTS empresa_ruc VARCHAR(20);
 
-ALTER TABLE IF EXISTS public.usuarios_portal ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Permitir todo en usuarios_portal" ON public.usuarios_portal;
-CREATE POLICY "Permitir todo en usuarios_portal" ON public.usuarios_portal FOR ALL USING (true) WITH CHECK (true);
+ALTER TABLE IF EXISTS public.notas_credito ADD COLUMN IF NOT EXISTS creador_correo TEXT;
+ALTER TABLE IF EXISTS public.notas_credito ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
+ALTER TABLE IF EXISTS public.notas_credito ADD COLUMN IF NOT EXISTS empresa_ruc VARCHAR(20);
+ALTER TABLE IF EXISTS public.notas_credito ADD COLUMN IF NOT EXISTS empresa_nombre TEXT;
 
-ALTER TABLE IF EXISTS public.clientes ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Permitir todo en clientes" ON public.clientes;
-CREATE POLICY "Permitir todo en clientes" ON public.clientes FOR ALL USING (true) WITH CHECK (true);
+ALTER TABLE IF EXISTS public.nota_credito_detalles ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
+ALTER TABLE IF EXISTS public.nota_credito_detalles ADD COLUMN IF NOT EXISTS empresa_ruc VARCHAR(20);
 
-ALTER TABLE IF EXISTS public.productos ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Permitir todo en productos" ON public.productos;
-CREATE POLICY "Permitir todo en productos" ON public.productos FOR ALL USING (true) WITH CHECK (true);
+ALTER TABLE IF EXISTS public.usuarios_portal ADD COLUMN IF NOT EXISTS is_temp BOOLEAN DEFAULT FALSE;
+ALTER TABLE IF EXISTS public.usuarios_portal ADD COLUMN IF NOT EXISTS empresa_ruc VARCHAR(20);
+ALTER TABLE IF EXISTS public.usuarios_portal ADD COLUMN IF NOT EXISTS empresa_nombre TEXT;
 
-ALTER TABLE IF EXISTS public.facturas ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Permitir todo en facturas" ON public.facturas;
-CREATE POLICY "Permitir todo en facturas" ON public.facturas FOR ALL USING (true) WITH CHECK (true);
+ALTER TABLE IF EXISTS public.invitaciones ADD COLUMN IF NOT EXISTS nombre_invitado TEXT;
+ALTER TABLE IF EXISTS public.invitaciones ADD COLUMN IF NOT EXISTS creador_correo TEXT;
+ALTER TABLE IF EXISTS public.invitaciones ADD COLUMN IF NOT EXISTS empresa_ruc VARCHAR(20);
+ALTER TABLE IF EXISTS public.invitaciones ADD COLUMN IF NOT EXISTS empresa_nombre TEXT;
 
-ALTER TABLE IF EXISTS public.proformas ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Permitir todo en proformas" ON public.proformas;
-CREATE POLICY "Permitir todo en proformas" ON public.proformas FOR ALL USING (true) WITH CHECK (true);
+ALTER TABLE IF EXISTS public.bitacora_actividades ADD COLUMN IF NOT EXISTS empresa_ruc VARCHAR(20);
+ALTER TABLE IF EXISTS public.bitacora_actividades ADD COLUMN IF NOT EXISTS empresa_nombre TEXT;
 
--- Bucle dinámico para asegurar RLS en cualquier tabla existente
+-- =========================================================================
+-- ÍNDICES DE RENDIMIENTO PARA FILTRADO MULTI-INQUILINO
+-- =========================================================================
+CREATE INDEX IF NOT EXISTS idx_usuarios_empresa ON public.usuarios_portal(empresa_ruc);
+CREATE INDEX IF NOT EXISTS idx_clientes_empresa ON public.clientes(empresa_ruc);
+CREATE INDEX IF NOT EXISTS idx_productos_empresa ON public.productos(empresa_ruc);
+CREATE INDEX IF NOT EXISTS idx_facturas_empresa ON public.facturas(empresa_ruc);
+CREATE INDEX IF NOT EXISTS idx_proformas_empresa ON public.proformas(empresa_ruc);
+CREATE INDEX IF NOT EXISTS idx_nc_empresa ON public.notas_credito(empresa_ruc);
+
+-- =========================================================================
+-- HABILITACIÓN DE ROW LEVEL SECURITY (RLS)
+-- =========================================================================
 DO $$
 DECLARE
     t text;
     tables text[] := ARRAY[
-        'clientes', 'productos', 'emisor_config', 'facturas', 'factura_detalles',
-        'proformas', 'proforma_detalles', 'notas_credito', 'nota_credito_detalles',
-        'usuarios_portal', 'invitaciones', 'bitacora_actividades'
+        'empresas_inquilinos', 'clientes', 'productos', 'emisor_config', 
+        'facturas', 'factura_detalles', 'proformas', 'proforma_detalles', 
+        'notas_credito', 'nota_credito_detalles', 'usuarios_portal', 
+        'invitaciones', 'bitacora_actividades'
     ];
 BEGIN
     FOREACH t IN ARRAY tables LOOP
@@ -373,7 +424,7 @@ BEGIN
     END LOOP;
 END $$;
 
--- SUPERADMIN DEFAULT
+-- USUARIO SUPERADMIN POR DEFECTO
 INSERT INTO public.usuarios_portal (id, usuario, correo, clave_hash, role, nombre, is_temp)
 VALUES (
     'superadmin-jolusservices',
@@ -389,7 +440,7 @@ ON CONFLICT (correo) DO UPDATE SET
     role = 'SUPERADMIN',
     nombre = EXCLUDED.nombre;
 
--- 13. BUCKETS DE ALMACENAMIENTO (SUPABASE STORAGE)
+-- BUCKETS DE ALMACENAMIENTO (SUPABASE STORAGE)
 INSERT INTO storage.buckets (id, name, public) VALUES
     ('facturas-pdf', 'facturas-pdf', true),
     ('facturas-xml-sin-firmar', 'facturas-xml-sin-firmar', true),
@@ -400,7 +451,6 @@ INSERT INTO storage.buckets (id, name, public) VALUES
     ('proformas-pdf', 'proformas-pdf', true)
 ON CONFLICT (id) DO NOTHING;
 
--- Políticas para almacenamiento en storage.objects
 ALTER TABLE IF EXISTS storage.objects ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Permitir acceso total a storage objects" ON storage.objects;
 CREATE POLICY "Permitir acceso total a storage objects" ON storage.objects FOR ALL USING (true) WITH CHECK (true);

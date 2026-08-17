@@ -576,85 +576,109 @@ export default function App() {
     <div className="min-h-screen bg-gray-50/75 dark:bg-zinc-950 text-gray-900 dark:text-zinc-100 flex flex-col font-sans transition-colors duration-200">
       
       {/* HEADER BAR */}
-      <header className="bg-white border-b border-gray-100 dark:bg-zinc-900 dark:border-zinc-850 px-4 sm:px-6 py-4 sticky top-0 z-40 shadow-xs print:hidden">
+      <header className="bg-white border-b border-gray-200 dark:bg-zinc-900 dark:border-zinc-800 px-4 sm:px-6 py-3.5 sticky top-0 z-40 shadow-xs print:hidden">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           
-          <div className="flex items-center gap-2.5 sm:gap-3">
+          {/* LOGO & COMPANY NAME */}
+          <div className="flex items-center gap-3 shrink-0">
             {/* BUTTON HAMBURGER MENU (LEFT SIDE) */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition border border-gray-150 dark:border-zinc-805 cursor-pointer shrink-0"
+              className="lg:hidden p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition border border-gray-200 dark:border-zinc-800 cursor-pointer shrink-0"
               aria-label="Toggle menu"
             >
               {isMobileMenuOpen ? <X className="w-5 h-5 text-indigo-600" /> : <Menu className="w-5 h-5" />}
             </button>
 
-            <div className="relative cursor-pointer group transition-transform duration-300 hover:scale-105 shrink-0">
-              <svg viewBox="0 0 100 100" className="w-9 h-9 animate-[spin_50s_linear_infinite]" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <linearGradient id="headerBlueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#ffffff" />
-                    <stop offset="35%" stopColor="#d8f2ff" />
-                    <stop offset="70%" stopColor="#0ea5e9" />
-                    <stop offset="100%" stopColor="#0060d0" />
-                  </linearGradient>
-                </defs>
-                <circle cx="50" cy="50" r="48" fill="#030d1a" stroke="#0ea5e9" strokeWidth="2" strokeOpacity="0.4" />
-                <path d="M50 14 C25 18 16 45 35 65 C41 71 52 74 62 70 C72 66 79 55 77 44 C75 33 65 24 54 26 C43 28 35 38 38 49 C40 57 48 62 55 59 C61 56 63 48 59 43 C55 39 49 40 48 45 C47 48 50 51 52 50" stroke="url(#headerBlueGrad)" strokeWidth="6" strokeLinecap="round" />
-                <path d="M50 20 C32 24 25 45 39 60 C49 71 66 69 74 55 C79 45 74 32 61 28 C50 24 40 32 41 44 C42 51 49 55 54 52 C58 50 59 44 56 41 C53 38 49 40 49 43" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" opacity="0.95" />
-                <circle cx="50" cy="50" r="4" fill="#0ea5e9" />
-              </svg>
+            {/* LOGO DE LA EMPRESA O ICONO PREDETERMINADO */}
+            <div className="relative cursor-pointer group transition-transform duration-200 hover:scale-105 shrink-0 flex items-center">
+              {config.logoB64 ? (
+                <img
+                  src={config.logoB64}
+                  alt="Logo Empresa"
+                  className="w-10 h-10 object-contain rounded-xl border border-gray-200 dark:border-zinc-700 bg-white p-0.5 shadow-2xs"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <svg viewBox="0 0 100 100" className="w-9 h-9 animate-[spin_50s_linear_infinite]" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="headerBlueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#ffffff" />
+                      <stop offset="35%" stopColor="#d8f2ff" />
+                      <stop offset="70%" stopColor="#0ea5e9" />
+                      <stop offset="100%" stopColor="#0060d0" />
+                    </linearGradient>
+                  </defs>
+                  <circle cx="50" cy="50" r="48" fill="#030d1a" stroke="#0ea5e9" strokeWidth="2" strokeOpacity="0.4" />
+                  <path d="M50 14 C25 18 16 45 35 65 C41 71 52 74 62 70 C72 66 79 55 77 44 C75 33 65 24 54 26 C43 28 35 38 38 49 C40 57 48 62 55 59 C61 56 63 48 59 43 C55 39 49 40 48 45 C47 48 50 51 52 50" stroke="url(#headerBlueGrad)" strokeWidth="6" strokeLinecap="round" />
+                  <path d="M50 20 C32 24 25 45 39 60 C49 71 66 69 74 55 C79 45 74 32 61 28 C50 24 40 32 41 44 C42 51 49 55 54 52 C58 50 59 44 56 41 C53 38 49 40 49 43" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" opacity="0.95" />
+                  <circle cx="50" cy="50" r="4" fill="#0ea5e9" />
+                </svg>
+              )}
             </div>
             <div>
-              <h1 className="text-sm sm:text-md font-black tracking-widest text-gray-900 dark:text-white leading-tight uppercase">
-                JOLUS <span className="text-indigo-600 font-medium">SERVICES</span>
+              <h1 className="text-sm sm:text-base font-black tracking-wide text-gray-900 dark:text-white leading-tight uppercase flex items-center gap-1.5">
+                {config.nombreComercial ? (
+                  <span>{config.nombreComercial}</span>
+                ) : currentUser?.empresaNombre ? (
+                  <span>{currentUser.empresaNombre}</span>
+                ) : (
+                  <span>JOLUS <span className="text-sky-500 font-semibold">SERVICES</span></span>
+                )}
               </h1>
-              <span className="text-[9px] sm:text-[10px] text-gray-500 font-bold uppercase tracking-widest leading-none block">
+              <span className="text-[9px] sm:text-[10px] text-gray-500 dark:text-zinc-400 font-bold uppercase tracking-widest leading-none block">
                 Facturación Electrónica SRI
               </span>
             </div>
           </div>
 
-          {/* DESKTOP HEADER ACTIONS (HIDDEN ON TABLET/MOBILE) */}
-          <div className="hidden lg:flex items-center gap-3">
-            {/* ACTIVE EMITTER PREVIEW BANNER */}
-            <div className="flex items-center gap-4 text-xs font-mono bg-gray-50 dark:bg-zinc-850 p-2 px-4 rounded-xl border border-gray-100 dark:border-zinc-800">
-              <div>
-                <span className="text-gray-400">RUC:</span> <span className="font-bold text-gray-800 dark:text-zinc-200">{config.ruc}</span>
+          {/* DESKTOP HEADER ACTIONS (MIDDLE BANNER + USER SESSION) */}
+          <div className="hidden lg:flex items-center gap-4">
+            {/* ACTIVE TENANT / EMITTER PREVIEW BANNER */}
+            <div className="flex items-center gap-3.5 text-xs font-mono bg-slate-50/90 dark:bg-zinc-800/80 p-2 px-4 rounded-xl border border-slate-200/80 dark:border-zinc-700/80 shadow-2xs">
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-400 dark:text-zinc-400 font-medium">RUC:</span>
+                <span className="font-bold text-slate-800 dark:text-zinc-100 tracking-wider">
+                  {config.ruc || currentUser?.empresaRuc || '0000000000001'}
+                </span>
               </div>
-              <div className="h-4 border-l border-gray-200 dark:border-zinc-700" />
-              <div className="truncate max-w-[150px] sm:max-w-[200px] font-bold" title={config.razonSocial}>
-                {config.razonSocial}
+              
+              <div className="h-4 border-l border-slate-200 dark:border-zinc-700" />
+              
+              <div className="font-bold text-slate-800 dark:text-zinc-100 uppercase tracking-tight truncate max-w-[220px] xl:max-w-[320px]" title={config.razonSocial || currentUser?.empresaNombre}>
+                {config.razonSocial || currentUser?.empresaNombre || 'EMPRESA INQUILINO'}
               </div>
-              <div className="h-4 border-l border-gray-200 dark:border-zinc-700" />
-              <div className={`font-semibold flex items-center gap-1 ${config.isDemoMode ? 'text-indigo-600' : 'text-emerald-600'}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${config.isDemoMode ? 'bg-indigo-600' : 'bg-emerald-600 animate-pulse'}`} />
-                {config.isDemoMode ? 'SIMULADOR' : 'CONEXIÓN SRI'}
+              
+              <div className="h-4 border-l border-slate-200 dark:border-zinc-700" />
+              
+              <div className={`font-bold flex items-center gap-1.5 text-[11px] whitespace-nowrap ${config.isDemoMode ? 'text-indigo-600 dark:text-indigo-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                <span className={`w-2 h-2 rounded-full ${config.isDemoMode ? 'bg-indigo-500' : 'bg-emerald-500 animate-pulse'}`} />
+                <span>● {config.isDemoMode ? 'SIMULADOR SRI' : 'CONEXIÓN SRI'}</span>
               </div>
             </div>
 
-            {/* SESIÓN USUARIO */}
+            {/* SESIÓN USUARIO (NOMBRE, CORREO DEBAJO Y BOTÓN SALIR) */}
             {currentUser && (
-              <div className="flex items-center gap-2.5 bg-indigo-50/70 dark:bg-indigo-950/20 border border-indigo-100/45 dark:border-indigo-900/30 p-1.5 pl-3.5 pr-2.5 rounded-xl text-xs">
+              <div className="flex items-center gap-3.5 bg-white dark:bg-zinc-800/90 border border-slate-200 dark:border-zinc-700 p-1.5 pl-3.5 pr-2.5 rounded-xl shadow-2xs text-xs">
                 <div className="text-left leading-tight">
                   <div className="flex items-center gap-1.5">
-                    <span className="block text-[10.5px] font-extrabold text-gray-800 dark:text-zinc-200 truncate max-w-[120px]" title={currentUser.correo}>
-                      {currentUser.correo.split('@')[0].toUpperCase()}
+                    <span className="block text-xs font-black uppercase text-slate-900 dark:text-zinc-100 tracking-tight truncate max-w-[150px]" title={currentUser.nombre || currentUser.correo}>
+                      {currentUser.nombre || currentUser.correo.split('@')[0].toUpperCase()}
                     </span>
-                    <span className={`inline-block font-mono text-[9px] font-black uppercase tracking-wider rounded-sm ${currentUser.role === 'SUPERADMIN' ? 'text-purple-600 dark:text-purple-400' : currentUser.role === 'ADMIN' ? 'text-indigo-600 dark:text-indigo-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                    <span className={`inline-block font-mono text-[9px] font-black uppercase tracking-wider ${currentUser.role === 'SUPERADMIN' ? 'text-purple-600 dark:text-purple-400' : currentUser.role === 'ADMIN' ? 'text-indigo-600 dark:text-indigo-400' : 'text-amber-600 dark:text-amber-400'}`}>
                       • {currentUser.role}
                     </span>
                   </div>
-                  {currentUser.empresaNombre && (
-                    <span className="block text-[9.5px] font-bold text-gray-500 dark:text-zinc-400 truncate max-w-[130px]" title={currentUser.empresaNombre}>
-                      🏢 {currentUser.empresaNombre}
-                    </span>
-                  )}
+                  <span className="block text-[10.5px] text-slate-500 dark:text-zinc-400 font-medium truncate max-w-[180px] mt-0.5 leading-tight" title={currentUser.correo}>
+                    {currentUser.correo}
+                  </span>
                 </div>
-                <div className="h-5 border-l border-indigo-200/40 dark:border-indigo-900/40" />
+                
+                <div className="h-6 border-l border-slate-200 dark:border-zinc-700" />
+                
                 <button
                   onClick={handleManualLogout}
-                  className="px-2.5 py-1 bg-white hover:bg-red-50 hover:text-red-605 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-300 font-bold text-[10.5px] rounded-lg border border-gray-200/50 dark:border-zinc-700 transition cursor-pointer"
+                  className="px-3 py-1 bg-white hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 font-bold text-xs rounded-lg border border-slate-200 dark:border-zinc-700 transition cursor-pointer shadow-2xs"
                   title="Cerrar sesión"
                 >
                   Salir
@@ -692,22 +716,39 @@ export default function App() {
             </div>
 
             {/* DYNAMIC EMITTER IDENTIFIER IN MOBILE DRAWER */}
-            <div className="bg-white dark:bg-zinc-950 p-3 rounded-xl border border-gray-100 dark:border-zinc-850 mb-4 text-xs text-left shadow-2xs">
-              <div className="font-bold text-gray-400 dark:text-zinc-500 text-[10px] uppercase mb-1">EMISOR CONFIGURADO:</div>
-              <div className="font-extrabold text-gray-800 dark:text-white truncate" title={config.razonSocial}>{config.razonSocial}</div>
-              <div className="text-[10px] text-gray-500 dark:text-zinc-400 font-mono mt-0.5">RUC: {config.ruc}</div>
-              <div className="mt-2 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/20 p-1.5 rounded-lg border border-indigo-100/30 dark:border-indigo-900/30">
-                <span className={`w-1.5 h-1.5 rounded-full ${config.isDemoMode ? 'bg-indigo-600' : 'bg-emerald-500 animate-ping'}`} />
-                {config.isDemoMode ? 'Modo Pruebas / Simulación' : 'Modo Operativo Producción'}
+            <div className="bg-white dark:bg-zinc-950 p-3 rounded-xl border border-gray-100 dark:border-zinc-850 mb-3 text-xs text-left shadow-2xs">
+              <div className="font-bold text-gray-400 dark:text-zinc-500 text-[10px] uppercase mb-1">EMPRESA / INQUILINO:</div>
+              <div className="font-extrabold text-gray-800 dark:text-white truncate" title={config.razonSocial || currentUser?.empresaNombre}>
+                {config.razonSocial || currentUser?.empresaNombre || 'EMPRESA INQUILINO'}
+              </div>
+              <div className="text-[10px] text-gray-500 dark:text-zinc-400 font-mono mt-0.5">
+                RUC: {config.ruc || currentUser?.empresaRuc || '0000000000001'}
+              </div>
+              <div className="mt-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/20 p-1.5 rounded-lg border border-emerald-100/40 dark:border-emerald-900/30">
+                <span className={`w-2 h-2 rounded-full ${config.isDemoMode ? 'bg-indigo-500' : 'bg-emerald-500 animate-pulse'}`} />
+                {config.isDemoMode ? 'SIMULADOR SRI' : 'CONEXIÓN SRI'}
               </div>
             </div>
 
             {/* USER REQUISITES IN MOBILE DRAWER */}
             {currentUser && (
-              <div className="bg-indigo-50/50 dark:bg-indigo-950/20 p-3 rounded-xl border border-indigo-100/30 dark:border-indigo-900/10 mb-5 text-left">
-                <div className="text-[9px] font-extrabold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1">Usuario Activo</div>
-                <div className="font-bold text-gray-700 dark:text-zinc-300 truncate text-xs">{currentUser.nombre || currentUser.correo}</div>
-                <div className="text-[9px] font-bold text-gray-500 dark:text-zinc-500 font-mono uppercase mt-0.5">Rol asignado: {currentUser.role}</div>
+              <div className="bg-slate-50 dark:bg-zinc-950/60 p-3 rounded-xl border border-slate-200 dark:border-zinc-800 mb-4 text-left">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[9.5px] font-black text-slate-800 dark:text-zinc-200 uppercase tracking-tight truncate">
+                    {currentUser.nombre || currentUser.correo.split('@')[0].toUpperCase()}
+                  </span>
+                  <span className="text-[9px] font-black uppercase font-mono text-amber-600 dark:text-amber-400">
+                    • {currentUser.role}
+                  </span>
+                </div>
+                <div className="text-[10.5px] text-slate-500 dark:text-zinc-400 font-medium truncate">
+                  {currentUser.correo}
+                </div>
+                {currentUser.empresaNombre && (
+                  <div className="text-[9.5px] text-slate-400 dark:text-zinc-500 font-bold truncate mt-1">
+                    🏢 {currentUser.empresaNombre}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1089,6 +1130,8 @@ export default function App() {
               config={config}
               onSaveConfig={handleSaveConfig}
               currentUserEmail={currentUser?.correo}
+              currentUser={currentUser}
+              onNavigateToSettings={() => setActiveTab('settings')}
             />
           )}
 
