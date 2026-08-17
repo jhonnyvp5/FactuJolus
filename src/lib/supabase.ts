@@ -1228,9 +1228,11 @@ export async function fetchUsersFromSupabase(userEmail?: string, userRole?: stri
     const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
     const filtered = !isSuperAdmin
       ? data.filter(item => {
+          // Never expose SUPERADMIN users to non-superadmin
+          if ((item.role || '').toUpperCase() === 'SUPERADMIN') return false;
           if (empresaRuc && item.empresa_ruc) return item.empresa_ruc === empresaRuc;
-          if (userEmail) return !item.creador_correo || item.creador_correo === userEmail || item.correo === userEmail;
-          return true;
+          if (userEmail) return item.creador_correo === userEmail || item.correo === userEmail;
+          return false;
         })
       : data;
 
@@ -1307,7 +1309,8 @@ export async function deleteUserFromSupabase(id: string, email?: string): Promis
   const supabase = getSupabase();
   if (!supabase) return false;
 
-  const { error } = await supabase.from('usuarios_portal').delete().eq('correo', email || id);
+  const targetEmail = (email || id).trim().toLowerCase();
+  const { error } = await supabase.from('usuarios_portal').delete().eq('correo', targetEmail);
   return !error;
 }
 
@@ -1325,9 +1328,11 @@ export async function fetchInvitationsFromSupabase(userEmail?: string, userRole?
     const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
     const filtered = !isSuperAdmin
       ? data.filter(item => {
+          // Never expose SUPERADMIN invitations to non-superadmin
+          if ((item.role || '').toUpperCase() === 'SUPERADMIN') return false;
           if (empresaRuc && item.empresa_ruc) return item.empresa_ruc === empresaRuc;
-          if (userEmail) return !item.creador_correo || item.creador_correo === userEmail;
-          return true;
+          if (userEmail) return item.creador_correo === userEmail || item.correo === userEmail;
+          return false;
         })
       : data;
 
@@ -1370,6 +1375,14 @@ export async function deleteInvitationFromSupabase(id: string): Promise<boolean>
   const supabase = getSupabase();
   if (!supabase) return false;
   const { error } = await supabase.from('invitaciones').delete().eq('id', id);
+  return !error;
+}
+
+export async function deleteInvitationByEmailFromSupabase(email: string): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+  const cleanEmail = email.trim().toLowerCase();
+  const { error } = await supabase.from('invitaciones').delete().eq('correo', cleanEmail);
   return !error;
 }
 
@@ -1491,13 +1504,14 @@ export async function getEmpresaByRuc(ruc: string): Promise<EmpresaTenant | null
 
     if (error || !data) return null;
 
-    const [invRes, ncRes, usrRes] = await Promise.all([
+    const [invRes, ncRes, profRes, usrRes] = await Promise.all([
       supabase.from('facturas').select('id', { count: 'exact', head: true }).eq('empresa_ruc', cleanRuc),
       supabase.from('notas_credito').select('id', { count: 'exact', head: true }).eq('empresa_ruc', cleanRuc),
+      supabase.from('proformas').select('id', { count: 'exact', head: true }),
       supabase.from('usuarios_portal').select('id', { count: 'exact', head: true }).eq('empresa_ruc', cleanRuc)
     ]);
 
-    const totalDocs = (invRes.count || 0) + (ncRes.count || 0);
+    const totalDocs = (invRes.count || 0) + (ncRes.count || 0) + (profRes.count || 0);
     const totalUsers = usrRes.count || 0;
 
     return {

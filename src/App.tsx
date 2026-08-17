@@ -411,9 +411,9 @@ export default function App() {
     };
   }, [currentUser?.correo, currentUser?.empresaRuc, currentUser?.role]);
 
-  // Redirect to permitted tab for USER role or non-SUPERADMIN on restricted options
+    // Redirect to permitted tab for USER role or non-SUPERADMIN on restricted options
   useEffect(() => {
-    if (activeTab === 'supabase' && currentUser?.role?.toUpperCase() !== 'SUPERADMIN') {
+    if ((activeTab === 'supabase' || activeTab === 'tenants') && currentUser?.role?.toUpperCase() !== 'SUPERADMIN') {
       setActiveTab('history');
       return;
     }
@@ -492,7 +492,7 @@ export default function App() {
       creadorNombre: currentUser ? (currentUser.nombre || currentUser.correo.split('@')[0].toUpperCase()) : 'ADMINISTRADOR',
       usuarioCorreo: currentUser?.correo,
       empresaRuc: currentUser?.empresaRuc || currentEmpresa?.ruc,
-      empresaNombre: currentUser?.empresaNombre || currentEmpresa?.razonSocial
+      empresaNombre: currentUser?.empresaNombre || currentEmpresa?.nombreComercial || currentEmpresa?.razonSocial || config.nombreComercial || config.razonSocial
     };
     const updated = [invoiceWithCreator, ...invoices];
     setInvoices(updated);
@@ -563,7 +563,7 @@ export default function App() {
       creadorNombre: currentUser ? (currentUser.nombre || currentUser.correo.split('@')[0].toUpperCase()) : 'ADMINISTRADOR',
       usuarioCorreo: currentUser?.correo,
       empresaRuc: currentUser?.empresaRuc || currentEmpresa?.ruc,
-      empresaNombre: currentUser?.empresaNombre || currentEmpresa?.razonSocial
+      empresaNombre: currentUser?.empresaNombre || currentEmpresa?.nombreComercial || currentEmpresa?.razonSocial || config.nombreComercial || config.razonSocial
     };
     const updated = [ncWithCreator, ...creditNotes];
     setCreditNotes(updated);
@@ -926,7 +926,7 @@ export default function App() {
                 </button>
               )}
 
-              {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN') && (
+              {currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
                 <button
                   onClick={() => {
                     setActiveTab('tenants');
@@ -1064,7 +1064,7 @@ export default function App() {
             </button>
           )}
 
-          {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN') && (
+          {currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
             <button
               onClick={() => setActiveTab('tenants')}
               className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'tenants' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
@@ -1184,6 +1184,8 @@ export default function App() {
               onSaveConfig={handleSaveConfig}
               currentUserEmail={currentUser?.correo}
               currentUser={currentUser}
+              invoices={invoices}
+              creditNotes={creditNotes}
               onNavigateToSettings={() => setActiveTab('settings')}
             />
           )}
@@ -1207,7 +1209,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'tenants' && (currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN') && (
+          {activeTab === 'tenants' && currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
             <TenantManagement
               currentUser={currentUser}
             />

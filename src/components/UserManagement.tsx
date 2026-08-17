@@ -5,7 +5,7 @@ import { getLogs, logActivity } from '../lib/activityLogger';
 import { 
   fetchUsersFromSupabase, upsertUserInSupabase, deleteUserFromSupabase,
   fetchInvitationsFromSupabase, saveInvitationToSupabase, deleteInvitationFromSupabase,
-  fetchActivityLogsFromSupabase, fetchEmpresasFromSupabase, getEmpresaByRuc
+  deleteInvitationByEmailFromSupabase, fetchActivityLogsFromSupabase, fetchEmpresasFromSupabase, getEmpresaByRuc
 } from '../lib/supabase';
 
 interface UserManagementProps {
@@ -49,7 +49,7 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
 
     const empresaMap = new Map<string, string>();
     dbEmpresas.forEach(e => {
-      empresaMap.set(e.ruc, e.razonSocial);
+      empresaMap.set(e.ruc, e.nombreComercial || e.razonSocial);
     });
 
     if (currentUser.empresaRuc) {
@@ -64,16 +64,35 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
       currentUser.empresaRuc
     );
     if (dbUsers !== null) {
-      const enrichedUsers = dbUsers.map(u => ({
+      let enrichedUsers = dbUsers.map(u => ({
         ...u,
-        empresaNombre: u.empresaNombre || (u.empresaRuc ? empresaMap.get(u.empresaRuc) : undefined)
+        empresaNombre: (u.empresaRuc ? empresaMap.get(u.empresaRuc) : undefined) || u.empresaNombre
       }));
+      if (!isSuperAdmin) {
+        enrichedUsers = enrichedUsers.filter(u => {
+          if ((u.role || '').toUpperCase() === 'SUPERADMIN') return false;
+          if (currentUser.empresaRuc && u.empresaRuc) return u.empresaRuc === currentUser.empresaRuc;
+          return u.creadorCorreo === currentUser.correo || u.correo === currentUser.correo;
+        });
+      }
       setUsers(enrichedUsers);
       localStorage.setItem('sri_portal_users', JSON.stringify(enrichedUsers));
     } else {
       const savedUsers = localStorage.getItem('sri_portal_users');
       if (savedUsers) {
-        setUsers(JSON.parse(savedUsers));
+        try {
+          let parsed: PortalUser[] = JSON.parse(savedUsers);
+          if (!isSuperAdmin) {
+            parsed = parsed.filter(u => {
+              if ((u.role || '').toUpperCase() === 'SUPERADMIN') return false;
+              if (currentUser.empresaRuc && u.empresaRuc) return u.empresaRuc === currentUser.empresaRuc;
+              return u.creadorCorreo === currentUser.correo || u.correo === currentUser.correo;
+            });
+          }
+          setUsers(parsed);
+        } catch {
+          setUsers([currentUser]);
+        }
       } else if (currentUser) {
         setUsers([currentUser]);
       }
@@ -86,16 +105,35 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
       currentUser.empresaRuc
     );
     if (dbInvites !== null) {
-      const enrichedInvites = dbInvites.map(inv => ({
+      let enrichedInvites = dbInvites.map(inv => ({
         ...inv,
-        empresaNombre: inv.empresaNombre || (inv.empresaRuc ? empresaMap.get(inv.empresaRuc) : undefined)
+        empresaNombre: (inv.empresaRuc ? empresaMap.get(inv.empresaRuc) : undefined) || inv.empresaNombre
       }));
+      if (!isSuperAdmin) {
+        enrichedInvites = enrichedInvites.filter(inv => {
+          if ((inv.role || '').toUpperCase() === 'SUPERADMIN') return false;
+          if (currentUser.empresaRuc && inv.empresaRuc) return inv.empresaRuc === currentUser.empresaRuc;
+          return inv.creadorCorreo === currentUser.correo;
+        });
+      }
       setInvitations(enrichedInvites);
       localStorage.setItem('sri_portal_invitations', JSON.stringify(enrichedInvites));
     } else {
       const savedInvites = localStorage.getItem('sri_portal_invitations');
       if (savedInvites) {
-        setInvitations(JSON.parse(savedInvites));
+        try {
+          let parsed: Invitation[] = JSON.parse(savedInvites);
+          if (!isSuperAdmin) {
+            parsed = parsed.filter(inv => {
+              if ((inv.role || '').toUpperCase() === 'SUPERADMIN') return false;
+              if (currentUser.empresaRuc && inv.empresaRuc) return inv.empresaRuc === currentUser.empresaRuc;
+              return inv.creadorCorreo === currentUser.correo;
+            });
+          }
+          setInvitations(parsed);
+        } catch {
+          setInvitations([]);
+        }
       }
     }
 
@@ -109,7 +147,7 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
       const empList = customEmpresas || empresas;
       const empresaMap = new Map<string, string>();
       empList.forEach(e => {
-        empresaMap.set(e.ruc, e.razonSocial);
+        empresaMap.set(e.ruc, e.nombreComercial || e.razonSocial);
       });
 
       const dbLogs = await fetchActivityLogsFromSupabase(
@@ -121,14 +159,14 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
       if (dbLogs && dbLogs.length > 0) {
         const enriched = dbLogs.map(l => ({
           ...l,
-          empresaNombre: l.empresaNombre || (l.empresaRuc ? empresaMap.get(l.empresaRuc) : (currentUser.empresaRuc === l.empresaRuc ? currentUser.empresaNombre : undefined))
+          empresaNombre: (l.empresaRuc ? empresaMap.get(l.empresaRuc) : undefined) || l.empresaNombre || (currentUser.empresaRuc === l.empresaRuc ? (currentUser.empresaNombre) : undefined)
         }));
         setLogs(enriched);
       } else {
         const localLogs = getLogs(currentUser.correo, currentUser.role, currentUser.empresaRuc);
         const enriched = localLogs.map(l => ({
           ...l,
-          empresaNombre: l.empresaNombre || (l.empresaRuc ? empresaMap.get(l.empresaRuc) : (currentUser.empresaRuc === l.empresaRuc ? currentUser.empresaNombre : undefined))
+          empresaNombre: (l.empresaRuc ? empresaMap.get(l.empresaRuc) : undefined) || l.empresaNombre || (currentUser.empresaRuc === l.empresaRuc ? (currentUser.empresaNombre) : undefined)
         }));
         setLogs(enriched);
       }
@@ -181,7 +219,7 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
     if (isSuperAdmin && selectedEmpresaRuc) {
       targetEmpresaRuc = selectedEmpresaRuc;
       const found = empresas.find(e => e.ruc === selectedEmpresaRuc);
-      if (found) targetEmpresaNombre = found.razonSocial;
+      if (found) targetEmpresaNombre = found.nombreComercial || found.razonSocial;
     }
 
     // Check company user limits
@@ -189,15 +227,15 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
       const empData = await getEmpresaByRuc(targetEmpresaRuc);
       if (empData) {
         if (empData.estado === 'SUSPENDIDO') {
-          setErrorMessage(`La empresa "${empData.razonSocial}" está SUSPENDIDA. No puede invitar nuevos usuarios.`);
+          setErrorMessage(`La empresa "${empData.nombreComercial || empData.razonSocial}" está SUSPENDIDA. No puede invitar nuevos usuarios.`);
           return;
         }
         if (new Date(empData.fechaExpiracion) < new Date()) {
-          setErrorMessage(`El plan de la empresa "${empData.razonSocial}" ha EXPIRADO (${empData.fechaExpiracion}). No puede invitar nuevos usuarios.`);
+          setErrorMessage(`El plan de la empresa "${empData.nombreComercial || empData.razonSocial}" ha EXPIRADO (${empData.fechaExpiracion}). No puede invitar nuevos usuarios.`);
           return;
         }
         if (empData.limiteUsuarios && (empData.usuariosRegistrados || users.length) >= empData.limiteUsuarios) {
-          setErrorMessage(`Límite alcanzado: La empresa "${empData.razonSocial}" ya tiene el máximo de usuarios permitidos en su plan (${empData.limiteUsuarios} usuarios). Contacte al Administrador del Sistema para ampliar el plan.`);
+          setErrorMessage(`Límite alcanzado: La empresa "${empData.nombreComercial || empData.razonSocial}" ya tiene el máximo de usuarios permitidos en su plan (${empData.limiteUsuarios} usuarios). Contacte al Administrador del Sistema para ampliar el plan.`);
           return;
         }
       }
@@ -241,52 +279,76 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
     setNewName('');  // Reset field
   };
 
-  const handleDeleteUser = (userId: string, email: string) => {
-    if (userId === currentUser.id || email === currentUser.correo) {
+  const handleDeleteUser = async (userId: string, email: string) => {
+    if (userId === currentUser.id || email.toLowerCase() === currentUser.correo.toLowerCase()) {
       alert('No puedes eliminar tu propia sesión activa.');
       return;
     }
 
-    const targetUser = users.find(u => u.id === userId);
+    const targetUser = users.find(u => u.id === userId || u.correo.toLowerCase() === email.toLowerCase());
     if (targetUser?.role === 'SUPERADMIN' && currentUser?.role !== 'SUPERADMIN') {
       alert('No tienes permisos suficientes para eliminar a un usuario con rol SUPERADMIN.');
       return;
     }
 
-    if (!confirm(`¿Está seguro de eliminar el acceso del usuario "${email}"? El operador ya no podrá iniciar sesión.`)) {
+    if (!confirm(`¿Está seguro de eliminar el acceso del usuario "${email}"? El operador ya no podrá iniciar sesión y desaparecerá de la lista.`)) {
       return;
     }
 
-    const updated = users.filter(u => u.id !== userId);
-    setUsers(updated);
-    localStorage.setItem('sri_portal_users', JSON.stringify(updated));
-    deleteUserFromSupabase(userId, email);
+    const cleanEmail = email.trim().toLowerCase();
+    const updatedUsers = users.filter(u => u.id !== userId && u.correo.toLowerCase() !== cleanEmail);
+    setUsers(updatedUsers);
+    localStorage.setItem('sri_portal_users', JSON.stringify(updatedUsers));
+
+    // Also remove from invitations list
+    const updatedInvites = invitations.filter(inv => inv.correo.toLowerCase() !== cleanEmail);
+    setInvitations(updatedInvites);
+    localStorage.setItem('sri_portal_invitations', JSON.stringify(updatedInvites));
+
+    await Promise.all([
+      deleteUserFromSupabase(userId, cleanEmail),
+      deleteInvitationByEmailFromSupabase(cleanEmail)
+    ]);
 
     // Log deletion
     logActivity(currentUser, 'Eliminación de Usuario', `Eliminado acceso permanente de operador: ${email}`);
     refreshActivityLogs();
   };
 
-  const handleDeleteInvitation = (inviteId: string) => {
-    if (!confirm('¿Está seguro de revocar esta invitación pendiente?')) {
+  const handleDeleteInvitation = async (inviteId: string) => {
+    const inviteToDelete = invitations.find(inv => inv.id === inviteId);
+    if (!inviteToDelete) return;
+
+    if (!confirm(`¿Está seguro de eliminar la invitación de "${inviteToDelete.correo}"? Ya no aparecerá en la ventana ni podrá acceder.`)) {
       return;
     }
 
-    const inviteToDelete = invitations.find(inv => inv.id === inviteId);
-    const updated = invitations.filter(inv => inv.id !== inviteId);
-    setInvitations(updated);
-    localStorage.setItem('sri_portal_invitations', JSON.stringify(updated));
-    deleteInvitationFromSupabase(inviteId);
+    const cleanEmail = inviteToDelete.correo.trim().toLowerCase();
+    
+    // 1. Remove from invitations state & storage
+    const updatedInvites = invitations.filter(inv => inv.id !== inviteId && inv.correo.toLowerCase() !== cleanEmail);
+    setInvitations(updatedInvites);
+    localStorage.setItem('sri_portal_invitations', JSON.stringify(updatedInvites));
+
+    // 2. Also remove from registered users state & storage if it was accepted/registered
+    const updatedUsers = users.filter(u => u.correo.toLowerCase() !== cleanEmail);
+    setUsers(updatedUsers);
+    localStorage.setItem('sri_portal_users', JSON.stringify(updatedUsers));
     
     if (generatedInvite?.id === inviteId) {
       setGeneratedInvite(null);
     }
 
-    // Log revocation
-    if (inviteToDelete) {
-      logActivity(currentUser, 'Cancelación de Invitación', `Revocada invitación pendiente para: ${inviteToDelete.correo} (Empresa: ${inviteToDelete.empresaNombre || 'Principal'})`);
-      refreshActivityLogs();
-    }
+    // 3. Supabase deletion
+    await Promise.all([
+      deleteInvitationFromSupabase(inviteId),
+      deleteInvitationByEmailFromSupabase(cleanEmail),
+      deleteUserFromSupabase(cleanEmail, cleanEmail)
+    ]);
+
+    // 4. Log revocation
+    logActivity(currentUser, 'Cancelación de Invitación', `Eliminada invitación/usuario para: ${inviteToDelete.correo} (Empresa: ${inviteToDelete.empresaNombre || 'Principal'})`);
+    refreshActivityLogs();
   };
 
   const copyToClipboard = (text: string) => {
@@ -294,19 +356,35 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
     alert('¡Copiado al portapapeles con éxito!');
   };
 
-  // Filtered Invitations based on role and selected company filter
+  // Filtered Users: Non-superadmins MUST NEVER see SUPERADMIN users or users of other companies
+  const filteredUsers = useMemo(() => {
+    if (isSuperAdmin) {
+      return users;
+    }
+    return users.filter(u => {
+      if ((u.role || '').toUpperCase() === 'SUPERADMIN') return false;
+      if (currentUser.empresaRuc && u.empresaRuc) {
+        return u.empresaRuc === currentUser.empresaRuc;
+      }
+      return u.creadorCorreo === currentUser.correo || u.correo === currentUser.correo;
+    });
+  }, [users, isSuperAdmin, currentUser]);
+
+  // Filtered Invitations: Non-superadmins MUST NEVER see SUPERADMIN invitations or invitations of other companies
   const filteredInvitations = useMemo(() => {
-    if (!isSuperAdmin) {
-      return invitations;
+    if (isSuperAdmin) {
+      if (filterInviteEmpresa === 'ALL') return invitations;
+      if (filterInviteEmpresa === 'GLOBAL') return invitations.filter(i => !i.empresaRuc);
+      return invitations.filter(i => i.empresaRuc === filterInviteEmpresa);
     }
-    if (filterInviteEmpresa === 'ALL') {
-      return invitations;
-    }
-    if (filterInviteEmpresa === 'GLOBAL') {
-      return invitations.filter(i => !i.empresaRuc);
-    }
-    return invitations.filter(i => i.empresaRuc === filterInviteEmpresa);
-  }, [invitations, isSuperAdmin, filterInviteEmpresa]);
+    return invitations.filter(i => {
+      if ((i.role || '').toUpperCase() === 'SUPERADMIN') return false;
+      if (currentUser.empresaRuc && i.empresaRuc) {
+        return i.empresaRuc === currentUser.empresaRuc;
+      }
+      return i.creadorCorreo === currentUser.correo;
+    });
+  }, [invitations, isSuperAdmin, filterInviteEmpresa, currentUser]);
 
   // Filtered Logs based on role, company filter, and search query
   const filteredLogs = useMemo(() => {
@@ -360,11 +438,11 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
             <div className="bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 px-4 py-2.5 rounded-xl text-xs space-y-1">
               <div className="flex items-center gap-1.5 font-bold text-blue-900 dark:text-blue-200">
                 <Building2 className="w-3.5 h-3.5 text-blue-600" />
-                <span>{currentEmpresa.razonSocial}</span>
+                <span>{currentEmpresa.nombreComercial || currentEmpresa.razonSocial}</span>
               </div>
               <div className="text-[11px] text-blue-700 dark:text-blue-300 flex items-center gap-3">
                 <span>RUC: <strong className="font-mono">{currentEmpresa.ruc}</strong></span>
-                <span>• Usuarios: <strong>{users.length} / {currentEmpresa.limiteUsuarios || 3}</strong></span>
+                <span>• Usuarios: <strong>{filteredUsers.length} / {currentEmpresa.limiteUsuarios || 3}</strong></span>
                 <span>• Expira: <strong>{currentEmpresa.fechaExpiracion}</strong></span>
               </div>
             </div>
@@ -613,15 +691,13 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
                         <span className={`px-2 py-0.5 text-[10px] font-bold rounded-lg ${inv.estado === 'ACEPTADA' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/20' : 'bg-yellow-100 text-yellow-850 dark:bg-yellow-950/20 dark:text-yellow-400'}`}>
                           {inv.estado === 'ACEPTADA' ? 'REGISTRADO' : 'PENDIENTE'}
                         </span>
-                        {inv.estado === 'PENDIENTE' && (
-                          <button
-                            onClick={() => handleDeleteInvitation(inv.id)}
-                            className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/35 text-red-400 hover:text-red-700 rounded-lg transition cursor-pointer"
-                            title="Revocar invitación"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleDeleteInvitation(inv.id)}
+                          className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/35 text-red-400 hover:text-red-700 rounded-lg transition cursor-pointer"
+                          title="Eliminar registro de usuario e invitación"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   );
@@ -636,49 +712,55 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
                 <h3 className="text-sm font-bold text-gray-900 dark:text-white">Usuarios con Acceso Permanente</h3>
               </div>
               <span className="px-2.5 py-0.5 font-mono text-[10px] leading-none bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-full font-bold">
-                {users.length} Usuarios
+                {filteredUsers.length} Usuarios
               </span>
             </div>
 
-            <div className="divide-y divide-gray-100 dark:divide-zinc-850 max-h-[180px] overflow-y-auto pr-1">
-              {users.map(usr => {
-                const userCompany = usr.empresaNombre || (usr.empresaRuc ? `RUC: ${usr.empresaRuc}` : (isSuperAdmin ? 'Global / Sistema' : (currentUser.empresaNombre || 'Empresa')));
+            {filteredUsers.length === 0 ? (
+              <p className="text-xs text-center text-gray-400 py-6">
+                No hay usuarios permanentes registrados para esta empresa.
+              </p>
+            ) : (
+              <div className="divide-y divide-gray-100 dark:divide-zinc-850 max-h-[180px] overflow-y-auto pr-1">
+                {filteredUsers.map(usr => {
+                  const userCompany = usr.empresaNombre || (usr.empresaRuc ? `RUC: ${usr.empresaRuc}` : (isSuperAdmin ? 'Global / Sistema' : (currentUser.empresaNombre || 'Empresa')));
 
-                return (
-                  <div key={usr.id} className="py-2.5 flex justify-between items-center text-xs">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-gray-800 dark:text-zinc-200">
-                          {usr.nombre || usr.correo.split('@')[0].toUpperCase()}
-                        </span>
-                        
-                        {/* Company Badge */}
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-medium text-[10px]">
-                          <Building2 className="w-3 h-3 text-slate-500 shrink-0" />
-                          <span className="truncate max-w-[120px] sm:max-w-[180px]">{userCompany}</span>
-                        </span>
-                      </div>
+                  return (
+                    <div key={usr.id} className="py-2.5 flex justify-between items-center text-xs">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-gray-800 dark:text-zinc-200">
+                            {usr.nombre || usr.correo.split('@')[0].toUpperCase()}
+                          </span>
+                          
+                          {/* Company Badge */}
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-medium text-[10px]">
+                            <Building2 className="w-3 h-3 text-slate-500 shrink-0" />
+                            <span className="truncate max-w-[120px] sm:max-w-[180px]">{userCompany}</span>
+                          </span>
+                        </div>
 
-                      <div className="flex flex-wrap gap-2 items-center text-[10px] text-gray-400 mt-0.5">
-                        <span className="font-mono">{usr.correo}</span>
-                        <span>• Rol: <strong className="uppercase">{usr.role}</strong></span>
-                        <span>• Registro: {new Date(usr.fechaRegistro).toLocaleDateString()}</span>
+                        <div className="flex flex-wrap gap-2 items-center text-[10px] text-gray-400 mt-0.5">
+                          <span className="font-mono">{usr.correo}</span>
+                          <span>• Rol: <strong className="uppercase">{usr.role}</strong></span>
+                          <span>• Registro: {new Date(usr.fechaRegistro).toLocaleDateString()}</span>
+                        </div>
                       </div>
+                      
+                      {usr.correo !== currentUser.correo && (
+                        <button
+                          onClick={() => handleDeleteUser(usr.id, usr.correo)}
+                          className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/35 text-red-400 hover:text-red-700 rounded-lg transition cursor-pointer shrink-0"
+                          title="Quitar acceso permanente"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
-                    
-                    {usr.correo !== currentUser.correo && (
-                      <button
-                        onClick={() => handleDeleteUser(usr.id, usr.correo)}
-                        className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/35 text-red-400 hover:text-red-700 rounded-lg transition cursor-pointer shrink-0"
-                        title="Quitar acceso permanente"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
 
           </div>
         </div>
