@@ -24,7 +24,9 @@ export function logActivity(user: PortalUser, action: string, detalles: string) 
       usuarioRol: user.role,
       fecha: new Date().toISOString(),
       accion: action,
-      detalles
+      detalles,
+      empresaRuc: user.empresaRuc || '',
+      empresaNombre: user.empresaNombre || ''
     };
     
     // Keep last 500 logs to prevent overflow
@@ -38,10 +40,25 @@ export function logActivity(user: PortalUser, action: string, detalles: string) 
   }
 }
 
-export function getLogs(): ActivityLog[] {
+export function getLogs(userEmail?: string, userRole?: string, empresaRuc?: string): ActivityLog[] {
   try {
     const logsRaw = localStorage.getItem('sri_portal_activity_logs');
-    return logsRaw ? JSON.parse(logsRaw) : [];
+    const allLogs: ActivityLog[] = logsRaw ? JSON.parse(logsRaw) : [];
+    
+    const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
+    if (isSuperAdmin) {
+      return allLogs;
+    }
+
+    return allLogs.filter(log => {
+      if (empresaRuc && log.empresaRuc) {
+        return log.empresaRuc === empresaRuc;
+      }
+      if (userEmail) {
+        return log.usuarioCorreo === userEmail;
+      }
+      return true;
+    });
   } catch (e) {
     console.error('Error reading activity logs', e);
     return [];
