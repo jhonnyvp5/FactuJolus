@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { EmitterConfig, Client, Product, Invoice, CreditNote, PortalUser } from './types';
+import { EmitterConfig, Client, Product, Invoice, CreditNote, PortalUser, EmpresaTenant } from './types';
 import SettingsForm from './components/SettingsForm';
 import InvoiceForm from './components/InvoiceForm';
 import CreditNoteForm from './components/CreditNoteForm';
@@ -11,6 +11,7 @@ import LoginForm from './components/LoginForm';
 import UserManagement from './components/UserManagement';
 import ProformaForm from './components/ProformaForm';
 import ClientCatalog from './components/ClientCatalog';
+import TenantManagement from './components/TenantManagement';
 import { SupabaseExplorer } from './components/SupabaseExplorer';
 import { logActivity } from './lib/activityLogger';
 import { 
@@ -20,9 +21,10 @@ import {
   fetchCreditNotesFromSupabase, saveCreditNoteToSupabase, deleteCreditNoteFromSupabase,
   fetchProformasFromSupabase, saveProformaToSupabase,
   fetchEmitterConfigFromSupabase, saveEmitterConfigToSupabase,
+  fetchEmpresasFromSupabase, getEmpresaByRuc,
   migrateLocalDataToSupabase, subscribeToSupabaseRealtime
 } from './lib/supabase';
-import { ShieldCheck, Send, Settings, History, Plus, Layers, ArrowLeftRight, FileCheck2, CloudLightning, Package, User, Users, Menu, X, FileText, Database } from 'lucide-react';
+import { ShieldCheck, Send, Settings, History, Plus, Layers, ArrowLeftRight, FileCheck2, CloudLightning, Package, User, Users, Menu, X, FileText, Database, Building2 } from 'lucide-react';
 
 const STORAGE_KEYS = {
   CONFIG: 'sri_emitter_config',
@@ -78,8 +80,8 @@ const SEED_PRODUCTS: Product[] = [
 ];
 
 export default function App() {
-  // Navigation tabs 'history' | 'new-invoice' | 'new-nc' | 'products' | 'profile' | 'settings' | 'users' | 'proformas' | 'clients'
-  const [activeTab, setActiveTab ] = useState<'history' | 'new-invoice' | 'new-nc' | 'products' | 'profile' | 'settings' | 'users' | 'proformas' | 'clients'>('history');
+  // Navigation tabs 'history' | 'new-invoice' | 'new-nc' | 'products' | 'profile' | 'settings' | 'users' | 'proformas' | 'clients' | 'tenants'
+  const [activeTab, setActiveTab ] = useState<'history' | 'new-invoice' | 'new-nc' | 'products' | 'profile' | 'settings' | 'users' | 'proformas' | 'clients' | 'tenants'>('history');
   
   // Dynamic USER role permissions state
   const [userPermissions, setUserPermissions] = useState<string[]>(() => {
@@ -99,6 +101,7 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
+  const [currentEmpresa, setCurrentEmpresa] = useState<EmpresaTenant | null>(null);
 
   // Helper to generate user-specific localStorage keys
   const getUserStorageKey = (baseKey: string, userEmail?: string) => {
@@ -267,8 +270,16 @@ export default function App() {
     let isMounted = true;
 
     const syncWithSupabase = async () => {
+      // 0. Empresa Tenant
+      if (currentUser?.empresaRuc) {
+        const emp = await getEmpresaByRuc(currentUser.empresaRuc);
+        if (emp && isMounted) {
+          setCurrentEmpresa(emp);
+        }
+      }
+
       // 1. Clients
-      const dbClients = await fetchClientsFromSupabase(currentUser?.correo, currentUser?.role);
+      const dbClients = await fetchClientsFromSupabase(currentUser?.correo, currentUser?.role, currentUser?.empresaRuc);
       if (dbClients && dbClients.length > 0 && isMounted) {
         setClients(dbClients);
         const key = getUserStorageKey(STORAGE_KEYS.CLIENTS, currentUser?.correo);
@@ -276,7 +287,7 @@ export default function App() {
       }
 
       // 2. Products
-      const dbProducts = await fetchProductsFromSupabase(currentUser?.correo, currentUser?.role);
+      const dbProducts = await fetchProductsFromSupabase(currentUser?.correo, currentUser?.role, currentUser?.empresaRuc);
       if (dbProducts && dbProducts.length > 0 && isMounted) {
         setProducts(dbProducts);
         const key = getUserStorageKey(STORAGE_KEYS.PRODUCTS, currentUser?.correo);
@@ -284,7 +295,7 @@ export default function App() {
       }
 
       // 3. Invoices
-      const dbInvoices = await fetchInvoicesFromSupabase(currentUser?.correo, currentUser?.role);
+      const dbInvoices = await fetchInvoicesFromSupabase(currentUser?.correo, currentUser?.role, currentUser?.empresaRuc);
       if (dbInvoices && isMounted) {
         setInvoices(dbInvoices);
         const key = getUserStorageKey(STORAGE_KEYS.INVOICES, currentUser?.correo);
@@ -292,7 +303,7 @@ export default function App() {
       }
 
       // 4. Credit Notes
-      const dbCreditNotes = await fetchCreditNotesFromSupabase(currentUser?.correo, currentUser?.role);
+      const dbCreditNotes = await fetchCreditNotesFromSupabase(currentUser?.correo, currentUser?.role, currentUser?.empresaRuc);
       if (dbCreditNotes && isMounted) {
         setCreditNotes(dbCreditNotes);
         const key = getUserStorageKey(STORAGE_KEYS.CREDIT_NOTES, currentUser?.correo);
@@ -300,7 +311,7 @@ export default function App() {
       }
 
       // 5. Config
-      const dbConfig = await fetchEmitterConfigFromSupabase(undefined, currentUser?.correo, currentUser?.role);
+      const dbConfig = await fetchEmitterConfigFromSupabase(undefined, currentUser?.correo, currentUser?.role, currentUser?.empresaRuc);
       if (dbConfig && dbConfig.ruc && isMounted) {
         setConfig(prev => ({ ...prev, ...dbConfig }));
         const key = getUserStorageKey(STORAGE_KEYS.CONFIG, currentUser?.correo);
@@ -379,27 +390,56 @@ export default function App() {
   };
 
   const handleAddClient = (client: Client) => {
-    const updated = [client, ...clients];
+    const clientWithEmpresa: Client = {
+      ...client,
+      empresaRuc: currentUser?.empresaRuc || client.empresaRuc,
+      empresaNombre: currentUser?.empresaNombre || client.empresaNombre
+    };
+    const updated = [clientWithEmpresa, ...clients];
     setClients(updated);
     const key = getUserStorageKey(STORAGE_KEYS.CLIENTS, currentUser?.correo);
     localStorage.setItem(key, JSON.stringify(updated));
-    saveClientToSupabase(client, currentUser?.correo);
+    saveClientToSupabase(clientWithEmpresa, currentUser?.correo);
   };
 
   const handleAddProduct = (product: Product) => {
-    const updated = [product, ...products];
+    const productWithEmpresa: Product = {
+      ...product,
+      empresaRuc: currentUser?.empresaRuc || product.empresaRuc,
+      empresaNombre: currentUser?.empresaNombre || product.empresaNombre
+    };
+    const updated = [productWithEmpresa, ...products];
     setProducts(updated);
     const key = getUserStorageKey(STORAGE_KEYS.PRODUCTS, currentUser?.correo);
     localStorage.setItem(key, JSON.stringify(updated));
-    saveProductToSupabase(product, currentUser?.correo);
+    saveProductToSupabase(productWithEmpresa, currentUser?.correo);
   };
 
   const handleAddInvoice = (invoice: Invoice) => {
-    // Append the operator name as developer/creator of the document
+    // 1. Check Company Plan & Status Limit
+    if (currentEmpresa) {
+      if (currentEmpresa.estado === 'SUSPENDIDO') {
+        alert(`❌ Emisión Bloqueada: La empresa "${currentEmpresa.razonSocial}" está SUSPENDIDA.\n\nPor favor contacte al SUPERADMIN para restablecer el servicio.`);
+        return;
+      }
+      if (new Date(currentEmpresa.fechaExpiracion) < new Date()) {
+        alert(`❌ Emisión Bloqueada: El plan de la empresa "${currentEmpresa.razonSocial}" expiró el ${currentEmpresa.fechaExpiracion}.\n\nContacte al SUPERADMIN para renovar el plan.`);
+        return;
+      }
+      const totalDocuments = invoices.length + creditNotes.length;
+      if (currentEmpresa.limiteComprobantes && totalDocuments >= currentEmpresa.limiteComprobantes) {
+        alert(`❌ Límite de Plan Alcanzado: Ha emitido ${totalDocuments} de ${currentEmpresa.limiteComprobantes} comprobantes permitidos para "${currentEmpresa.razonSocial}".\n\nContacte al SUPERADMIN para ampliar el cupo.`);
+        return;
+      }
+    }
+
+    // Append the operator name and company context as developer/creator of the document
     const invoiceWithCreator: Invoice = {
       ...invoice,
       creadorNombre: currentUser ? (currentUser.nombre || currentUser.correo.split('@')[0].toUpperCase()) : 'ADMINISTRADOR',
-      usuarioCorreo: currentUser?.correo
+      usuarioCorreo: currentUser?.correo,
+      empresaRuc: currentUser?.empresaRuc || currentEmpresa?.ruc,
+      empresaNombre: currentUser?.empresaNombre || currentEmpresa?.razonSocial
     };
     const updated = [invoiceWithCreator, ...invoices];
     setInvoices(updated);
@@ -412,7 +452,7 @@ export default function App() {
       logActivity(
         currentUser,
         'Generación de Factura',
-        `Factura #${invoice.secuencial} creada para ${invoice.cliente.nombre}. Total: $${invoice.resumenImpuestos.total.toFixed(2)}. Estado: ${invoice.estado}`
+        `Factura #${invoice.secuencial} creada para ${invoice.cliente.nombre}. Total: ${invoice.resumenImpuestos.total.toFixed(2)}. Estado: ${invoice.estado}`
       );
     }
 
@@ -447,11 +487,30 @@ export default function App() {
   };
 
   const handleAddCreditNote = (nc: CreditNote) => {
-    // Append the operator name as developer/creator of the document
+    // 1. Check Company Plan & Status Limit
+    if (currentEmpresa) {
+      if (currentEmpresa.estado === 'SUSPENDIDO') {
+        alert(`❌ Emisión Bloqueada: La empresa "${currentEmpresa.razonSocial}" está SUSPENDIDA.\n\nPor favor contacte al SUPERADMIN para restablecer el servicio.`);
+        return;
+      }
+      if (new Date(currentEmpresa.fechaExpiracion) < new Date()) {
+        alert(`❌ Emisión Bloqueada: El plan de la empresa "${currentEmpresa.razonSocial}" expiró el ${currentEmpresa.fechaExpiracion}.\n\nContacte al SUPERADMIN para renovar el plan.`);
+        return;
+      }
+      const totalDocuments = invoices.length + creditNotes.length;
+      if (currentEmpresa.limiteComprobantes && totalDocuments >= currentEmpresa.limiteComprobantes) {
+        alert(`❌ Límite de Plan Alcanzado: Ha emitido ${totalDocuments} de ${currentEmpresa.limiteComprobantes} comprobantes permitidos para "${currentEmpresa.razonSocial}".\n\nContacte al SUPERADMIN para ampliar el cupo.`);
+        return;
+      }
+    }
+
+    // Append the operator name and company context
     const ncWithCreator: CreditNote = {
       ...nc,
       creadorNombre: currentUser ? (currentUser.nombre || currentUser.correo.split('@')[0].toUpperCase()) : 'ADMINISTRADOR',
-      usuarioCorreo: currentUser?.correo
+      usuarioCorreo: currentUser?.correo,
+      empresaRuc: currentUser?.empresaRuc || currentEmpresa?.ruc,
+      empresaNombre: currentUser?.empresaNombre || currentEmpresa?.razonSocial
     };
     const updated = [ncWithCreator, ...creditNotes];
     setCreditNotes(updated);
@@ -464,7 +523,7 @@ export default function App() {
       logActivity(
         currentUser,
         'Generación de Nota de Crédito',
-        `Nota de Crédito #${nc.secuencial} creada para cliente ${nc.cliente.nombre}. Total: $${nc.resumenImpuestos.total.toFixed(2)}. Estado: ${nc.estado}`
+        `Nota de Crédito #${nc.secuencial} creada para cliente ${nc.cliente.nombre}. Total: ${nc.resumenImpuestos.total.toFixed(2)}. Estado: ${nc.estado}`
       );
     }
   };
@@ -578,12 +637,19 @@ export default function App() {
             {currentUser && (
               <div className="flex items-center gap-2.5 bg-indigo-50/70 dark:bg-indigo-950/20 border border-indigo-100/45 dark:border-indigo-900/30 p-1.5 pl-3.5 pr-2.5 rounded-xl text-xs">
                 <div className="text-left leading-tight">
-                  <span className="block text-[10.5px] font-extrabold text-gray-800 dark:text-zinc-200 truncate max-w-[120px]" title={currentUser.correo}>
-                    {currentUser.correo.split('@')[0].toUpperCase()}
-                  </span>
-                  <span className={`inline-block font-mono text-[9px] font-black uppercase tracking-wider rounded-sm ${currentUser.role === 'ADMIN' ? 'text-indigo-600 dark:text-indigo-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                    • {currentUser.role}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="block text-[10.5px] font-extrabold text-gray-800 dark:text-zinc-200 truncate max-w-[120px]" title={currentUser.correo}>
+                      {currentUser.correo.split('@')[0].toUpperCase()}
+                    </span>
+                    <span className={`inline-block font-mono text-[9px] font-black uppercase tracking-wider rounded-sm ${currentUser.role === 'SUPERADMIN' ? 'text-purple-600 dark:text-purple-400' : currentUser.role === 'ADMIN' ? 'text-indigo-600 dark:text-indigo-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                      • {currentUser.role}
+                    </span>
+                  </div>
+                  {currentUser.empresaNombre && (
+                    <span className="block text-[9.5px] font-bold text-gray-500 dark:text-zinc-400 truncate max-w-[130px]" title={currentUser.empresaNombre}>
+                      🏢 {currentUser.empresaNombre}
+                    </span>
+                  )}
                 </div>
                 <div className="h-5 border-l border-indigo-200/40 dark:border-indigo-900/40" />
                 <button
@@ -766,6 +832,19 @@ export default function App() {
                 </button>
               )}
 
+              {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN') && (
+                <button
+                  onClick={() => {
+                    setActiveTab('tenants');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer ${activeTab === 'tenants' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
+                >
+                  <Building2 className="w-4 h-4 text-indigo-500" />
+                  Empresas / Inquilinos
+                </button>
+              )}
+
               {currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
                 <button
                   onClick={() => {
@@ -888,6 +967,16 @@ export default function App() {
             >
               <ShieldCheck className="w-4 h-4 shrink-0" />
               <span>Usuarios</span>
+            </button>
+          )}
+
+          {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN') && (
+            <button
+              onClick={() => setActiveTab('tenants')}
+              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'tenants' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
+            >
+              <Building2 className="w-4 h-4 shrink-0 text-indigo-500" />
+              <span>Empresas</span>
             </button>
           )}
 
@@ -1016,6 +1105,12 @@ export default function App() {
                 setUserPermissions(newPerms);
                 localStorage.setItem('sri_portal_user_permissions', JSON.stringify(newPerms));
               }}
+            />
+          )}
+
+          {activeTab === 'tenants' && (currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN') && (
+            <TenantManagement
+              currentUser={currentUser}
             />
           )}
 

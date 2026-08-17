@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Users, UserPlus, Trash2, Key, Check, ShieldCheck, Mail, Clipboard, AlertCircle, FileText, History, RefreshCw, User, Lock, Unlock, Settings, Package, ArrowLeftRight, Plus, GripVertical, ArrowRight, ArrowLeft, Sliders, CheckSquare } from 'lucide-react';
-import { PortalUser, Invitation, UserRole, ActivityLog } from '../types';
+import { Users, UserPlus, Trash2, Key, Check, ShieldCheck, Mail, Clipboard, AlertCircle, FileText, History, RefreshCw, User, Lock, Unlock, Settings, Package, ArrowLeftRight, Plus, GripVertical, ArrowRight, ArrowLeft, Sliders, CheckSquare, Building2 } from 'lucide-react';
+import { PortalUser, Invitation, UserRole, ActivityLog, EmpresaTenant } from '../types';
 import { getLogs, logActivity } from '../lib/activityLogger';
 import { 
   fetchUsersFromSupabase, upsertUserInSupabase, deleteUserFromSupabase,
   fetchInvitationsFromSupabase, saveInvitationToSupabase, deleteInvitationFromSupabase,
-  fetchActivityLogsFromSupabase 
+  fetchActivityLogsFromSupabase, fetchEmpresasFromSupabase, getEmpresaByRuc
 } from '../lib/supabase';
 
 interface UserManagementProps {
@@ -18,22 +18,40 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
   const [users, setUsers] = useState<PortalUser[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [empresas, setEmpresas] = useState<EmpresaTenant[]>([]);
+  const [currentEmpresa, setCurrentEmpresa] = useState<EmpresaTenant | null>(null);
   const [permissionMode, setPermissionMode] = useState<'marking' | 'moving'>('marking');
 
   // Creation form states
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState<UserRole>('USER');
+  const [selectedEmpresaRuc, setSelectedEmpresaRuc] = useState<string>(currentUser.empresaRuc || '');
   const [generatedInvite, setGeneratedInvite] = useState<Invitation | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const isSuperAdmin = currentUser.role?.toUpperCase() === 'SUPERADMIN';
+
   useEffect(() => {
     loadData();
-  }, []);
+  }, [currentUser]);
 
   const loadData = async () => {
-    // 1. Registered Users - Display only available users from usuarios_portal in Supabase
-    const dbUsers = await fetchUsersFromSupabase();
+    // 0. Load empresas
+    const dbEmpresas = await fetchEmpresasFromSupabase();
+    setEmpresas(dbEmpresas);
+
+    if (currentUser.empresaRuc) {
+      const emp = await getEmpresaByRuc(currentUser.empresaRuc);
+      if (emp) setCurrentEmpresa(emp);
+    }
+
+    // 1. Registered Users - Filtered by tenant if not SUPERADMIN
+    const dbUsers = await fetchUsersFromSupabase(
+      currentUser.correo, 
+      currentUser.role, 
+      currentUser.empresaRuc
+    );
     if (dbUsers !== null) {
       setUsers(dbUsers);
       localStorage.setItem('sri_portal_users', JSON.stringify(dbUsers));
@@ -46,8 +64,12 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
       }
     }
 
-    // 2. Invitations - Display only available invitations from invitaciones in Supabase
-    const dbInvites = await fetchInvitationsFromSupabase();
+    // 2. Invitations - Filtered by tenant if not SUPERADMIN
+    const dbInvites = await fetchInvitationsFromSupabase(
+      currentUser.correo, 
+      currentUser.role, 
+      currentUser.empresaRuc
+    );
     if (dbInvites !== null) {
       setInvitations(dbInvites);
       localStorage.setItem('sri_portal_invitations', JSON.stringify(dbInvites));
@@ -59,7 +81,11 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
     }
 
     // 3. Activity Logs
-    const dbLogs = await fetchActivityLogsFromSupabase();
+    const dbLogs = await fetchActivityLogsFromSupabase(
+      currentUser.correo, 
+      currentUser.role, 
+      currentUser.empresaRuc
+    );
     if (dbLogs && dbLogs.length > 0) {
       setLogs(dbLogs);
     } else {
@@ -76,7 +102,7 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
     return pass;
   };
 
-  const handleCreateInvitationSubmit = (e: React.FormEvent) => {
+  const handleCreateInvitationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
     setGeneratedInvite(null);
@@ -104,7 +130,36 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
       return;
     }
 
-    // Create the invitation
+    // Determine target company for invitation
+    let targetEmpresaRuc = currentUser.empresaRuc || '';
+    let targetEmpresaNombre = currentUser.empresaNombre || '';
+
+    if (isSuperAdmin && selectedEmpresaRuc) {
+      targetEmpresaRuc = selectedEmpresaRuc;
+      const found = empresas.find(e => e.ruc === selectedEmpresaRuc);
+      if (found) targetEmpresaNombre = found.razonSocial;
+    }
+
+    // Check company user limits
+    if (targetEmpresaRuc) {
+      const empData = await getEmpresaByRuc(targetEmpresaRuc);
+      if (empData) {
+        if (empData.estado === 'SUSPENDIDO') {
+          setErrorMessage(`La empresa "${empData.razonSocial}" está SUSPENDIDA. No puede invitar nuevos usuarios.`);
+          return;
+        }
+        if (new Date(empData.fechaExpiracion) < new Date()) {
+          setErrorMessage(`El plan de la empresa "${empData.razonSocial}" ha EXPIRADO (${empData.fechaExpiracion}). No puede invitar nuevos usuarios.`);
+          return;
+        }
+        if (empData.limiteUsuarios && (empData.usuariosRegistrados || users.length) >= empData.limiteUsuarios) {
+          setErrorMessage(`Límite alcanzado: La empresa "${empData.razonSocial}" ya tiene el máximo de usuarios permitidos en su plan (${empData.limiteUsuarios} usuarios). Contacte al Administrador del Sistema para ampliar el plan.`);
+          return;
+        }
+      }
+    }
+
+    // Create the invitation with company context attached
     const tempPass = generateTempPassword();
     const newInvitation: Invitation = {
       id: 'inv-' + Date.now(),
@@ -112,6 +167,9 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
       claveTemporal: tempPass,
       role: newRole,
       nombreInvitado: newName.trim() || undefined,
+      empresaRuc: targetEmpresaRuc,
+      empresaNombre: targetEmpresaNombre,
+      creadorCorreo: currentUser.correo,
       fechaCreacion: new Date().toISOString(),
       estado: 'PENDIENTE'
     };
@@ -119,13 +177,13 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
     const updatedInvites = [newInvitation, ...invitations];
     setInvitations(updatedInvites);
     localStorage.setItem('sri_portal_invitations', JSON.stringify(updatedInvites));
-    saveInvitationToSupabase(newInvitation);
+    await saveInvitationToSupabase(newInvitation);
 
     // Log the event
     logActivity(
       currentUser,
       'Generación de Invitación',
-      `Invitación creada para ${newInvitation.nombreInvitado || 'Sin Nombre'} (${email}) con rol ${newRole}.`
+      `Invitación creada para ${newInvitation.nombreInvitado || 'Sin Nombre'} (${email}) con rol ${newRole}. Empresa: ${targetEmpresaNombre || 'Principal'}`
     );
     setLogs(getLogs());
 
@@ -193,16 +251,32 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
       
       {/* INTRO AND HIGHLIGHT INFO */}
       <div className="bg-white p-6 rounded-2xl border border-gray-100 dark:bg-zinc-900 dark:border-zinc-850 shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl text-indigo-650 text-indigo-500">
-            <Users className="w-6 h-6" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl text-indigo-650 text-indigo-500">
+              <Users className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-md font-extrabold text-gray-900 dark:text-white">Control de Usuarios, Roles e Invitaciones</h2>
+              <p className="text-xs text-gray-500 dark:text-zinc-400">
+                Gestione accesos para administradores de empresa (<strong className="font-bold underline text-indigo-600 dark:text-indigo-400">ADMIN</strong>) u operadores (<strong className="font-bold underline text-indigo-600 dark:text-indigo-400">USER</strong>).
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-md font-extrabold text-gray-900 dark:text-white">Control de Usuarios, Roles e Invitaciones</h2>
-            <p className="text-xs text-gray-500 dark:text-zinc-400">
-              Gestione accesos para administradores totales (<strong className="font-bold underline text-indigo-600 dark:text-indigo-400">ADMIN</strong>) o ingresantes restringidos (<strong className="font-bold underline text-indigo-600 dark:text-indigo-400">USER</strong>).
-            </p>
-          </div>
+
+          {currentEmpresa && (
+            <div className="bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 px-4 py-2.5 rounded-xl text-xs space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-blue-900 dark:text-blue-200">
+                <Building2 className="w-3.5 h-3.5 text-blue-600" />
+                <span>{currentEmpresa.razonSocial}</span>
+              </div>
+              <div className="text-[11px] text-blue-700 dark:text-blue-300 flex items-center gap-3">
+                <span>RUC: <strong className="font-mono">{currentEmpresa.ruc}</strong></span>
+                <span>• Usuarios: <strong>{users.length} / {currentEmpresa.limiteUsuarios || 3}</strong></span>
+                <span>• Expira: <strong>{currentEmpresa.fechaExpiracion}</strong></span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -235,6 +309,26 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
               </div>
             ) : (
               <form onSubmit={handleCreateInvitationSubmit} className="space-y-4">
+                {isSuperAdmin && empresas.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
+                      Asignar a Empresa / Inquilino
+                    </label>
+                    <select
+                      value={selectedEmpresaRuc}
+                      onChange={(e) => setSelectedEmpresaRuc(e.target.value)}
+                      className="block w-full px-3 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs font-medium"
+                    >
+                      <option value="">-- Sin Empresa Asignada (Global) --</option>
+                      {empresas.map(emp => (
+                        <option key={emp.id} value={emp.ruc}>
+                          {emp.razonSocial} ({emp.ruc})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
                     Nombre y Apellido del Invitado
@@ -289,7 +383,7 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
                     )}
                   </select>
                   <p className="text-[10px] text-gray-450 mt-1.5 leading-relaxed">
-                    * Los usuarios de tipo <strong>USER</strong> no pueden ver la configuración del SRI (pág. de llaves o .p12), no pueden emitir Notas de Crédito y no editan el Perfil.
+                    * Los usuarios de tipo <strong>USER</strong> sólo tienen acceso a los módulos autorizados por el Administrador.
                   </p>
                 </div>
 
