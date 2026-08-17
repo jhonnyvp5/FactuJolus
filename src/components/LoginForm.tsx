@@ -97,18 +97,19 @@ export default function LoginForm({ onLoginSuccess, adminEmail, inactivityNotice
         }
       }
 
-      // 3. Fallback admin login
-      if (cleanEmail === adminEmail.toLowerCase() && password === 'admin123') {
+      // 3. Fallback admin/superadmin login
+      if ((cleanEmail === 'jhonnyvp5@gmail.com' || cleanEmail === adminEmail.toLowerCase()) && password === 'admin123') {
+        const isSuper = cleanEmail === 'jhonnyvp5@gmail.com';
         const adminUser: PortalUser = {
-          id: 'admin-local',
+          id: isSuper ? 'superadmin-jhonny' : 'admin-local',
           correo: cleanEmail,
           clave: password,
-          role: 'ADMIN',
-          nombre: cleanEmail.split('@')[0].toUpperCase(),
+          role: isSuper ? 'SUPERADMIN' : 'ADMIN',
+          nombre: isSuper ? 'Jhonny Vargas' : cleanEmail.split('@')[0].toUpperCase(),
           fechaRegistro: new Date().toISOString()
         };
 
-        logActivity(adminUser, 'Inicio de Sesión', 'Acceso al portal en modo administrador.');
+        logActivity(adminUser, 'Inicio de Sesión', `Acceso al portal en modo ${adminUser.role.toLowerCase()}.`);
         setIsLoggingIn(false);
         onLoginSuccess(adminUser);
         return;
@@ -161,7 +162,10 @@ export default function LoginForm({ onLoginSuccess, adminEmail, inactivityNotice
       clave: newPassword,
       role: pendingInvitation.role,
       nombre: pendingInvitation.nombreInvitado || pendingInvitation.correo.split('@')[0].toUpperCase(),
-      fechaRegistro: new Date().toISOString()
+      fechaRegistro: new Date().toISOString(),
+      empresaRuc: pendingInvitation.empresaRuc,
+      empresaNombre: pendingInvitation.empresaNombre,
+      creadorCorreo: pendingInvitation.creadorCorreo
     };
 
     const savedUsersRaw = localStorage.getItem('sri_portal_users');
@@ -585,12 +589,12 @@ export default function LoginForm({ onLoginSuccess, adminEmail, inactivityNotice
             <button
               type="button"
               onClick={() => {
-                setEmail(adminEmail || 'jhonnyVP5@gmail.com');
+                setEmail('jhonnyvp5@gmail.com');
                 setPassword('admin123');
               }}
               className="text-sky-600 hover:text-sky-800 font-bold hover:underline cursor-pointer"
             >
-              Completar Admin
+              Completar Superadmin (jhonnyvp5@gmail.com)
             </button>
           </div>
 

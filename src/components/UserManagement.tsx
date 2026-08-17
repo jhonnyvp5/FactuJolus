@@ -492,7 +492,7 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
                       <option value="">-- Sin Empresa Asignada (Global) --</option>
                       {empresas.map(emp => (
                         <option key={emp.id} value={emp.ruc}>
-                          {emp.razonSocial} ({emp.ruc})
+                          {emp.nombreComercial || emp.razonSocial} ({emp.ruc})
                         </option>
                       ))}
                     </select>
@@ -634,7 +634,7 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
                     <option value="GLOBAL">🌐 Sin Empresa / Global</option>
                     {empresas.map(emp => (
                       <option key={emp.id} value={emp.ruc}>
-                        {emp.razonSocial}
+                        {emp.nombreComercial || emp.razonSocial}
                       </option>
                     ))}
                   </select>
@@ -1045,7 +1045,7 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
                   <option value="GLOBAL">🌐 Sin Empresa / Global</option>
                   {empresas.map(emp => (
                     <option key={emp.id} value={emp.ruc}>
-                      {emp.razonSocial}
+                      {emp.nombreComercial || emp.razonSocial}
                     </option>
                   ))}
                 </select>

@@ -78,7 +78,7 @@ export default function ProformaForm({
   const [empresaNombre, setEmpresaNombre] = useState('Jolus Services');
   const [empresaDireccion, setEmpresaDireccion] = useState(config.dirMatriz || 'Cdla. Los Esteros Mz. 4A Sl. 26');
   const [empresaTelefono, setEmpresaTelefono] = useState(config.telefono || '0967590168');
-  const [empresaCorreo, setEmpresaCorreo] = useState(config.correo || 'jolusservices@gmail.com');
+  const [empresaCorreo, setEmpresaCorreo] = useState(config.correo || 'jhonnyvp5@gmail.com');
 
   // Preview Modal
   const [selectedProforma, setSelectedProforma] = useState<Proforma | null>(null);
@@ -123,17 +123,17 @@ export default function ProformaForm({
     }
 
     // Default dudas note
-    setNotaDudas(`¿Tienes dudas? Envíanos un correo a ${config.correo || 'jolusservices@gmail.com'}`);
+    setNotaDudas(`¿Tienes dudas? Envíanos un correo a ${config.correo || 'jhonnyvp5@gmail.com'}`);
   }, [currentUserEmail, config.correo]);
 
   // Watch for profile/emitter config updates to pre-populate custom info
   useEffect(() => {
     if (config) {
-      setEmpresaNombre('Jolus Services');
+      setEmpresaNombre(config.nombreComercial || config.razonSocial || 'ORIONNX');
       setEmpresaDireccion(config.dirMatriz || 'Cdla. Los Esteros Mz. 4A Sl. 26');
       setEmpresaTelefono(config.telefono || '0967590168');
-      setEmpresaCorreo(config.correo || 'jolusservices@gmail.com');
-      setNotaDudas(`¿Tienes dudas? Envíanos un correo a ${config.correo || 'jolusservices@gmail.com'}`);
+      setEmpresaCorreo(config.correo || 'jhonnyvp5@gmail.com');
+      setNotaDudas(`¿Tienes dudas? Envíanos un correo a ${config.correo || 'jhonnyvp5@gmail.com'}`);
     }
   }, [config]);
 
@@ -166,8 +166,8 @@ export default function ProformaForm({
     setEmpresaNombre('JOLUS SERVICES');
     setEmpresaDireccion('Cdla. Los Esteros Mz. 4A Sl. 26');
     setEmpresaTelefono('0967590168');
-    setEmpresaCorreo('jolusservices@gmail.com');
-    setNotaDudas('¿Tienes dudas? Envíanos un correo a jolusservices@gmail.com');
+    setEmpresaCorreo('jhonnyvp5@gmail.com');
+    setNotaDudas('¿Tienes dudas? Envíanos un correo a jhonnyvp5@gmail.com');
 
     setBuyerName('Carolina Leon');
     setBuyerTel('0984961268');
@@ -1737,11 +1737,11 @@ export default function ProformaForm({
                         
                         {/* HELPER EMAIL/CONCERNS INCENTIVE SENTENCE */}
                         <div className={`text-center italic text-[11.5px] font-bold leading-normal ${noteTextColor}`}>
-                          {selectedProforma.notaDudas === `¿Tienes dudas? Envíanos un correo a jolusservices@gmail.com` || !selectedProforma.notaDudas ? (
+                          {selectedProforma.notaDudas === `¿Tienes dudas? Envíanos un correo a jhonnyvp5@gmail.com` || !selectedProforma.notaDudas ? (
                             <>
                               <span>¿Tienes dudas? Envíanos un correo a</span>
                               <br />
-                              <span className="font-semibold not-italic">{selectedProforma.empresaCorreo || 'jolusservices@gmail.com'}</span>
+                              <span className="font-semibold not-italic">{selectedProforma.empresaCorreo || 'jhonnyvp5@gmail.com'}</span>
                             </>
                           ) : (
                             <span className="whitespace-pre-line">{selectedProforma.notaDudas}</span>

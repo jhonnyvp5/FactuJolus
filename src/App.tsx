@@ -92,7 +92,18 @@ export default function App() {
   // User Session Management
   const [currentUser, setCurrentUser] = useState<PortalUser | null>(() => {
     const saved = localStorage.getItem('sri_portal_active_user');
-    return saved ? JSON.parse(saved) : null;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.correo?.toLowerCase() === 'jhonnyvp5@gmail.com') {
+          parsed.role = 'SUPERADMIN';
+        }
+        return parsed;
+      } catch {
+        return null;
+      }
+    }
+    return null;
   });
 
   // State variables loaded from LocalStorage
@@ -616,10 +627,13 @@ export default function App() {
       <LoginForm
         onLoginSuccess={(user) => {
           setInactivityNotice(null);
-          setCurrentUser(user);
-          localStorage.setItem('sri_portal_active_user', JSON.stringify(user));
+          const finalUser = user.correo?.toLowerCase() === 'jhonnyvp5@gmail.com' 
+            ? { ...user, role: 'SUPERADMIN' as const, nombre: user.nombre || 'Jhonny Vargas' } 
+            : user;
+          setCurrentUser(finalUser);
+          localStorage.setItem('sri_portal_active_user', JSON.stringify(finalUser));
         }}
-        adminEmail={config.correo || 'jhonnyVP5@gmail.com'}
+        adminEmail={'jhonnyvp5@gmail.com'}
         inactivityNotice={inactivityNotice}
       />
     );

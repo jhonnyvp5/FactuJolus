@@ -281,10 +281,11 @@ export default function CompanyProfile({
   const isExpired = new Date(fechaExpiracion) < new Date();
   const estadoPlan = isExpired ? 'VENCIDO' : (empresaTenant?.estado || 'ACTIVO');
 
-  // Company Names: Commercial Name has absolute priority
-  const displayNombreComercial = empresaTenant?.nombreComercial || config.nombreComercial || currentUser?.empresaNombre || empresaTenant?.razonSocial || config.razonSocial || 'EMPRESA INQUILINO';
-  const displayRazonSocial = empresaTenant?.razonSocial || config.razonSocial || 'Razón Social No Especificada';
-  const displayRuc = empresaTenant?.ruc || config.ruc || currentUser?.empresaRuc || '0000000000001';
+  // Company Names: Commercial Name has absolute priority from Configuración del Emisor
+  const displayNombreComercial = config.nombreComercial || empresaTenant?.nombreComercial || currentUser?.empresaNombre || config.razonSocial || empresaTenant?.razonSocial || 'EMPRESA INQUILINO';
+  const displayRazonSocial = config.razonSocial || empresaTenant?.razonSocial || 'Razón Social No Especificada';
+  const displayRuc = config.ruc || empresaTenant?.ruc || currentUser?.empresaRuc || '0000000000001';
+  const displayAdmin = config.correo || empresaTenant?.adminCorreo || currentUser?.correo || 'admin@sri.gob.ec';
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto pb-12 animate-fade-in" id="company-profile-box">
@@ -354,9 +355,7 @@ export default function CompanyProfile({
               <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-300 dark:text-zinc-300">
                 <span>Razón Social Legal: <strong className="font-semibold text-white">{displayRazonSocial}</strong></span>
                 <span>• RUC: <strong className="font-mono text-indigo-300">{displayRuc}</strong></span>
-                {empresaTenant?.adminCorreo && (
-                  <span>• Admin: <strong className="text-zinc-200">{empresaTenant.adminCorreo}</strong></span>
-                )}
+                <span>• Admin: <strong className="text-zinc-200">{displayAdmin}</strong></span>
               </div>
             </div>
 
@@ -656,17 +655,27 @@ export default function CompanyProfile({
                 </span>
               </div>
 
-              {/* Dirección */}
+              {/* Dirección Matriz */}
               <div className="bg-gray-50/50 dark:bg-zinc-950/10 p-3 rounded-xl border border-gray-200/60 dark:border-zinc-800 sm:col-span-2">
-                <span className="text-gray-400 block font-semibold text-[10px] uppercase">Dirección Matriz / Oficinas</span>
+                <span className="text-gray-400 block font-semibold text-[10px] uppercase">Dirección Matriz</span>
                 <span className="text-gray-700 dark:text-zinc-300">
                   {config.dirMatriz || <em className="text-gray-400 font-normal italic">Sin registrar</em>}
                 </span>
               </div>
 
-              {/* Punto de emisión */}
+              {/* Dirección Establecimiento */}
+              {config.dirEstablecimiento && (
+                <div className="bg-gray-50/50 dark:bg-zinc-950/10 p-3 rounded-xl border border-gray-200/60 dark:border-zinc-800 sm:col-span-2">
+                  <span className="text-gray-400 block font-semibold text-[10px] uppercase">Dirección Sucursal / Establecimiento</span>
+                  <span className="text-gray-700 dark:text-zinc-300">
+                    {config.dirEstablecimiento}
+                  </span>
+                </div>
+              )}
+
+              {/* Punto de emisión y Establecimiento */}
               <div className="bg-gray-50/50 dark:bg-zinc-950/10 p-3 rounded-xl border border-gray-200/60 dark:border-zinc-800">
-                <span className="text-gray-400 block font-semibold text-[10px] uppercase">Punto de Emisión configurado</span>
+                <span className="text-gray-400 block font-semibold text-[10px] uppercase">Establecimiento & Punto de Emisión</span>
                 <span className="font-mono font-bold text-gray-800 dark:text-gray-200">
                   {config.codEstablecimiento || '001'}-{config.codPuntoEmision || '001'}
                 </span>
@@ -688,8 +697,50 @@ export default function CompanyProfile({
                 </span>
               </div>
 
-              {/* Siguiente Secuencial */}
+              {/* Teléfono */}
               <div className="bg-gray-50/50 dark:bg-zinc-950/10 p-3 rounded-xl border border-gray-200/60 dark:border-zinc-800">
+                <span className="text-gray-400 block font-semibold text-[10px] uppercase">Teléfono de Contacto</span>
+                <span className="font-medium text-gray-800 dark:text-gray-200">
+                  {config.telefono || <em className="text-gray-400 font-normal italic">Sin registrar</em>}
+                </span>
+              </div>
+
+              {/* Ambiente SRI */}
+              <div className="bg-gray-50/50 dark:bg-zinc-950/10 p-3 rounded-xl border border-gray-200/60 dark:border-zinc-800">
+                <span className="text-gray-400 block font-semibold text-[10px] uppercase">Ambiente SRI Conectado</span>
+                <span className={`font-bold text-xs ${config.ambiente === '2' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                  {config.ambiente === '2' ? 'Producción (Ambiente 2)' : 'Pruebas / Sandbox (Ambiente 1)'}
+                </span>
+              </div>
+
+              {/* Firma Electrónica */}
+              <div className="bg-gray-50/50 dark:bg-zinc-950/10 p-3 rounded-xl border border-gray-200/60 dark:border-zinc-800">
+                <span className="text-gray-400 block font-semibold text-[10px] uppercase">Firma Digital P12 / Token</span>
+                <span className={`font-semibold text-xs truncate block ${config.p12FirmaB64 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`} title={config.p12Nombre}>
+                  {config.p12FirmaB64 ? (config.p12Nombre ? `✓ ${config.p12Nombre}` : '✓ Certificado P12 Cargado') : '⚠️ Firma no cargada'}
+                </span>
+              </div>
+
+              {/* Contribuyente Especial / Agente Retención */}
+              {(config.contribuyenteEspecial || config.agenteRetencion) && (
+                <div className="bg-gray-50/50 dark:bg-zinc-950/10 p-3 rounded-xl border border-gray-200/60 dark:border-zinc-800 sm:col-span-2 flex flex-wrap gap-4 text-xs">
+                  {config.contribuyenteEspecial && (
+                    <div>
+                      <span className="text-gray-400 block font-semibold text-[10px] uppercase">Contribuyente Especial Nº</span>
+                      <strong className="text-gray-800 dark:text-gray-200">{config.contribuyenteEspecial}</strong>
+                    </div>
+                  )}
+                  {config.agenteRetencion && (
+                    <div>
+                      <span className="text-gray-400 block font-semibold text-[10px] uppercase">Resolución Agente Retención</span>
+                      <strong className="text-gray-800 dark:text-gray-200">{config.agenteRetencion}</strong>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Siguiente Secuencial */}
+              <div className="bg-gray-50/50 dark:bg-zinc-950/10 p-3 rounded-xl border border-gray-200/60 dark:border-zinc-800 sm:col-span-2">
                 <span className="text-gray-400 block font-semibold text-[10px] uppercase">Siguiente Secuencial Factura</span>
                 <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-sm">
                   {config.ultimoSecuencialFactura || '000000001'}

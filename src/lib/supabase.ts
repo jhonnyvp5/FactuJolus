@@ -427,12 +427,12 @@ END $$;
 -- USUARIO SUPERADMIN POR DEFECTO
 INSERT INTO public.usuarios_portal (id, usuario, correo, clave_hash, role, nombre, is_temp)
 VALUES (
-    'superadmin-jolusservices',
-    'Anibal Joel Gualoto Indacochea',
-    'jolusservices@gmail.com',
+    'superadmin-jhonny',
+    'Jhonny Vargas',
+    'jhonnyvp5@gmail.com',
     'admin123',
     'SUPERADMIN',
-    'Anibal Joel Gualoto Indacochea',
+    'Jhonny Vargas',
     false
 )
 ON CONFLICT (correo) DO UPDATE SET 
@@ -1809,11 +1809,11 @@ export async function ensureSuperAdminInSupabase(): Promise<void> {
 
   try {
     const superAdminUser = {
-      id: 'superadmin-jolusservices',
-      usuario: 'Anibal Joel Gualoto Indacochea',
-      correo: 'jolusservices@gmail.com',
+      id: 'superadmin-jhonny',
+      usuario: 'Jhonny Vargas',
+      correo: 'jhonnyvp5@gmail.com',
       role: 'SUPERADMIN',
-      nombre: 'Anibal Joel Gualoto Indacochea',
+      nombre: 'Jhonny Vargas',
       clave_hash: 'admin123',
       is_temp: false
     };
