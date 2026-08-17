@@ -30,6 +30,8 @@ export interface EmitterConfig {
   smtpPass?: string; // Contraseña o App Password
   smtpFrom?: string; // Remitente (ej: Facturación <correo@dominio.com>)
   usuarioCorreo?: string;
+  empresaRuc?: string;
+  empresaNombre?: string;
 }
 
 export interface Client {
@@ -41,6 +43,8 @@ export interface Client {
   telefono: string;
   correo: string;
   usuarioCorreo?: string;
+  empresaRuc?: string;
+  empresaNombre?: string;
 }
 
 export interface Product {
@@ -51,6 +55,8 @@ export interface Product {
   ivaTipo: TipoIva;
   descuentoDefault: number;
   usuarioCorreo?: string;
+  empresaRuc?: string;
+  empresaNombre?: string;
 }
 
 export interface InvoiceDetail {
@@ -96,6 +102,8 @@ export interface Invoice {
   };
   creadorNombre?: string; // Nombre del usuario que generó la factura
   usuarioCorreo?: string;
+  empresaRuc?: string;
+  empresaNombre?: string;
 }
 
 export interface CreditNoteDetail {
@@ -136,6 +144,8 @@ export interface CreditNote {
   };
   creadorNombre?: string; // Nombre del usuario que generó el comprobante
   usuarioCorreo?: string;
+  empresaRuc?: string;
+  empresaNombre?: string;
 }
 
 export interface SriMessage {
@@ -156,6 +166,9 @@ export interface PortalUser {
   nombre?: string;
   fechaRegistro: string;
   isTemp?: boolean;
+  empresaRuc?: string;
+  empresaNombre?: string;
+  creadorCorreo?: string;
 }
 
 export interface Invitation {
@@ -166,6 +179,9 @@ export interface Invitation {
   nombreInvitado?: string; // Nombre y Apellido completos
   fechaCreacion: string;
   estado: 'PENDIENTE' | 'ACEPTADA';
+  empresaRuc?: string;
+  empresaNombre?: string;
+  creadorCorreo?: string;
 }
 
 export interface ActivityLog {
@@ -176,6 +192,25 @@ export interface ActivityLog {
   fecha: string;
   accion: string; // e.g. 'Inicio de Sesión', 'Emisión de Factura', etc.
   detalles: string;
+  empresaRuc?: string;
+  empresaNombre?: string;
+}
+
+export interface EmpresaTenant {
+  id: string;
+  ruc: string;
+  razonSocial: string;
+  nombreComercial?: string;
+  adminCorreo: string;
+  estado: 'ACTIVO' | 'SUSPENDIDO' | 'VENCIDO';
+  fechaInicio: string;
+  fechaExpiracion: string;
+  limiteComprobantes: number;
+  limiteUsuarios: number;
+  comprobantesEmitidos?: number;
+  usuariosRegistrados?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ProformaDetail {

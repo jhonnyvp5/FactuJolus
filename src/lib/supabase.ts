@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Client, Product, Invoice, CreditNote, Proforma, EmitterConfig, PortalUser, ActivityLog, Invitation } from '../types';
+import { Client, Product, Invoice, CreditNote, Proforma, EmitterConfig, PortalUser, ActivityLog, Invitation, EmpresaTenant } from '../types';
 
 // Default Supabase project URL & Anon Key provided by user
 const DEFAULT_SUPABASE_URL = 'https://zrbmybedhtziyvkwrvzl.supabase.co';
@@ -561,7 +561,7 @@ export async function safeUpsert(
 // ==========================================
 // 1. CLIENTES
 // ==========================================
-export async function fetchClientsFromSupabase(userEmail?: string, userRole?: string): Promise<Client[] | null> {
+export async function fetchClientsFromSupabase(userEmail?: string, userRole?: string, empresaRuc?: string): Promise<Client[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
@@ -570,8 +570,12 @@ export async function fetchClientsFromSupabase(userEmail?: string, userRole?: st
   if (error || !data) return null;
 
   const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
-  const filtered = (userEmail && !isSuperAdmin)
-    ? data.filter(item => !item.usuario_correo || item.usuario_correo === userEmail)
+  const filtered = !isSuperAdmin
+    ? data.filter(item => {
+        if (empresaRuc && item.empresa_ruc) return item.empresa_ruc === empresaRuc;
+        if (userEmail) return !item.usuario_correo || item.usuario_correo === userEmail;
+        return true;
+      })
     : data;
 
   return filtered.map(item => ({
@@ -582,7 +586,9 @@ export async function fetchClientsFromSupabase(userEmail?: string, userRole?: st
     direccion: item.direccion || '',
     telefono: item.telefono || '',
     correo: item.correo || '',
-    usuarioCorreo: item.usuario_correo
+    usuarioCorreo: item.usuario_correo,
+    empresaRuc: item.empresa_ruc,
+    empresaNombre: item.empresa_nombre
   }));
 }
 
@@ -595,7 +601,9 @@ export async function saveClientToSupabase(client: Client, userEmail?: string): 
     direccion: client.direccion || '',
     telefono: client.telefono || '',
     correo: client.correo || '',
-    usuario_correo: userEmail || client.usuarioCorreo || ''
+    usuario_correo: userEmail || client.usuarioCorreo || '',
+    empresa_ruc: client.empresaRuc || '',
+    empresa_nombre: client.empresaNombre || ''
   };
 
   return safeUpsert('clientes', spanishPayload, 'identificacion');
@@ -612,7 +620,7 @@ export async function deleteClientFromSupabase(id: string, identificacion?: stri
 // ==========================================
 // 2. PRODUCTOS
 // ==========================================
-export async function fetchProductsFromSupabase(userEmail?: string, userRole?: string): Promise<Product[] | null> {
+export async function fetchProductsFromSupabase(userEmail?: string, userRole?: string, empresaRuc?: string): Promise<Product[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
@@ -621,8 +629,12 @@ export async function fetchProductsFromSupabase(userEmail?: string, userRole?: s
   if (error || !data) return null;
 
   const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
-  const filtered = (userEmail && !isSuperAdmin)
-    ? data.filter(item => !item.usuario_correo || item.usuario_correo === userEmail)
+  const filtered = !isSuperAdmin
+    ? data.filter(item => {
+        if (empresaRuc && item.empresa_ruc) return item.empresa_ruc === empresaRuc;
+        if (userEmail) return !item.usuario_correo || item.usuario_correo === userEmail;
+        return true;
+      })
     : data;
 
   return filtered.map(item => ({
@@ -632,7 +644,9 @@ export async function fetchProductsFromSupabase(userEmail?: string, userRole?: s
     precio: Number(item.precio) || 0,
     ivaTipo: item.iva_tipo || item.ivaTipo || '4',
     descuentoDefault: Number(item.descuento_default ?? item.descuentoDefault ?? 0),
-    usuarioCorreo: item.usuario_correo
+    usuarioCorreo: item.usuario_correo,
+    empresaRuc: item.empresa_ruc,
+    empresaNombre: item.empresa_nombre
   }));
 }
 
@@ -644,7 +658,9 @@ export async function saveProductToSupabase(product: Product, userEmail?: string
     precio: product.precio,
     iva_tipo: product.ivaTipo,
     descuento_default: product.descuentoDefault || 0,
-    usuario_correo: userEmail || product.usuarioCorreo || ''
+    usuario_correo: userEmail || product.usuarioCorreo || '',
+    empresa_ruc: product.empresaRuc || '',
+    empresa_nombre: product.empresaNombre || ''
   };
 
   const res = await safeUpsert('productos', payload, 'codigo');
@@ -662,7 +678,7 @@ export async function deleteProductFromSupabase(id: string, codigo?: string): Pr
 // ==========================================
 // 3. EMISOR CONFIG (emisor_config)
 // ==========================================
-export async function fetchEmitterConfigFromSupabase(ruc?: string, userEmail?: string, userRole?: string): Promise<EmitterConfig | null> {
+export async function fetchEmitterConfigFromSupabase(ruc?: string, userEmail?: string, userRole?: string, empresaRuc?: string): Promise<EmitterConfig | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
@@ -671,6 +687,13 @@ export async function fetchEmitterConfigFromSupabase(ruc?: string, userEmail?: s
     if (ruc) {
       const res = await supabase.from('emisor_config').select('*').eq('ruc', ruc).maybeSingle();
       data = res.data;
+    } else if (empresaRuc) {
+      const resEmp = await supabase.from('emisor_config').select('*').eq('ruc', empresaRuc).maybeSingle();
+      data = resEmp.data;
+      if (!data) {
+        const resEmp2 = await supabase.from('emisor_config').select('*').eq('empresa_ruc', empresaRuc).maybeSingle();
+        data = resEmp2.data;
+      }
     } else if (userEmail && userRole?.toUpperCase() !== 'SUPERADMIN') {
       const resUser = await supabase.from('emisor_config').select('*').eq('usuario_correo', userEmail).maybeSingle();
       data = resUser.data;
@@ -704,7 +727,9 @@ export async function fetchEmitterConfigFromSupabase(ruc?: string, userEmail?: s
       p12Password: data.p12_password || data.clave_firma || '',
       correo: data.correo || userEmail || '',
       isDemoMode: false,
-      usuarioCorreo: data.usuario_correo
+      usuarioCorreo: data.usuario_correo,
+      empresaRuc: data.empresa_ruc || data.ruc,
+      empresaNombre: data.empresa_nombre || data.razon_social
     };
   } catch {
     return null;
@@ -740,7 +765,9 @@ export async function saveEmitterConfigToSupabase(config: EmitterConfig, userEma
     p12_firma_b64: config.p12FirmaB64 || '',
     p12_password: config.p12Password !== undefined ? config.p12Password : '',
     correo: config.correo || userEmail || '',
-    usuario_correo: userEmail || config.usuarioCorreo || ''
+    usuario_correo: userEmail || config.usuarioCorreo || '',
+    empresa_ruc: config.empresaRuc || targetRuc,
+    empresa_nombre: config.empresaNombre || config.razonSocial || ''
   };
 
   const supabase = getSupabase();
@@ -810,7 +837,7 @@ export async function saveEmitterLogoToSupabase(ruc: string, logoB64: string, us
 // ==========================================
 // 4. FACTURAS & 5. FACTURA_DETALLES
 // ==========================================
-export async function fetchInvoicesFromSupabase(userEmail?: string, userRole?: string): Promise<Invoice[] | null> {
+export async function fetchInvoicesFromSupabase(userEmail?: string, userRole?: string, empresaRuc?: string): Promise<Invoice[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
@@ -819,8 +846,12 @@ export async function fetchInvoicesFromSupabase(userEmail?: string, userRole?: s
   if (error || !data) return null;
 
   const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
-  const filtered = (userEmail && !isSuperAdmin)
-    ? data.filter(item => !item.usuario_correo || item.usuario_correo === userEmail)
+  const filtered = !isSuperAdmin
+    ? data.filter(item => {
+        if (empresaRuc && item.empresa_ruc) return item.empresa_ruc === empresaRuc;
+        if (userEmail) return !item.usuario_correo || item.usuario_correo === userEmail;
+        return true;
+      })
     : data;
 
   return filtered.map(item => ({
@@ -842,7 +873,9 @@ export async function fetchInvoicesFromSupabase(userEmail?: string, userRole?: s
     infoAdicional: typeof item.info_adicional === 'string' ? JSON.parse(item.info_adicional) : (item.info_adicional || []),
     resumenImpuestos: typeof item.resumen_impuestos === 'string' ? JSON.parse(item.resumen_impuestos) : item.resumen_impuestos,
     creadorNombre: item.creador_nombre || item.creadorNombre,
-    usuarioCorreo: item.usuario_correo
+    usuarioCorreo: item.usuario_correo,
+    empresaRuc: item.empresa_ruc,
+    empresaNombre: item.empresa_nombre
   }));
 }
 
@@ -866,7 +899,9 @@ export async function saveInvoiceToSupabase(invoice: Invoice, userEmail?: string
     info_adicional: invoice.infoAdicional,
     resumen_impuestos: invoice.resumenImpuestos,
     creador_nombre: invoice.creadorNombre,
-    usuario_correo: userEmail || invoice.usuarioCorreo || ''
+    usuario_correo: userEmail || invoice.usuarioCorreo || '',
+    empresa_ruc: invoice.empresaRuc || '',
+    empresa_nombre: invoice.empresaNombre || ''
   };
 
   const res = await safeUpsert('facturas', spanishPayload, 'id');
@@ -893,7 +928,8 @@ export async function saveInvoiceToSupabase(invoice: Invoice, userEmail?: string
         iva_tipo: String(d.producto?.ivaTipo || '4'),
         iva_calculado: Number(d.ivaCalculado) || 0,
         total: Number(d.total) || 0,
-        usuario_correo: userEmail || invoice.usuarioCorreo || ''
+        usuario_correo: userEmail || invoice.usuarioCorreo || '',
+        empresa_ruc: invoice.empresaRuc || ''
       }));
 
       for (const item of lineItems) {
@@ -925,7 +961,7 @@ export async function deleteInvoiceFromSupabase(id: string): Promise<boolean> {
 // ==========================================
 // 6. PROFORMAS & 7. PROFORMA_DETALLES
 // ==========================================
-export async function fetchProformasFromSupabase(userEmail?: string, userRole?: string): Promise<Proforma[] | null> {
+export async function fetchProformasFromSupabase(userEmail?: string, userRole?: string, empresaRuc?: string): Promise<Proforma[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
@@ -934,8 +970,12 @@ export async function fetchProformasFromSupabase(userEmail?: string, userRole?: 
     if (error || !data) return null;
 
     const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
-    const filtered = (userEmail && !isSuperAdmin)
-      ? data.filter(item => !item.usuario_correo || item.usuario_correo === userEmail)
+    const filtered = !isSuperAdmin
+      ? data.filter(item => {
+          if (empresaRuc && item.empresa_ruc) return item.empresa_ruc === empresaRuc;
+          if (userEmail) return !item.usuario_correo || item.usuario_correo === userEmail;
+          return true;
+        })
       : data;
 
     return filtered.map(item => ({
@@ -1018,7 +1058,7 @@ export async function deleteProformaFromSupabase(id: string): Promise<boolean> {
 // ==========================================
 // 8. NOTAS_CREDITO & 9. NOTA_CREDITO_DETALLES
 // ==========================================
-export async function fetchCreditNotesFromSupabase(userEmail?: string, userRole?: string): Promise<CreditNote[] | null> {
+export async function fetchCreditNotesFromSupabase(userEmail?: string, userRole?: string, empresaRuc?: string): Promise<CreditNote[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
@@ -1027,8 +1067,12 @@ export async function fetchCreditNotesFromSupabase(userEmail?: string, userRole?
     if (error || !data) return null;
 
     const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
-    const filtered = (userEmail && !isSuperAdmin)
-      ? data.filter(item => !item.usuario_correo || item.usuario_correo === userEmail)
+    const filtered = !isSuperAdmin
+      ? data.filter(item => {
+          if (empresaRuc && item.empresa_ruc) return item.empresa_ruc === empresaRuc;
+          if (userEmail) return !item.usuario_correo || item.usuario_correo === userEmail;
+          return true;
+        })
       : data;
 
     return filtered.map(item => ({
@@ -1050,7 +1094,10 @@ export async function fetchCreditNotesFromSupabase(userEmail?: string, userRole?
       numeroAutorizacion: item.numero_autorizacion,
       infoAdicional: typeof item.info_adicional === 'string' ? JSON.parse(item.info_adicional) : (item.info_adicional || []),
       resumenImpuestos: typeof item.resumen_impuestos === 'string' ? JSON.parse(item.resumen_impuestos) : item.resumen_impuestos,
-      usuarioCorreo: item.usuario_correo
+      creadorNombre: item.creador_nombre || item.creadorNombre,
+      usuarioCorreo: item.usuario_correo,
+      empresaRuc: item.empresa_ruc,
+      empresaNombre: item.empresa_nombre
     }));
   } catch {
     return null;
@@ -1077,7 +1124,9 @@ export async function saveCreditNoteToSupabase(creditNote: CreditNote, userEmail
     numero_autorizacion: creditNote.numeroAutorizacion,
     info_adicional: creditNote.infoAdicional,
     resumen_impuestos: creditNote.resumenImpuestos,
-    usuario_correo: userEmail || creditNote.usuarioCorreo || ''
+    usuario_correo: userEmail || creditNote.usuarioCorreo || '',
+    empresa_ruc: creditNote.empresaRuc || '',
+    empresa_nombre: creditNote.empresaNombre || ''
   };
 
   const res = await safeUpsert('notas_credito', payload, 'id');
@@ -1098,7 +1147,8 @@ export async function saveCreditNoteToSupabase(creditNote: CreditNote, userEmail
         subtotal: d.subtotal || 0,
         iva_calculado: d.ivaCalculado || 0,
         total: d.total || 0,
-        usuario_correo: userEmail || creditNote.usuarioCorreo || ''
+        usuario_correo: userEmail || creditNote.usuarioCorreo || '',
+        empresa_ruc: creditNote.empresaRuc || ''
       }));
       for (const item of lineItems) {
         await safeUpsert('nota_credito_detalles', item, 'id');
@@ -1121,7 +1171,7 @@ export async function deleteCreditNoteFromSupabase(id: string): Promise<boolean>
 // ==========================================
 // 10. USUARIOS_PORTAL
 // ==========================================
-export async function fetchUsersFromSupabase(): Promise<PortalUser[] | null> {
+export async function fetchUsersFromSupabase(userEmail?: string, userRole?: string, empresaRuc?: string): Promise<PortalUser[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
@@ -1129,13 +1179,25 @@ export async function fetchUsersFromSupabase(): Promise<PortalUser[] | null> {
     const { data, error } = await supabase.from('usuarios_portal').select('*').order('created_at', { ascending: true });
     if (error || !data) return null;
 
-    return data.map(item => ({
+    const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
+    const filtered = !isSuperAdmin
+      ? data.filter(item => {
+          if (empresaRuc && item.empresa_ruc) return item.empresa_ruc === empresaRuc;
+          if (userEmail) return !item.creador_correo || item.creador_correo === userEmail || item.correo === userEmail;
+          return true;
+        })
+      : data;
+
+    return filtered.map(item => ({
       id: item.id || item.correo,
       correo: item.correo,
       clave: item.clave_hash || item.clave || 'admin123',
       role: (item.role || 'USER').toUpperCase() as any,
       nombre: item.nombre || item.usuario || item.correo.split('@')[0],
-      fechaRegistro: item.created_at || new Date().toISOString()
+      fechaRegistro: item.created_at || new Date().toISOString(),
+      empresaRuc: item.empresa_ruc,
+      empresaNombre: item.empresa_nombre,
+      creadorCorreo: item.creador_correo
     }));
   } catch {
     return null;
@@ -1166,7 +1228,10 @@ export async function authenticateUserInSupabase(
         clave: pass,
         role: (data.role || 'USER').toUpperCase() as any,
         nombre: data.nombre || data.usuario || data.correo.split('@')[0],
-        fechaRegistro: data.created_at || new Date().toISOString()
+        fechaRegistro: data.created_at || new Date().toISOString(),
+        empresaRuc: data.empresa_ruc,
+        empresaNombre: data.empresa_nombre,
+        creadorCorreo: data.creador_correo
       };
     }
   } catch (err) {
@@ -1183,7 +1248,10 @@ export async function upsertUserInSupabase(user: PortalUser): Promise<void> {
     clave_hash: user.clave,
     role: user.role,
     nombre: user.nombre,
-    is_temp: false
+    is_temp: false,
+    empresa_ruc: user.empresaRuc || '',
+    empresa_nombre: user.empresaNombre || '',
+    creador_correo: user.creadorCorreo || ''
   };
 
   await safeUpsert('usuarios_portal', userPayload, 'correo');
@@ -1200,7 +1268,7 @@ export async function deleteUserFromSupabase(id: string, email?: string): Promis
 // ==========================================
 // 11. INVITACIONES
 // ==========================================
-export async function fetchInvitationsFromSupabase(): Promise<Invitation[] | null> {
+export async function fetchInvitationsFromSupabase(userEmail?: string, userRole?: string, empresaRuc?: string): Promise<Invitation[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
@@ -1208,14 +1276,26 @@ export async function fetchInvitationsFromSupabase(): Promise<Invitation[] | nul
     const { data, error } = await supabase.from('invitaciones').select('*').order('created_at', { ascending: false });
     if (error || !data) return null;
 
-    return data.map(item => ({
+    const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
+    const filtered = !isSuperAdmin
+      ? data.filter(item => {
+          if (empresaRuc && item.empresa_ruc) return item.empresa_ruc === empresaRuc;
+          if (userEmail) return !item.creador_correo || item.creador_correo === userEmail;
+          return true;
+        })
+      : data;
+
+    return filtered.map(item => ({
       id: item.id,
       correo: item.correo,
       role: item.role as any,
       claveTemporal: item.clave_temporal,
       nombreInvitado: item.nombre_invitado || item.nombre,
       fechaCreacion: item.fecha_invitacion || item.created_at,
-      estado: item.estado || 'PENDIENTE'
+      estado: item.estado || 'PENDIENTE',
+      empresaRuc: item.empresa_ruc,
+      empresaNombre: item.empresa_nombre,
+      creadorCorreo: item.creador_correo
     }));
   } catch {
     return null;
@@ -1230,7 +1310,10 @@ export async function saveInvitationToSupabase(invite: Invitation): Promise<bool
     clave_temporal: invite.claveTemporal,
     estado: invite.estado,
     fecha_invitacion: invite.fechaCreacion,
-    nombre_invitado: invite.nombreInvitado
+    nombre_invitado: invite.nombreInvitado,
+    empresa_ruc: invite.empresaRuc || '',
+    empresa_nombre: invite.empresaNombre || '',
+    creador_correo: invite.creadorCorreo || ''
   };
 
   const res = await safeUpsert('invitaciones', payload, 'id');
@@ -1247,7 +1330,7 @@ export async function deleteInvitationFromSupabase(id: string): Promise<boolean>
 // ==========================================
 // 12. BITACORA_ACTIVIDADES
 // ==========================================
-export async function fetchActivityLogsFromSupabase(): Promise<ActivityLog[] | null> {
+export async function fetchActivityLogsFromSupabase(userEmail?: string, userRole?: string, empresaRuc?: string): Promise<ActivityLog[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
@@ -1260,14 +1343,25 @@ export async function fetchActivityLogsFromSupabase(): Promise<ActivityLog[] | n
 
     if (error || !data) return null;
 
-    return data.map(item => ({
+    const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
+    const filtered = !isSuperAdmin
+      ? data.filter(item => {
+          if (empresaRuc && item.empresa_ruc) return item.empresa_ruc === empresaRuc;
+          if (userEmail) return !item.usuario_correo || item.usuario_correo === userEmail;
+          return true;
+        })
+      : data;
+
+    return filtered.map(item => ({
       id: item.id,
       usuarioCorreo: item.usuario_correo,
       usuarioNombre: item.usuario_nombre,
       usuarioRol: item.usuario_rol,
       fecha: item.fecha || item.created_at,
       accion: item.accion,
-      detalles: item.detalles
+      detalles: item.detalles,
+      empresaRuc: item.empresa_ruc,
+      empresaNombre: item.empresa_nombre
     }));
   } catch {
     return null;
@@ -1282,7 +1376,9 @@ export async function saveActivityLogToSupabase(log: ActivityLog): Promise<boole
     usuario_rol: log.usuarioRol,
     fecha: log.fecha,
     accion: log.accion,
-    detalles: log.detalles
+    detalles: log.detalles,
+    empresa_ruc: log.empresaRuc || '',
+    empresa_nombre: log.empresaNombre || ''
   };
 
   const res = await safeUpsert('bitacora_actividades', payload, 'id');
@@ -1294,6 +1390,125 @@ export async function deleteActivityLogFromSupabase(id: string): Promise<boolean
   if (!supabase) return false;
   const { error } = await supabase.from('bitacora_actividades').delete().eq('id', id);
   return !error;
+}
+
+// ==========================================
+// 13. EMPRESAS / INQUILINOS (MULTI-TENANCY)
+// ==========================================
+export async function fetchEmpresasFromSupabase(): Promise<EmpresaTenant[]> {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from('empresas_inquilinos')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error || !data) return [];
+
+    return data.map(item => ({
+      id: item.id || `emp-${item.ruc}`,
+      ruc: item.ruc,
+      razonSocial: item.razon_social || item.razonSocial || '',
+      nombreComercial: item.nombre_comercial || item.nombreComercial || '',
+      adminCorreo: item.admin_correo || item.adminCorreo || '',
+      estado: (item.estado || 'ACTIVO').toUpperCase() as any,
+      fechaInicio: item.fecha_inicio || item.fechaInicio || new Date().toISOString().split('T')[0],
+      fechaExpiracion: item.fecha_expiracion || item.fechaExpiracion || new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().split('T')[0],
+      limiteComprobantes: Number(item.limite_comprobantes ?? item.limiteComprobantes ?? 100),
+      limiteUsuarios: Number(item.limite_usuarios ?? item.limiteUsuarios ?? 3),
+      comprobantesEmitidos: Number(item.comprobantes_emitidos || 0),
+      usuariosRegistrados: Number(item.usuarios_registrados || 0),
+      createdAt: item.created_at,
+      updatedAt: item.updated_at
+    }));
+  } catch (e) {
+    console.warn('Aviso consultando empresas_inquilinos:', e);
+    return [];
+  }
+}
+
+export async function getEmpresaByRuc(ruc: string): Promise<EmpresaTenant | null> {
+  const cleanRuc = (ruc || '').trim();
+  if (!cleanRuc) return null;
+
+  const supabase = getSupabase();
+  if (!supabase) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('empresas_inquilinos')
+      .select('*')
+      .eq('ruc', cleanRuc)
+      .maybeSingle();
+
+    if (error || !data) return null;
+
+    const [invRes, ncRes, usrRes] = await Promise.all([
+      supabase.from('facturas').select('id', { count: 'exact', head: true }).eq('empresa_ruc', cleanRuc),
+      supabase.from('notas_credito').select('id', { count: 'exact', head: true }).eq('empresa_ruc', cleanRuc),
+      supabase.from('usuarios_portal').select('id', { count: 'exact', head: true }).eq('empresa_ruc', cleanRuc)
+    ]);
+
+    const totalDocs = (invRes.count || 0) + (ncRes.count || 0);
+    const totalUsers = usrRes.count || 0;
+
+    return {
+      id: data.id || `emp-${data.ruc}`,
+      ruc: data.ruc,
+      razonSocial: data.razon_social || data.razonSocial || '',
+      nombreComercial: data.nombre_comercial || data.nombreComercial || '',
+      adminCorreo: data.admin_correo || data.adminCorreo || '',
+      estado: (data.estado || 'ACTIVO').toUpperCase() as any,
+      fechaInicio: data.fecha_inicio || data.fechaInicio || new Date().toISOString().split('T')[0],
+      fechaExpiracion: data.fecha_expiracion || data.fechaExpiracion || new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().split('T')[0],
+      limiteComprobantes: Number(data.limite_comprobantes ?? data.limiteComprobantes ?? 100),
+      limiteUsuarios: Number(data.limite_usuarios ?? data.limiteUsuarios ?? 3),
+      comprobantesEmitidos: totalDocs,
+      usuariosRegistrados: totalUsers,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at
+    };
+  } catch (e) {
+    console.warn('Aviso getEmpresaByRuc:', e);
+    return null;
+  }
+}
+
+export async function saveEmpresaToSupabase(empresa: EmpresaTenant): Promise<{ success: boolean; errorDetails?: string }> {
+  const payload = {
+    id: empresa.id || `emp-${empresa.ruc}`,
+    ruc: empresa.ruc.trim(),
+    razon_social: empresa.razonSocial.trim(),
+    nombre_comercial: empresa.nombreComercial?.trim() || empresa.razonSocial.trim(),
+    admin_correo: empresa.adminCorreo.trim().toLowerCase(),
+    estado: empresa.estado || 'ACTIVO',
+    fecha_inicio: empresa.fechaInicio || new Date().toISOString().split('T')[0],
+    fecha_expiracion: empresa.fechaExpiracion,
+    limite_comprobantes: Number(empresa.limiteComprobantes) || 100,
+    limite_usuarios: Number(empresa.limiteUsuarios) || 3
+  };
+
+  return safeUpsert('empresas_inquilinos', payload, 'ruc');
+}
+
+export async function deleteEmpresaFromSupabase(id: string, ruc?: string): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+
+  try {
+    let q = supabase.from('empresas_inquilinos').delete();
+    if (ruc) {
+      q = q.eq('ruc', ruc);
+    } else {
+      q = q.eq('id', id);
+    }
+    const { error } = await q;
+    return !error;
+  } catch {
+    return false;
+  }
 }
 
 export async function deleteRowFromSupabaseTable(
