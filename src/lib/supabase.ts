@@ -622,9 +622,9 @@ export async function fetchClientsFromSupabase(userEmail?: string, userRole?: st
   const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
   const filtered = !isSuperAdmin
     ? data.filter(item => {
-        if (empresaRuc && item.empresa_ruc) return item.empresa_ruc === empresaRuc;
-        if (userEmail) return !item.usuario_correo || item.usuario_correo === userEmail;
-        return true;
+        if (empresaRuc) return item.empresa_ruc === empresaRuc;
+        if (userEmail) return item.usuario_correo === userEmail;
+        return false;
       })
     : data;
 
@@ -681,9 +681,9 @@ export async function fetchProductsFromSupabase(userEmail?: string, userRole?: s
   const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
   const filtered = !isSuperAdmin
     ? data.filter(item => {
-        if (empresaRuc && item.empresa_ruc) return item.empresa_ruc === empresaRuc;
-        if (userEmail) return !item.usuario_correo || item.usuario_correo === userEmail;
-        return true;
+        if (empresaRuc) return item.empresa_ruc === empresaRuc;
+        if (userEmail) return item.usuario_correo === userEmail;
+        return false;
       })
     : data;
 
@@ -747,11 +747,7 @@ export async function fetchEmitterConfigFromSupabase(ruc?: string, userEmail?: s
     } else if (userEmail && userRole?.toUpperCase() !== 'SUPERADMIN') {
       const resUser = await supabase.from('emisor_config').select('*').eq('usuario_correo', userEmail).maybeSingle();
       data = resUser.data;
-      if (!data) {
-        const resAll = await supabase.from('emisor_config').select('*').limit(1).maybeSingle();
-        data = resAll.data;
-      }
-    } else {
+    } else if (userRole?.toUpperCase() === 'SUPERADMIN') {
       const res = await supabase.from('emisor_config').select('*').limit(1).maybeSingle();
       data = res.data;
     }
@@ -898,9 +894,9 @@ export async function fetchInvoicesFromSupabase(userEmail?: string, userRole?: s
   const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
   const filtered = !isSuperAdmin
     ? data.filter(item => {
-        if (empresaRuc && item.empresa_ruc) return item.empresa_ruc === empresaRuc;
-        if (userEmail) return !item.usuario_correo || item.usuario_correo === userEmail;
-        return true;
+        if (empresaRuc) return item.empresa_ruc === empresaRuc;
+        if (userEmail) return item.usuario_correo === userEmail;
+        return false;
       })
     : data;
 
@@ -1022,9 +1018,9 @@ export async function fetchProformasFromSupabase(userEmail?: string, userRole?: 
     const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
     const filtered = !isSuperAdmin
       ? data.filter(item => {
-          if (empresaRuc && item.empresa_ruc) return item.empresa_ruc === empresaRuc;
-          if (userEmail) return !item.usuario_correo || item.usuario_correo === userEmail;
-          return true;
+          if (empresaRuc) return item.empresa_ruc === empresaRuc;
+          if (userEmail) return item.usuario_correo === userEmail;
+          return false;
         })
       : data;
 
@@ -1119,9 +1115,9 @@ export async function fetchCreditNotesFromSupabase(userEmail?: string, userRole?
     const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
     const filtered = !isSuperAdmin
       ? data.filter(item => {
-          if (empresaRuc && item.empresa_ruc) return item.empresa_ruc === empresaRuc;
-          if (userEmail) return !item.usuario_correo || item.usuario_correo === userEmail;
-          return true;
+          if (empresaRuc) return item.empresa_ruc === empresaRuc;
+          if (userEmail) return item.usuario_correo === userEmail;
+          return false;
         })
       : data;
 

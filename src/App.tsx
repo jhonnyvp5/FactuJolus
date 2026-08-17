@@ -200,6 +200,9 @@ export default function App() {
   };
   useEffect(() => {
     const email = currentUser?.correo;
+    const empresaRuc = currentUser?.empresaRuc;
+    const empresaNombre = currentUser?.empresaNombre;
+
     const configKey = getUserStorageKey(STORAGE_KEYS.CONFIG, email);
     const clientsKey = getUserStorageKey(STORAGE_KEYS.CLIENTS, email);
     const productsKey = getUserStorageKey(STORAGE_KEYS.PRODUCTS, email);
@@ -209,58 +212,109 @@ export default function App() {
     // 1. Config
     const savedConfig = localStorage.getItem(configKey);
     if (savedConfig) {
-      const parsed = JSON.parse(savedConfig);
-      // Clean up legacy example hardcoded data if present
-      if (parsed.ruc === '1792451083001' || parsed.razonSocial === 'VALLE PLUA JHONNY ALEXIS') {
+      try {
+        const parsed = JSON.parse(savedConfig);
+        // If the user belongs to a specific empresa, ensure the cached config matches their empresa
+        if (empresaRuc) {
+          if (parsed.empresaRuc === empresaRuc || parsed.ruc === empresaRuc) {
+            setConfig(parsed);
+          } else {
+            const cleanEmpresaConfig: EmitterConfig = {
+              ...DEFAULT_CONFIG,
+              ruc: empresaRuc,
+              razonSocial: empresaNombre || '',
+              nombreComercial: empresaNombre || '',
+              empresaRuc: empresaRuc,
+              empresaNombre: empresaNombre || '',
+              correo: email || '',
+              dirMatriz: '',
+              dirEstablecimiento: '',
+              ultimoSecuencialFactura: '000000001'
+            };
+            setConfig(cleanEmpresaConfig);
+            localStorage.setItem(configKey, JSON.stringify(cleanEmpresaConfig));
+          }
+        } else {
+          // If legacy hardcoded dummy data was present
+          if (parsed.ruc === '1792451083001' || parsed.ruc === '0954594636001' || parsed.razonSocial === 'VALLE PLUA JHONNY ALEXIS') {
+            setConfig(DEFAULT_CONFIG);
+            localStorage.setItem(configKey, JSON.stringify(DEFAULT_CONFIG));
+          } else {
+            setConfig(parsed);
+          }
+        }
+      } catch {
         setConfig(DEFAULT_CONFIG);
-        localStorage.setItem(configKey, JSON.stringify(DEFAULT_CONFIG));
-      } else {
-        setConfig(parsed);
       }
     } else {
-      const initialConfig = email ? { ...DEFAULT_CONFIG, correo: email } : DEFAULT_CONFIG;
+      const initialConfig: EmitterConfig = empresaRuc
+        ? {
+            ...DEFAULT_CONFIG,
+            ruc: empresaRuc,
+            razonSocial: empresaNombre || '',
+            nombreComercial: empresaNombre || '',
+            empresaRuc: empresaRuc,
+            empresaNombre: empresaNombre || '',
+            correo: email || '',
+            dirMatriz: '',
+            dirEstablecimiento: '',
+            ultimoSecuencialFactura: '000000001'
+          }
+        : email
+        ? { ...DEFAULT_CONFIG, correo: email }
+        : DEFAULT_CONFIG;
+
       localStorage.setItem(configKey, JSON.stringify(initialConfig));
       setConfig(initialConfig);
     }
 
-    // 2. Clients
+    // 2. Clients - Start empty for clean tenants without dummy data leakage
     const savedClients = localStorage.getItem(clientsKey);
     if (savedClients) {
-      setClients(JSON.parse(savedClients));
+      try {
+        setClients(JSON.parse(savedClients));
+      } catch {
+        setClients([]);
+      }
     } else {
-      localStorage.setItem(clientsKey, JSON.stringify(SEED_CLIENTS));
-      setClients(SEED_CLIENTS);
+      setClients([]);
     }
 
-    // 3. Products
+    // 3. Products - Start empty for clean tenants without dummy data leakage
     const savedProducts = localStorage.getItem(productsKey);
     if (savedProducts) {
-      setProducts(JSON.parse(savedProducts));
+      try {
+        setProducts(JSON.parse(savedProducts));
+      } catch {
+        setProducts([]);
+      }
     } else {
-      localStorage.setItem(productsKey, JSON.stringify(SEED_PRODUCTS));
-      setProducts(SEED_PRODUCTS);
+      setProducts([]);
     }
 
     // 4. Invoices History
     const savedInvoices = localStorage.getItem(invoicesKey);
     if (savedInvoices) {
-      const parsed: Invoice[] = JSON.parse(savedInvoices);
-      const filtered = parsed.filter(inv => inv.id !== 'seed-inv-1');
-      if (filtered.length !== parsed.length) {
-        localStorage.setItem(invoicesKey, JSON.stringify(filtered));
+      try {
+        const parsed: Invoice[] = JSON.parse(savedInvoices);
+        const filtered = parsed.filter(inv => inv.id !== 'seed-inv-1');
+        setInvoices(filtered);
+      } catch {
+        setInvoices([]);
       }
-      setInvoices(filtered);
     } else {
-      localStorage.setItem(invoicesKey, JSON.stringify([]));
       setInvoices([]);
     }
 
     // 5. Credit notes history
     const savedCreditNotes = localStorage.getItem(creditNotesKey);
     if (savedCreditNotes) {
-      setCreditNotes(JSON.parse(savedCreditNotes));
+      try {
+        setCreditNotes(JSON.parse(savedCreditNotes));
+      } catch {
+        setCreditNotes([]);
+      }
     } else {
-      localStorage.setItem(creditNotesKey, JSON.stringify([]));
       setCreditNotes([]);
     }
   }, [currentUser]);
@@ -280,7 +334,7 @@ export default function App() {
 
       // 1. Clients
       const dbClients = await fetchClientsFromSupabase(currentUser?.correo, currentUser?.role, currentUser?.empresaRuc);
-      if (dbClients && dbClients.length > 0 && isMounted) {
+      if (dbClients && isMounted) {
         setClients(dbClients);
         const key = getUserStorageKey(STORAGE_KEYS.CLIENTS, currentUser?.correo);
         localStorage.setItem(key, JSON.stringify(dbClients));
@@ -288,7 +342,7 @@ export default function App() {
 
       // 2. Products
       const dbProducts = await fetchProductsFromSupabase(currentUser?.correo, currentUser?.role, currentUser?.empresaRuc);
-      if (dbProducts && dbProducts.length > 0 && isMounted) {
+      if (dbProducts && isMounted) {
         setProducts(dbProducts);
         const key = getUserStorageKey(STORAGE_KEYS.PRODUCTS, currentUser?.correo);
         localStorage.setItem(key, JSON.stringify(dbProducts));
@@ -311,34 +365,33 @@ export default function App() {
       }
 
       // 5. Config
-      const dbConfig = await fetchEmitterConfigFromSupabase(undefined, currentUser?.correo, currentUser?.role, currentUser?.empresaRuc);
+      const dbConfig = await fetchEmitterConfigFromSupabase(currentUser?.empresaRuc, currentUser?.correo, currentUser?.role, currentUser?.empresaRuc);
       if (dbConfig && dbConfig.ruc && isMounted) {
-        setConfig(prev => ({ ...prev, ...dbConfig }));
-        const key = getUserStorageKey(STORAGE_KEYS.CONFIG, currentUser?.correo);
-        localStorage.setItem(key, JSON.stringify({ ...config, ...dbConfig }));
+        if (!currentUser?.empresaRuc || dbConfig.ruc === currentUser.empresaRuc || dbConfig.empresaRuc === currentUser.empresaRuc) {
+          setConfig(dbConfig);
+          const key = getUserStorageKey(STORAGE_KEYS.CONFIG, currentUser?.correo);
+          localStorage.setItem(key, JSON.stringify(dbConfig));
+        }
       } else if (!dbConfig && isMounted) {
-        // If no record exists in emisor_config in Supabase (e.g. manually deleted), reset local state to empty
-        setConfig(prev => {
-          if (prev.ruc || prev.razonSocial) {
-            const emptyCfg: EmitterConfig = {
-              ...DEFAULT_CONFIG,
-              correo: prev.correo || currentUser?.correo || ''
-            };
-            const key = getUserStorageKey(STORAGE_KEYS.CONFIG, currentUser?.correo);
-            localStorage.setItem(key, JSON.stringify(emptyCfg));
-            return emptyCfg;
-          }
-          return prev;
-        });
+        // If no config found in Supabase for this company, set clean initial state with company basics
+        if (currentUser?.empresaRuc) {
+          const cleanCompanyCfg: EmitterConfig = {
+            ...DEFAULT_CONFIG,
+            ruc: currentUser.empresaRuc,
+            razonSocial: currentUser.empresaNombre || '',
+            nombreComercial: currentUser.empresaNombre || '',
+            empresaRuc: currentUser.empresaRuc,
+            empresaNombre: currentUser.empresaNombre || '',
+            correo: currentUser.correo || '',
+            dirMatriz: '',
+            dirEstablecimiento: '',
+            ultimoSecuencialFactura: '000000001'
+          };
+          setConfig(cleanCompanyCfg);
+          const key = getUserStorageKey(STORAGE_KEYS.CONFIG, currentUser?.correo);
+          localStorage.setItem(key, JSON.stringify(cleanCompanyCfg));
+        }
       }
-
-      // Auto migrate local items to Supabase (excluding config to avoid precooling)
-      migrateLocalDataToSupabase({
-        clients,
-        products,
-        invoices,
-        creditNotes
-      });
     };
 
     syncWithSupabase();
@@ -356,7 +409,7 @@ export default function App() {
       if (unsubscribe) unsubscribe();
       clearInterval(interval);
     };
-  }, [currentUser?.correo]);
+  }, [currentUser?.correo, currentUser?.empresaRuc, currentUser?.role]);
 
   // Redirect to permitted tab for USER role or non-SUPERADMIN on restricted options
   useEffect(() => {
@@ -639,14 +692,14 @@ export default function App() {
               <div className="flex items-center gap-1.5">
                 <span className="text-slate-400 dark:text-zinc-400 font-medium">RUC:</span>
                 <span className="font-bold text-slate-800 dark:text-zinc-100 tracking-wider">
-                  {config.ruc || currentUser?.empresaRuc || '0000000000001'}
+                  {currentUser?.empresaRuc || config.ruc || '---'}
                 </span>
               </div>
               
               <div className="h-4 border-l border-slate-200 dark:border-zinc-700" />
               
-              <div className="font-bold text-slate-800 dark:text-zinc-100 uppercase tracking-tight truncate max-w-[220px] xl:max-w-[320px]" title={config.razonSocial || currentUser?.empresaNombre}>
-                {config.razonSocial || currentUser?.empresaNombre || 'EMPRESA INQUILINO'}
+              <div className="font-bold text-slate-800 dark:text-zinc-100 uppercase tracking-tight truncate max-w-[220px] xl:max-w-[320px]" title={currentUser?.empresaNombre || config.razonSocial || 'EMPRESA INQUILINO'}>
+                {currentUser?.empresaNombre || config.razonSocial || 'EMPRESA INQUILINO'}
               </div>
               
               <div className="h-4 border-l border-slate-200 dark:border-zinc-700" />
