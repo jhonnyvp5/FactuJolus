@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Product, TipoIva } from '../types';
+import { Product, TipoIva, PortalUser } from '../types';
 import { IVA_TARIFAS } from '../sri/utils';
 import { Trash2, Sparkles, Plus, PackageCheck, Receipt, Edit3, Save, X } from 'lucide-react';
 import { saveProductToSupabase } from '../lib/supabase';
@@ -9,6 +9,7 @@ interface ProductCatalogProps {
   onAddProduct: (product: Product) => void;
   onDeleteProduct: (id: string) => void;
   onSetProducts: (products: Product[]) => void;
+  currentUser?: PortalUser | null;
 }
 
 export default function ProductCatalog({
@@ -16,6 +17,7 @@ export default function ProductCatalog({
   onAddProduct,
   onDeleteProduct,
   onSetProducts,
+  currentUser
 }: ProductCatalogProps) {
   // Form states
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -83,7 +85,10 @@ export default function ProductCatalog({
       nombre: name.trim(),
       precio: priceNum,
       ivaTipo: ivaType,
-      descuentoDefault: discNum
+      descuentoDefault: discNum,
+      usuarioCorreo: currentUser?.correo || editingProduct?.usuarioCorreo,
+      empresaRuc: currentUser?.empresaRuc || editingProduct?.empresaRuc,
+      empresaNombre: currentUser?.empresaNombre || editingProduct?.empresaNombre
     };
 
     if (editingProduct) {

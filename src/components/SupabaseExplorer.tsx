@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Database, RefreshCw, Search, Users, ShoppingBag, FileText, 
   Layers, FolderArchive, Shield, AlertTriangle, Eye, FileCode, CheckCircle, Mail, Activity, Settings,
-  Plus, Edit3, Trash2, Save, X, Globe, Key, Copy, Code, Check
+  Plus, Edit3, Trash2, Save, X, Globe, Key, Copy, Code, Check, Building2
 } from 'lucide-react';
 import { 
   fetchSupabaseTableRows, 
@@ -18,6 +18,7 @@ import {
 } from '../lib/supabase';
 
 type TabType = 
+  | 'empresas_inquilinos'
   | 'usuarios_portal' 
   | 'clientes' 
   | 'productos' 
@@ -231,6 +232,7 @@ export const SupabaseExplorer: React.FC = () => {
   };
 
   const tabsConfig: { id: TabType; label: string; icon: React.ReactNode; color: string }[] = [
+    { id: 'empresas_inquilinos', label: 'empresas_inquilinos', icon: <Building2 className="w-3.5 h-3.5" />, color: 'bg-amber-700' },
     { id: 'usuarios_portal', label: 'usuarios_portal', icon: <Shield className="w-3.5 h-3.5" />, color: 'bg-purple-600' },
     { id: 'clientes', label: 'clientes', icon: <Users className="w-3.5 h-3.5" />, color: 'bg-blue-600' },
     { id: 'productos', label: 'productos', icon: <ShoppingBag className="w-3.5 h-3.5" />, color: 'bg-amber-600' },

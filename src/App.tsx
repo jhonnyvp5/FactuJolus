@@ -1026,6 +1026,7 @@ export default function App() {
               invoices={invoices}
               onAddCreditNote={handleAddCreditNote}
               onNavigateToHistory={() => setActiveTab('history')}
+              currentUser={currentUser}
             />
           )}
 
@@ -1060,6 +1061,7 @@ export default function App() {
                 const key = getUserStorageKey(STORAGE_KEYS.PRODUCTS, currentUser?.correo);
                 localStorage.setItem(key, JSON.stringify(newProds));
               }}
+              currentUser={currentUser}
             />
           )}
 
@@ -1078,6 +1080,7 @@ export default function App() {
                 const key = getUserStorageKey(STORAGE_KEYS.CLIENTS, currentUser?.correo);
                 localStorage.setItem(key, JSON.stringify(newClients));
               }}
+              currentUser={currentUser}
             />
           )}
 

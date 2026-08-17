@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { EmitterConfig, CreditNote, Invoice, Client, Product, CreditNoteDetail, AdicionalInfo } from '../types';
+import { EmitterConfig, CreditNote, Invoice, Client, Product, CreditNoteDetail, AdicionalInfo, PortalUser } from '../types';
 import { generateClaveAcceso, formatSequential, IVA_TARIFAS, IDENTIFICACIONES } from '../sri/utils';
 import { Plus, Trash2, ArrowLeftRight, HelpCircle, FileText, Sparkles } from 'lucide-react';
 
@@ -9,6 +9,7 @@ interface CreditNoteFormProps {
   invoices: Invoice[];
   onAddCreditNote: (creditNote: CreditNote) => void;
   onNavigateToHistory: () => void;
+  currentUser?: PortalUser | null;
 }
 
 export default function CreditNoteForm({
@@ -16,7 +17,8 @@ export default function CreditNoteForm({
   clients,
   invoices,
   onAddCreditNote,
-  onNavigateToHistory
+  onNavigateToHistory,
+  currentUser
 }: CreditNoteFormProps) {
   // 1. Header and sequences
   const [secuencialVal, setSecuencialVal] = useState('000000001');
@@ -274,7 +276,10 @@ export default function CreditNoteForm({
       nombre: buyerName,
       direccion: buyerDir || 'S/N',
       telefono: buyerTel || '999999999',
-      correo: buyerEmail || 'ventas@sri-ecuador.com'
+      correo: buyerEmail || 'ventas@sri-ecuador.com',
+      usuarioCorreo: currentUser?.correo,
+      empresaRuc: config.ruc || currentUser?.empresaRuc,
+      empresaNombre: config.razonSocial || currentUser?.empresaNombre
     };
 
     const newCreditNote: CreditNote = {
@@ -298,7 +303,11 @@ export default function CreditNoteForm({
         subtotal,
         descuento: totalDescuento,
         total: aggregateTotal
-      }
+      },
+      empresaRuc: config.ruc || currentUser?.empresaRuc,
+      empresaNombre: config.razonSocial || currentUser?.empresaNombre,
+      usuarioCorreo: currentUser?.correo,
+      creadorNombre: currentUser?.nombre
     };
 
     const seqNum = parseInt(secuencialVal, 10);

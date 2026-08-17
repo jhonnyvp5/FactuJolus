@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Client, TipoIdentificacion } from '../types';
+import { Client, TipoIdentificacion, PortalUser } from '../types';
 import { Trash2, UserPlus, Users, Search, Sparkles, AlertCircle, Phone, Mail, MapPin, CreditCard, Database, Check, Copy, AlertTriangle, Edit3, Save, X } from 'lucide-react';
 import { saveClientToSupabase, deleteClientFromSupabase, SUPABASE_SQL_SCRIPT, testSupabaseConnection } from '../lib/supabase';
 
@@ -8,6 +8,7 @@ interface ClientCatalogProps {
   onAddClient: (client: Client) => void;
   onDeleteClient: (id: string) => void;
   onSetClients: (clients: Client[]) => void;
+  currentUser?: PortalUser | null;
 }
 
 export default function ClientCatalog({
@@ -15,6 +16,7 @@ export default function ClientCatalog({
   onAddClient,
   onDeleteClient,
   onSetClients,
+  currentUser
 }: ClientCatalogProps) {
   // Form states
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -107,7 +109,10 @@ export default function ClientCatalog({
       nombre: name.trim().toUpperCase(),
       direccion: address.trim() || 'Quito, Ecuador',
       telefono: phone.trim() || '0999999999',
-      correo: email.trim().toLowerCase() || 'cliente@correo.com'
+      correo: email.trim().toLowerCase() || 'cliente@correo.com',
+      usuarioCorreo: currentUser?.correo || editingClient?.usuarioCorreo,
+      empresaRuc: currentUser?.empresaRuc || editingClient?.empresaRuc,
+      empresaNombre: currentUser?.empresaNombre || editingClient?.empresaNombre
     };
 
     if (editingClient) {
