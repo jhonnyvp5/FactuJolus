@@ -24,7 +24,7 @@ import {
   fetchEmpresasFromSupabase, getEmpresaByRuc,
   migrateLocalDataToSupabase, subscribeToSupabaseRealtime
 } from './lib/supabase';
-import { ShieldCheck, Send, Settings, History, Plus, Layers, ArrowLeftRight, FileCheck2, CloudLightning, Package, User, Users, Menu, X, FileText, Database, Building2 } from 'lucide-react';
+import { ShieldCheck, Send, Settings, History, Plus, Layers, ArrowLeftRight, FileCheck2, CloudLightning, Package, User, Users, Menu, X, FileText, Database, Building2, RefreshCw } from 'lucide-react';
 
 const STORAGE_KEYS = {
   CONFIG: 'sri_emitter_config',
@@ -80,8 +80,8 @@ const SEED_PRODUCTS: Product[] = [
 ];
 
 export default function App() {
-  // Navigation tabs 'history' | 'new-invoice' | 'new-nc' | 'products' | 'profile' | 'settings' | 'users' | 'proformas' | 'clients' | 'tenants'
-  const [activeTab, setActiveTab ] = useState<'history' | 'new-invoice' | 'new-nc' | 'products' | 'profile' | 'settings' | 'users' | 'proformas' | 'clients' | 'tenants'>('history');
+  // Navigation tabs 'history' | 'new-invoice' | 'new-nc' | 'products' | 'profile' | 'settings' | 'users' | 'proformas' | 'clients' | 'tenants' | 'supabase'
+  const [activeTab, setActiveTab ] = useState<'history' | 'new-invoice' | 'new-nc' | 'products' | 'profile' | 'settings' | 'users' | 'proformas' | 'clients' | 'tenants' | 'supabase'>('history');
   
   // Dynamic USER role permissions state
   const [userPermissions, setUserPermissions] = useState<string[]>(() => {
@@ -128,6 +128,7 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const [inactivityNotice, setInactivityNotice] = useState<string | null>(null);
+  const [isApplyingUpdate, setIsApplyingUpdate] = useState(false);
   const lastActivityRef = useRef(Date.now());
 
   // 15-Minute Inactivity Auto-Logout
@@ -164,20 +165,38 @@ export default function App() {
   // Platform Automatic Update / Refresh Listener
   useEffect(() => {
     let initialScriptSignature: string | null = null;
+    let isReloading = false;
 
     const checkPlatformUpdate = async () => {
+      if (isReloading) return;
       try {
-        const response = await fetch(`/?_update=${Date.now()}`, { cache: 'no-store' });
+        const response = await fetch(`/?_update=${Date.now()}`, { 
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' }
+        });
         if (!response.ok) return;
         const html = await response.text();
+        if (!html || html.length < 200 || !html.includes('root')) return;
+
         const scripts = html.match(/<script[^>]*src=["']([^"']+)["']/g) || [];
         const signature = scripts.join('|');
 
         if (initialScriptSignature === null) {
           initialScriptSignature = signature;
         } else if (signature && signature !== initialScriptSignature) {
-          console.log('[AutoUpdate] Nueva versión de plataforma detectada. Recargando...');
-          window.location.reload();
+          console.log('[AutoUpdate] Nueva versión de plataforma detectada. Aplicando actualización...');
+          isReloading = true;
+          setIsApplyingUpdate(true);
+
+          // Save active session data to localStorage before updating
+          if (currentUser) {
+            localStorage.setItem('sri_portal_active_user', JSON.stringify(currentUser));
+          }
+
+          // Small pause for user feedback and server bundle stabilization
+          setTimeout(() => {
+            window.location.replace(window.location.pathname + '?_v=' + Date.now());
+          }, 450);
         }
       } catch {
         // Network error ignored
@@ -185,7 +204,7 @@ export default function App() {
     };
 
     checkPlatformUpdate();
-    const interval = setInterval(checkPlatformUpdate, 30000);
+    const interval = setInterval(checkPlatformUpdate, 20000);
 
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -198,7 +217,7 @@ export default function App() {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, []);
+  }, [currentUser]);
 
   const handleManualLogout = () => {
     if (currentUser) {
@@ -624,23 +643,41 @@ export default function App() {
 
   if (!currentUser) {
     return (
-      <LoginForm
-        onLoginSuccess={(user) => {
-          setInactivityNotice(null);
-          const finalUser = user.correo?.toLowerCase() === 'jhonnyvp5@gmail.com' 
-            ? { ...user, role: 'SUPERADMIN' as const, nombre: user.nombre || 'Jhonny Vargas' } 
-            : user;
-          setCurrentUser(finalUser);
-          localStorage.setItem('sri_portal_active_user', JSON.stringify(finalUser));
-        }}
-        adminEmail={'jhonnyvp5@gmail.com'}
-        inactivityNotice={inactivityNotice}
-      />
+      <>
+        {isApplyingUpdate && (
+          <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3 border border-indigo-400/30 animate-pulse">
+            <RefreshCw className="w-4 h-4 animate-spin text-white shrink-0" />
+            <div className="text-xs font-bold">
+              Nueva versión detectada. Actualizando aplicación automáticamente...
+            </div>
+          </div>
+        )}
+        <LoginForm
+          onLoginSuccess={(user) => {
+            setInactivityNotice(null);
+            const finalUser = user.correo?.toLowerCase() === 'jhonnyvp5@gmail.com' 
+              ? { ...user, role: 'SUPERADMIN' as const, nombre: user.nombre || 'Jhonny Vargas' } 
+              : user;
+            setCurrentUser(finalUser);
+            localStorage.setItem('sri_portal_active_user', JSON.stringify(finalUser));
+          }}
+          adminEmail={'jhonnyvp5@gmail.com'}
+          inactivityNotice={inactivityNotice}
+        />
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/75 dark:bg-zinc-950 text-gray-900 dark:text-zinc-100 flex flex-col font-sans transition-colors duration-200">
+    <div className="min-h-screen bg-gray-50/75 dark:bg-zinc-950 text-gray-900 dark:text-zinc-100 flex flex-col font-sans transition-colors duration-200 relative">
+      {isApplyingUpdate && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3 border border-indigo-400/30 animate-pulse">
+          <RefreshCw className="w-4 h-4 animate-spin text-white shrink-0" />
+          <div className="text-xs font-bold">
+            Nueva versión detectada. Actualizando aplicación automáticamente...
+          </div>
+        </div>
+      )}
       
       {/* HEADER BAR */}
       <header className="bg-white border-b border-gray-200 dark:bg-zinc-900 dark:border-zinc-800 px-4 sm:px-6 py-3.5 sticky top-0 z-40 shadow-xs print:hidden">

@@ -1623,7 +1623,7 @@ export default function ProformaForm({
                           <h3 className={`text-sm font-black uppercase tracking-normal ${clientTitleColor}`} style={{ fontSize: '13.5px', fontWeight: 950 }}>
                             Datos del cliente
                           </h3>
-                          <div className={`space-y-1.5 pt-1 text-[11px] leading-tight font-medium ${isDarkHeader && currentTemplate !== 'slate_minimalist' ? 'opacity-95' : ''}`}>
+                          <div className={`space-y-1.5 pt-1 text-[11px] leading-tight font-medium ${isDarkHeader ? 'opacity-95' : ''}`}>
                             <div className="flex items-center gap-1">
                               <span className="text-gray-500">Nombre:</span>
                               <span className={`font-semibold select-all ${isDarkHeader ? 'text-zinc-900' : 'text-zinc-800'}`}>{selectedProforma.cliente.nombre || 'Carolina Leon'}</span>

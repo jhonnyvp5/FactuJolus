@@ -367,7 +367,7 @@ export default function CreditNoteForm({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>
             <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1 flex items-center gap-1">
-              Seleccionar Factura Existente <HelpCircle className="w-3.5 h-3.5 text-gray-400" title="Seleccione una factura anteriormente guardada para autocompletar e importar los detalles" />
+              Seleccionar Factura Existente <span title="Seleccione una factura anteriormente guardada para autocompletar e importar los detalles"><HelpCircle className="w-3.5 h-3.5 text-gray-400" /></span>
             </label>
             <select
               value={selectedInvoiceId}
