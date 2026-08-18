@@ -130,7 +130,7 @@ export default function ProductCatalog({
   };
 
   // =========================================================================
-  // BULK IMPORT & VALIDATION LOGIC (XLSX / CSV)
+  // BULK IMPORT & VALIDATION LOGIC (EXCLUSIVELY XLSX)
   // =========================================================================
   const downloadTemplate = () => {
     // Sheet 1: Productos (Main Table)
@@ -200,45 +200,73 @@ export default function ProductCatalog({
     XLSX.writeFile(wb, 'plantilla_carga_masiva_productos_sri.xlsx');
   };
 
-  const processFile = (file: File) => {
-    setBulkFileName(file.name);
+  const processFile = async (file: File) => {
     setBulkError(null);
     setBulkSuccessMsg(null);
 
-    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    // Strictly validate .xlsx extension
+    const fileNameLower = (file.name || '').toLowerCase();
+    if (!fileNameLower.endsWith('.xlsx')) {
+      setBulkError(`Formato no permitido. El archivo "${file.name}" no es válido. Solo se admiten archivos con extensión .xlsx. Por favor convierte o guarda tu archivo en Excel (.xlsx) antes de subirlo.`);
+      setBulkFileName('');
+      setParsedItems([]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
 
-    if (isExcel) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const buffer = e.target?.result as ArrayBuffer;
-          const workbook = XLSX.read(buffer, { type: 'array' });
-          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-          const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][];
-          validateAndParseRows(rows);
-        } catch (err: any) {
-          setBulkError('Error al leer el archivo Excel: ' + (err?.message || 'Formato no soportado'));
+    setBulkFileName(file.name);
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const data = new Uint8Array(arrayBuffer);
+      const workbook = XLSX.read(data, { type: 'array' });
+
+      if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+        setBulkError('El archivo Excel no contiene hojas de cálculo.');
+        setParsedItems([]);
+        return;
+      }
+
+      // Prioritize sheet named 'Productos' or first sheet with data
+      let targetSheetName = workbook.SheetNames[0];
+      for (const sName of workbook.SheetNames) {
+        const lower = sName.toLowerCase();
+        if (lower.includes('prod') || lower.includes('catálogo') || lower.includes('catalogo') || lower.includes('item') || lower.includes('articul')) {
+          targetSheetName = sName;
+          break;
         }
-      };
-      reader.onerror = () => setBulkError('Error al procesar el archivo Excel.');
-      reader.readAsArrayBuffer(file);
-    } else {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target?.result as string;
-        if (text) {
-          setBulkFileText(text);
-          validateAndParseCSV(text);
-        }
-      };
-      reader.onerror = () => setBulkError('Error al leer el archivo de texto.');
-      reader.readAsText(file);
+      }
+
+      const worksheet = workbook.Sheets[targetSheetName];
+      if (!worksheet) {
+        setBulkError(`No se pudo leer la hoja "${targetSheetName}" del archivo Excel.`);
+        setParsedItems([]);
+        return;
+      }
+
+      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '', blankrows: false }) as any[][];
+      validateAndParseRows(rows);
+
+    } catch (err: any) {
+      console.error('Error al procesar archivo Excel:', err);
+      setBulkError('Error al leer el archivo Excel (.xlsx): ' + (err?.message || 'Asegúrate de que no esté protegido con contraseña o dañado.'));
+      setParsedItems([]);
     }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) processFile(file);
+    if (file) {
+      const fileNameLower = (file.name || '').toLowerCase();
+      if (!fileNameLower.endsWith('.xlsx')) {
+        setBulkError(`Formato no permitido. El archivo "${file.name}" no tiene la extensión .xlsx. Solo se admiten archivos en formato Excel (.xlsx).`);
+        setBulkFileName('');
+        setParsedItems([]);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
+      processFile(file);
+    }
   };
 
   const validateAndParseRows = (rows: any[][]) => {
@@ -246,17 +274,39 @@ export default function ProductCatalog({
     setBulkSuccessMsg(null);
 
     if (!rows || rows.length === 0) {
-      setBulkError('El archivo Excel no contiene filas.');
+      setBulkError('El archivo Excel no contiene filas con información.');
       setParsedItems([]);
       return;
     }
 
-    let startIndex = 0;
-    const firstRowStr = (rows[0] || []).map(c => String(c || '').toLowerCase()).join(' ');
-    if (firstRowStr.includes('codigo') || firstRowStr.includes('código') || firstRowStr.includes('nombre') || firstRowStr.includes('precio')) {
-      startIndex = 1;
+    // Dynamic Header Detection & Column Mapping
+    let headerRowIndex = -1;
+    let colMap = {
+      codigo: 0,
+      nombre: 1,
+      precio: 2,
+      iva: 3,
+      descuento: 4
+    };
+
+    for (let r = 0; r < Math.min(rows.length, 5); r++) {
+      const rowArr = rows[r] || [];
+      const joined = rowArr.map((c: any) => String(c !== undefined && c !== null ? c : '').toLowerCase().trim()).join(' ');
+      if (joined.includes('cod') || joined.includes('cód') || joined.includes('nom') || joined.includes('prec') || joined.includes('iva')) {
+        headerRowIndex = r;
+        rowArr.forEach((cellVal: any, colIdx: number) => {
+          const v = String(cellVal || '').toLowerCase().trim();
+          if (v.includes('cod') || v.includes('cód')) colMap.codigo = colIdx;
+          else if (v.includes('nom') || v.includes('descrip') || v.includes('detall')) colMap.nombre = colIdx;
+          else if (v.includes('prec') || v.includes('cost') || v.includes('pvp') || v.includes('unit')) colMap.precio = colIdx;
+          else if (v.includes('iva') || v.includes('tarif') || v.includes('imp')) colMap.iva = colIdx;
+          else if (v.includes('desc') || v.includes('dscto')) colMap.descuento = colIdx;
+        });
+        break;
+      }
     }
 
+    const startIndex = headerRowIndex >= 0 ? headerRowIndex + 1 : 0;
     const seenCodesInFile = new Set<string>();
     const results: ParsedBulkItem[] = [];
 
@@ -269,12 +319,13 @@ export default function ProductCatalog({
       const rowNumber = i + 1;
       const errors: string[] = [];
 
-      const rawCode = String(row[0] || '').trim();
-      const rawName = String(row[1] || '').trim();
-      const rawPrice = String(row[2] !== undefined ? row[2] : '').trim();
-      const rawIva = String(row[3] !== undefined ? row[3] : '4').trim();
-      const rawDiscount = String(row[4] !== undefined ? row[4] : '0').trim();
+      const rawCode = String(row[colMap.codigo] !== undefined && row[colMap.codigo] !== null ? row[colMap.codigo] : '').trim();
+      const rawName = String(row[colMap.nombre] !== undefined && row[colMap.nombre] !== null ? row[colMap.nombre] : '').trim();
+      const rawPrice = String(row[colMap.precio] !== undefined && row[colMap.precio] !== null ? row[colMap.precio] : '').trim();
+      const rawIva = String(row[colMap.iva] !== undefined && row[colMap.iva] !== null ? row[colMap.iva] : '4').trim();
+      const rawDiscount = String(row[colMap.descuento] !== undefined && row[colMap.descuento] !== null ? row[colMap.descuento] : '0').trim();
 
+      // 1. Validation: Código
       if (!rawCode) {
         errors.push('El campo "código" es obligatorio.');
       } else if (seenCodesInFile.has(rawCode.toUpperCase())) {
@@ -283,36 +334,41 @@ export default function ProductCatalog({
         seenCodesInFile.add(rawCode.toUpperCase());
       }
 
+      // 2. Validation: Nombre
       if (!rawName) {
         errors.push('El campo "nombre / descripción" es obligatorio.');
       } else if (rawName.length < 2) {
         errors.push('El nombre debe tener al menos 2 caracteres.');
       }
 
-      const sanitizedPrice = rawPrice.replace('$', '').replace(',', '.');
+      // 3. Validation: Precio
+      const sanitizedPrice = rawPrice.replace('$', '').replace(/\s/g, '').replace(',', '.');
       const priceNum = parseFloat(sanitizedPrice);
       if (!rawPrice || isNaN(priceNum) || priceNum < 0) {
         errors.push(`El precio "${rawPrice}" no es un número válido.`);
       }
 
+      // 4. Validation: IVA Tipo
       let finalIva: TipoIva = '4';
-      if (['0', '2', '4', '6', '7'].includes(rawIva)) {
-        finalIva = rawIva as TipoIva;
-      } else if (rawIva.includes('15')) {
+      const cleanIva = rawIva.toLowerCase().replace('%', '').trim();
+      if (['0', '2', '4', '6', '7'].includes(cleanIva)) {
+        finalIva = cleanIva as TipoIva;
+      } else if (cleanIva === '15') {
         finalIva = '4';
-      } else if (rawIva.includes('12')) {
+      } else if (cleanIva === '12') {
         finalIva = '2';
-      } else if (rawIva === '0' || rawIva.includes('0%')) {
+      } else if (cleanIva === '0') {
         finalIva = '0';
-      } else if (rawIva.toLowerCase().includes('no objeto')) {
+      } else if (cleanIva.includes('no objeto')) {
         finalIva = '6';
-      } else if (rawIva.toLowerCase().includes('exento')) {
+      } else if (cleanIva.includes('exento')) {
         finalIva = '7';
       } else {
         errors.push(`Tarifa IVA "${rawIva}" inválida. Use 4 (15%), 2 (12%), 0 (0%), 6 (No Objeto) o 7 (Exento).`);
       }
 
-      const sanitizedDiscount = rawDiscount.replace('%', '').replace('$', '').replace(',', '.');
+      // 5. Validation: Descuento
+      const sanitizedDiscount = rawDiscount.replace('%', '').replace('$', '').replace(/\s/g, '').replace(',', '.');
       const discNum = parseFloat(sanitizedDiscount || '0');
       if (isNaN(discNum) || discNum < 0) {
         errors.push(`El descuento "${rawDiscount}" no es válido.`);
@@ -332,135 +388,7 @@ export default function ProductCatalog({
 
     setParsedItems(results);
     if (results.length === 0) {
-      setBulkError('No se encontraron registros válidos de productos en el archivo.');
-    }
-  };
-
-  const validateAndParseCSV = (csvText: string) => {
-    setBulkError(null);
-    setBulkSuccessMsg(null);
-
-    const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
-    if (lines.length === 0) {
-      setBulkError('El archivo está vacío.');
-      setParsedItems([]);
-      return;
-    }
-
-    // Determine separator: comma, semicolon or tab
-    const firstLine = lines[0];
-    let delimiter = ',';
-    if (firstLine.includes(';') && !firstLine.includes(',')) {
-      delimiter = ';';
-    } else if (firstLine.includes('\t')) {
-      delimiter = '\t';
-    }
-
-    // Check header
-    let startIndex = 0;
-    const headerLower = lines[0].toLowerCase();
-    if (headerLower.includes('codigo') || headerLower.includes('código') || headerLower.includes('nombre') || headerLower.includes('precio')) {
-      startIndex = 1; // Skip header row
-    }
-
-    const seenCodesInFile = new Set<string>();
-    const results: ParsedBulkItem[] = [];
-
-    for (let i = startIndex; i < lines.length; i++) {
-      const rawLine = lines[i].trim();
-      if (!rawLine) continue;
-
-      // Split while respecting quoted values
-      const parts: string[] = [];
-      let cur = '';
-      let insideQuote = false;
-      for (let c = 0; c < rawLine.length; c++) {
-        const char = rawLine[c];
-        if (char === '"' || char === "'") {
-          insideQuote = !insideQuote;
-        } else if (char === delimiter && !insideQuote) {
-          parts.push(cur.trim().replace(/^["']|["']$/g, ''));
-          cur = '';
-        } else {
-          cur += char;
-        }
-      }
-      parts.push(cur.trim().replace(/^["']|["']$/g, ''));
-
-      const rowNumber = i + 1;
-      const errors: string[] = [];
-
-      const rawCode = (parts[0] || '').trim();
-      const rawName = (parts[1] || '').trim();
-      const rawPrice = (parts[2] || '').trim();
-      const rawIva = (parts[3] || '4').trim();
-      const rawDiscount = (parts[4] || '0').trim();
-
-      // 1. Validation: Código
-      if (!rawCode) {
-        errors.push('El campo "código" es obligatorio y no puede estar vacío.');
-      } else if (seenCodesInFile.has(rawCode.toUpperCase())) {
-        errors.push(`El código "${rawCode}" está duplicado en el mismo archivo.`);
-      } else {
-        seenCodesInFile.add(rawCode.toUpperCase());
-      }
-
-      // 2. Validation: Nombre
-      if (!rawName) {
-        errors.push('El campo "nombre / descripción" es obligatorio.');
-      } else if (rawName.length < 2) {
-        errors.push('El nombre del producto debe tener al menos 2 caracteres.');
-      }
-
-      // 3. Validation: Precio
-      const sanitizedPrice = rawPrice.replace('$', '').replace(',', '.');
-      const priceNum = parseFloat(sanitizedPrice);
-      if (!rawPrice) {
-        errors.push('El campo "precio" es obligatorio.');
-      } else if (isNaN(priceNum) || priceNum < 0) {
-        errors.push(`El precio "${rawPrice}" no es un número válido mayor o igual a 0.`);
-      }
-
-      // 4. Validation: IVA Tipo
-      let finalIva: TipoIva = '4';
-      if (['0', '2', '4', '6', '7'].includes(rawIva)) {
-        finalIva = rawIva as TipoIva;
-      } else if (rawIva.includes('15') || rawIva.toLowerCase().includes('15%')) {
-        finalIva = '4';
-      } else if (rawIva.includes('12') || rawIva.toLowerCase().includes('12%')) {
-        finalIva = '2';
-      } else if (rawIva.includes('0') || rawIva.toLowerCase().includes('0%')) {
-        finalIva = '0';
-      } else if (rawIva.toLowerCase().includes('no objeto')) {
-        finalIva = '6';
-      } else if (rawIva.toLowerCase().includes('exento')) {
-        finalIva = '7';
-      } else {
-        errors.push(`Tarifa IVA "${rawIva}" inválida. Debe ser 4 (15%), 2 (12%), 0 (0%), 6 (No Objeto) o 7 (Exento).`);
-      }
-
-      // 5. Validation: Descuento
-      const sanitizedDiscount = rawDiscount.replace('%', '').replace('$', '').replace(',', '.');
-      const discNum = parseFloat(sanitizedDiscount || '0');
-      if (isNaN(discNum) || discNum < 0) {
-        errors.push(`El descuento "${rawDiscount}" debe ser un valor numérico.`);
-      }
-
-      results.push({
-        rowNumber,
-        codigo: rawCode.toUpperCase(),
-        nombre: rawName,
-        precio: isNaN(priceNum) ? 0 : priceNum,
-        ivaTipo: finalIva,
-        descuentoDefault: isNaN(discNum) ? 0 : discNum,
-        isValid: errors.length === 0,
-        errors
-      });
-    }
-
-    setParsedItems(results);
-    if (results.length === 0) {
-      setBulkError('No se encontraron filas con datos de productos en el archivo.');
+      setBulkError('No se encontraron registros de productos válidos en el archivo Excel.');
     }
   };
 
@@ -825,13 +753,13 @@ export default function ProductCatalog({
               {/* Step 2: Upload File / Drag and Drop */}
               <div className="space-y-2">
                 <label className="font-bold text-gray-700 dark:text-zinc-300 block">
-                  Paso 2: Cargar Archivo Excel / CSV
+                  Paso 2: Cargar Archivo Excel (.xlsx)
                 </label>
                 
                 <input
                   type="file"
                   ref={fileInputRef}
-                  accept=".xlsx,.xls,.csv,.txt"
+                  accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                   onChange={handleFileUpload}
                   className="hidden"
                 />
@@ -843,16 +771,26 @@ export default function ProductCatalog({
                     e.preventDefault();
                     e.stopPropagation();
                     const file = e.dataTransfer.files?.[0];
-                    if (file) processFile(file);
+                    if (file) {
+                      const fileNameLower = (file.name || '').toLowerCase();
+                      if (!fileNameLower.endsWith('.xlsx')) {
+                        setBulkError(`Formato no permitido. El archivo "${file.name}" no es válido. Solo se admiten archivos con extensión .xlsx.`);
+                        setBulkFileName('');
+                        setParsedItems([]);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                        return;
+                      }
+                      processFile(file);
+                    }
                   }}
                   className="border-2 border-dashed border-gray-300 dark:border-zinc-700 hover:border-emerald-500 dark:hover:border-emerald-500 rounded-xl p-6 text-center cursor-pointer transition bg-gray-50/50 dark:bg-zinc-800/30 hover:bg-emerald-50/20"
                 >
-                  <Upload className="w-8 h-8 text-gray-400 dark:text-zinc-500 mx-auto mb-2" />
+                  <Upload className="w-8 h-8 text-emerald-600 dark:text-emerald-400 mx-auto mb-2" />
                   <p className="font-semibold text-gray-800 dark:text-gray-200">
-                    {bulkFileName ? `Archivo cargado: ${bulkFileName}` : 'Haz clic aquí o arrastra tu archivo Excel / CSV'}
+                    {bulkFileName ? `Archivo cargado: ${bulkFileName}` : 'Haz clic aquí o arrastra tu archivo Excel (.xlsx)'}
                   </p>
-                  <p className="text-[11px] text-gray-400 mt-1">
-                    Formatos admitidos: .xlsx, .xls, .csv delimitado por comas o punto y coma.
+                  <p className="text-[11px] text-gray-500 dark:text-zinc-400 mt-1">
+                    Formato admitido: Exclusivamente <strong className="text-emerald-600 dark:text-emerald-400">.xlsx</strong> (Excel). No se admiten archivos .csv ni otros formatos.
                   </p>
                 </div>
               </div>
