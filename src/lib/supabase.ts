@@ -719,8 +719,19 @@ export async function deleteClientFromSupabase(id: string, identificacion?: stri
   const supabase = getSupabase();
   if (!supabase) return false;
 
-  const { error } = await supabase.from('clientes').delete().eq('identificacion', identificacion || id);
-  return !error;
+  try {
+    if (identificacion && id && id !== identificacion) {
+      await supabase.from('clientes').delete().or(`id.eq.${id},identificacion.eq.${identificacion}`);
+    } else if (identificacion) {
+      await supabase.from('clientes').delete().eq('identificacion', identificacion);
+    } else {
+      await supabase.from('clientes').delete().or(`id.eq.${id},identificacion.eq.${id}`);
+    }
+    return true;
+  } catch (err) {
+    console.warn('Aviso borrando cliente de Supabase:', err);
+    return false;
+  }
 }
 
 // ==========================================
@@ -777,8 +788,19 @@ export async function deleteProductFromSupabase(id: string, codigo?: string): Pr
   const supabase = getSupabase();
   if (!supabase) return false;
 
-  const { error } = await supabase.from('productos').delete().eq('codigo', codigo || id);
-  return !error;
+  try {
+    if (codigo && id && id !== codigo) {
+      await supabase.from('productos').delete().or(`id.eq.${id},codigo.eq.${codigo}`);
+    } else if (codigo) {
+      await supabase.from('productos').delete().eq('codigo', codigo);
+    } else {
+      await supabase.from('productos').delete().or(`id.eq.${id},codigo.eq.${id}`);
+    }
+    return true;
+  } catch (err) {
+    console.warn('Aviso borrando producto de Supabase:', err);
+    return false;
+  }
 }
 
 // ==========================================

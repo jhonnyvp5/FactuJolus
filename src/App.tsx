@@ -1256,10 +1256,16 @@ export default function App() {
               products={products}
               onAddProduct={handleAddProduct}
               onDeleteProduct={(id) => {
+                const prodToDelete = products.find(p => p.id === id);
                 const updated = products.filter(p => p.id !== id);
                 setProducts(updated);
                 const key = getUserStorageKey(STORAGE_KEYS.PRODUCTS, currentUser?.correo);
                 localStorage.setItem(key, JSON.stringify(updated));
+                if (prodToDelete) {
+                  deleteProductFromSupabase(prodToDelete.id, prodToDelete.codigo);
+                } else {
+                  deleteProductFromSupabase(id);
+                }
               }}
               onSetProducts={(newProds) => {
                 setProducts(newProds);
@@ -1275,10 +1281,16 @@ export default function App() {
               clients={clients}
               onAddClient={handleAddClient}
               onDeleteClient={(id) => {
+                const clientToDelete = clients.find(c => c.id === id);
                 const updated = clients.filter(c => c.id !== id);
                 setClients(updated);
                 const key = getUserStorageKey(STORAGE_KEYS.CLIENTS, currentUser?.correo);
                 localStorage.setItem(key, JSON.stringify(updated));
+                if (clientToDelete) {
+                  deleteClientFromSupabase(clientToDelete.id, clientToDelete.identificacion);
+                } else {
+                  deleteClientFromSupabase(id);
+                }
               }}
               onSetClients={(newClients) => {
                 setClients(newClients);

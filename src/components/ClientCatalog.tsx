@@ -127,7 +127,7 @@ export default function ClientCatalog({
     const isOk = typeof resSb === 'boolean' ? resSb : resSb.success;
 
     if (isOk) {
-      setSbStatus({ synced: true, message: `¡Cliente ${editingClient ? 'actualizado' : 'guardado'} exitosamente en Supabase!` });
+      setSbStatus(null);
       setShowSqlHelp(false);
     } else {
       const errDetail = typeof resSb === 'object' && resSb.errorDetails ? resSb.errorDetails : '';
@@ -142,8 +142,7 @@ export default function ClientCatalog({
     }
 
     cancelEdit();
-    setFormSuccess(true);
-    setTimeout(() => setFormSuccess(false), 3000);
+    setFormSuccess(false);
   };
 
   const loadDefaults = () => {
@@ -327,18 +326,14 @@ export default function ClientCatalog({
               </div>
             )}
 
-            {sbStatus && (
-              <div className={`p-3 rounded-xl border text-[11px] space-y-2 ${
-                sbStatus.synced
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300'
-                  : 'bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-300'
-              }`}>
+            {sbStatus && !sbStatus.synced && (
+              <div className="p-3 rounded-xl border text-[11px] space-y-2 bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-300">
                 <div className="flex items-center gap-1.5 font-semibold">
-                  {sbStatus.synced ? <Check className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />}
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
                   <span>{sbStatus.message}</span>
                 </div>
 
-                {!sbStatus.synced && showSqlHelp && (
+                {showSqlHelp && (
                   <div className="pt-1.5 border-t border-amber-200/60 dark:border-amber-800/60 space-y-2">
                     <p className="text-[10px] text-amber-800 dark:text-amber-300">
                       Copia este código y ejecútalo en el <strong>SQL Editor</strong> de Supabase para activar el guardado automático de tablas:
@@ -446,11 +441,8 @@ export default function ClientCatalog({
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => {
-                              if (window.confirm(`¿Está seguro de eliminar al cliente "${client.nombre}"?`)) {
-                                onDeleteClient(client.id);
-                              }
-                            }}
+                            type="button"
+                            onClick={() => onDeleteClient(client.id)}
                             className="p-2 bg-red-50 hover:bg-red-100 text-red-650 dark:bg-red-950/20 dark:hover:bg-red-950/40 rounded-lg transition shrink-0 cursor-pointer"
                             title="Eliminar cliente"
                           >
