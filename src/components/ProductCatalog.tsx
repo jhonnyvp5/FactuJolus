@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { Product, TipoIva, PortalUser } from '../types';
 import { IVA_TARIFAS } from '../sri/utils';
-import { Trash2, Sparkles, Plus, PackageCheck, Receipt, Edit3, Save, X, FileSpreadsheet, Download, Upload, AlertCircle, CheckCircle2, FileText, AlertTriangle } from 'lucide-react';
-import { saveProductToSupabase } from '../lib/supabase';
+import { Trash2, Sparkles, Plus, PackageCheck, Receipt, Edit3, Save, X, FileSpreadsheet, Download, Upload, AlertCircle, CheckCircle2, FileText, AlertTriangle, Loader2 } from 'lucide-react';
+import { saveProductToSupabase, saveBulkProductsToSupabase } from '../lib/supabase';
 import * as XLSX from 'xlsx';
 
 interface ProductCatalogProps {
@@ -50,6 +50,7 @@ export default function ProductCatalog({
   const [parsedItems, setParsedItems] = useState<ParsedBulkItem[]>([]);
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [bulkSuccessMsg, setBulkSuccessMsg] = useState<string | null>(null);
+  const [isParsingFile, setIsParsingFile] = useState(false);
   const [isProcessingBulk, setIsProcessingBulk] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -207,7 +208,7 @@ export default function ProductCatalog({
     // Strictly validate .xlsx extension
     const fileNameLower = (file.name || '').toLowerCase();
     if (!fileNameLower.endsWith('.xlsx')) {
-      setBulkError(`Formato no permitido. El archivo "${file.name}" no es válido. Solo se admiten archivos con extensión .xlsx. Por favor convierte o guarda tu archivo en Excel (.xlsx) antes de subirlo.`);
+      setBulkError(`Formato no permitido. El archivo "${file.name}" no es válido. Solo se admiten archivos con extensión .xlsx. Por favor guarda tu archivo en Excel (.xlsx) antes de subirlo.`);
       setBulkFileName('');
       setParsedItems([]);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -215,43 +216,51 @@ export default function ProductCatalog({
     }
 
     setBulkFileName(file.name);
+    setIsParsingFile(true);
 
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const data = new Uint8Array(arrayBuffer);
-      const workbook = XLSX.read(data, { type: 'array' });
+    // Allow UI to immediately display the reading/validating indicator
+    setTimeout(async () => {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const data = new Uint8Array(arrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array', dense: true, cellDates: true });
 
-      if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
-        setBulkError('El archivo Excel no contiene hojas de cálculo.');
-        setParsedItems([]);
-        return;
-      }
-
-      // Prioritize sheet named 'Productos' or first sheet with data
-      let targetSheetName = workbook.SheetNames[0];
-      for (const sName of workbook.SheetNames) {
-        const lower = sName.toLowerCase();
-        if (lower.includes('prod') || lower.includes('catálogo') || lower.includes('catalogo') || lower.includes('item') || lower.includes('articul')) {
-          targetSheetName = sName;
-          break;
+        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+          setBulkError('El archivo Excel no contiene hojas de cálculo.');
+          setParsedItems([]);
+          setIsParsingFile(false);
+          return;
         }
-      }
 
-      const worksheet = workbook.Sheets[targetSheetName];
-      if (!worksheet) {
-        setBulkError(`No se pudo leer la hoja "${targetSheetName}" del archivo Excel.`);
+        // Prioritize sheet named 'Productos' or first sheet with data
+        let targetSheetName = workbook.SheetNames[0];
+        for (const sName of workbook.SheetNames) {
+          const lower = sName.toLowerCase();
+          if (lower.includes('prod') || lower.includes('catálogo') || lower.includes('catalogo') || lower.includes('item') || lower.includes('articul')) {
+            targetSheetName = sName;
+            break;
+          }
+        }
+
+        const worksheet = workbook.Sheets[targetSheetName];
+        if (!worksheet) {
+          setBulkError(`No se pudo leer la hoja "${targetSheetName}" del archivo Excel.`);
+          setParsedItems([]);
+          setIsParsingFile(false);
+          return;
+        }
+
+        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '', blankrows: false }) as any[][];
+        validateAndParseRows(rows);
+
+      } catch (err: any) {
+        console.error('Error al procesar archivo Excel:', err);
+        setBulkError('Error al leer el archivo Excel (.xlsx): ' + (err?.message || 'Asegúrate de que no esté protegido con contraseña o dañado.'));
         setParsedItems([]);
-        return;
+      } finally {
+        setIsParsingFile(false);
       }
-
-      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '', blankrows: false }) as any[][];
-      validateAndParseRows(rows);
-
-    } catch (err: any) {
-      console.error('Error al procesar archivo Excel:', err);
-      setBulkError('Error al leer el archivo Excel (.xlsx): ' + (err?.message || 'Asegúrate de que no esté protegido con contraseña o dañado.'));
-      setParsedItems([]);
-    }
+    }, 50);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -429,9 +438,10 @@ export default function ProductCatalog({
         }
 
         newProducts.push(prodData);
-        // Persist to Supabase
-        await saveProductToSupabase(prodData).catch(e => console.warn('Supabase bulk save notice:', e));
       }
+
+      // Fast parallel batch save to Supabase
+      await saveBulkProductsToSupabase(newProducts, currentUser?.correo);
 
       onSetProducts(updatedCatalog);
       setBulkSuccessMsg(`¡Éxito! Se han importado correctamente ${newProducts.length} productos al catálogo.`);
@@ -442,7 +452,7 @@ export default function ProductCatalog({
         setBulkFileText('');
         setBulkFileName('');
         setBulkSuccessMsg(null);
-      }, 2000);
+      }, 1500);
 
     } catch (err: any) {
       setBulkError(`Error durante la carga masiva: ${err.message || 'Error desconocido'}`);
@@ -765,11 +775,12 @@ export default function ProductCatalog({
                 />
 
                 <div
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => !isParsingFile && !isProcessingBulk && fileInputRef.current?.click()}
                   onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                   onDrop={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    if (isParsingFile || isProcessingBulk) return;
                     const file = e.dataTransfer.files?.[0];
                     if (file) {
                       const fileNameLower = (file.name || '').toLowerCase();
@@ -783,17 +794,46 @@ export default function ProductCatalog({
                       processFile(file);
                     }
                   }}
-                  className="border-2 border-dashed border-gray-300 dark:border-zinc-700 hover:border-emerald-500 dark:hover:border-emerald-500 rounded-xl p-6 text-center cursor-pointer transition bg-gray-50/50 dark:bg-zinc-800/30 hover:bg-emerald-50/20"
+                  className={`border-2 border-dashed rounded-xl p-6 text-center transition ${
+                    isParsingFile
+                      ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20 cursor-wait animate-pulse'
+                      : 'border-gray-300 dark:border-zinc-700 hover:border-emerald-500 dark:hover:border-emerald-500 cursor-pointer bg-gray-50/50 dark:bg-zinc-800/30 hover:bg-emerald-50/20'
+                  }`}
                 >
-                  <Upload className="w-8 h-8 text-emerald-600 dark:text-emerald-400 mx-auto mb-2" />
-                  <p className="font-semibold text-gray-800 dark:text-gray-200">
-                    {bulkFileName ? `Archivo cargado: ${bulkFileName}` : 'Haz clic aquí o arrastra tu archivo Excel (.xlsx)'}
-                  </p>
-                  <p className="text-[11px] text-gray-500 dark:text-zinc-400 mt-1">
-                    Formato admitido: Exclusivamente <strong className="text-emerald-600 dark:text-emerald-400">.xlsx</strong> (Excel). No se admiten archivos .csv ni otros formatos.
-                  </p>
+                  {isParsingFile ? (
+                    <div>
+                      <Loader2 className="w-9 h-9 text-emerald-600 dark:text-emerald-400 animate-spin mx-auto mb-2" />
+                      <p className="font-bold text-gray-800 dark:text-gray-200 text-sm">
+                        Leyendo y procesando archivo Excel (.xlsx)...
+                      </p>
+                      <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1">
+                        Analizando columnas, validando tarifas de IVA y precios en tiempo récord...
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <Upload className="w-8 h-8 text-emerald-600 dark:text-emerald-400 mx-auto mb-2" />
+                      <p className="font-semibold text-gray-800 dark:text-gray-200">
+                        {bulkFileName ? `Archivo cargado: ${bulkFileName}` : 'Haz clic aquí o arrastra tu archivo Excel (.xlsx)'}
+                      </p>
+                      <p className="text-[11px] text-gray-500 dark:text-zinc-400 mt-1">
+                        Formato admitido: Exclusivamente <strong className="text-emerald-600 dark:text-emerald-400">.xlsx</strong> (Excel). No se admiten archivos .csv ni otros formatos.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* In-progress processing banner */}
+              {isProcessingBulk && (
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/60 rounded-xl flex items-center gap-3 text-emerald-800 dark:text-emerald-300 shadow-sm animate-pulse">
+                  <Loader2 className="w-5 h-5 animate-spin text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <div>
+                    <p className="font-bold text-xs">Guardando e importando {validCount} productos al catálogo...</p>
+                    <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80">Sincronizando de forma optimizada con la base de datos en segundo plano.</p>
+                  </div>
+                </div>
+              )}
 
               {/* Step 3: Validation Results */}
               {parsedItems.length > 0 && (
@@ -889,25 +929,35 @@ export default function ProductCatalog({
             <div className="p-4 border-t border-gray-100 dark:border-zinc-800 flex items-center justify-between bg-gray-50/50 dark:bg-zinc-800/50">
               <button
                 type="button"
+                disabled={isProcessingBulk || isParsingFile}
                 onClick={() => {
                   setIsBulkModalOpen(false);
                   setParsedItems([]);
                   setBulkFileText('');
                   setBulkFileName('');
                 }}
-                className="px-4 py-2 border border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-xl text-xs font-semibold cursor-pointer"
+                className="px-4 py-2 border border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-xs font-semibold cursor-pointer"
               >
                 Cerrar
               </button>
 
               <button
                 type="button"
-                disabled={validCount === 0 || isProcessingBulk}
+                disabled={validCount === 0 || isProcessingBulk || isParsingFile}
                 onClick={handleExecuteBulkImport}
                 className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md transition"
               >
-                <Upload className="w-4 h-4" />
-                {isProcessingBulk ? 'Importando Productos...' : `Proceder con Carga (${validCount} Válidos)`}
+                {isProcessingBulk ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Guardando Productos...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    <span>Proceder con Carga ({validCount} Válidos)</span>
+                  </>
+                )}
               </button>
             </div>
 

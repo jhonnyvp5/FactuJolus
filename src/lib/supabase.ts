@@ -784,6 +784,59 @@ export async function saveProductToSupabase(product: Product, userEmail?: string
   return res.success;
 }
 
+export async function saveBulkProductsToSupabase(productsList: Product[], userEmail?: string): Promise<{ successCount: number; errorCount: number }> {
+  if (!productsList || productsList.length === 0) {
+    return { successCount: 0, errorCount: 0 };
+  }
+
+  const supabase = getSupabase();
+  if (!supabase) {
+    return { successCount: productsList.length, errorCount: 0 };
+  }
+
+  const batchPayloads = productsList.map(p => ({
+    id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    codigo: p.codigo,
+    nombre: p.nombre,
+    precio: Number(p.precio) || 0,
+    iva_tipo: String(p.ivaTipo || '4'),
+    descuento_default: Number(p.descuentoDefault || 0),
+    usuario_correo: userEmail || p.usuarioCorreo || '',
+    empresa_ruc: p.empresaRuc || '',
+    empresa_nombre: p.empresaNombre || ''
+  }));
+
+  // Fast Batch Upsert in parallel chunks of 50
+  const chunkSize = 50;
+  let successCount = 0;
+  let errorCount = 0;
+
+  for (let i = 0; i < batchPayloads.length; i += chunkSize) {
+    const chunk = batchPayloads.slice(i, i + chunkSize);
+    try {
+      const { error } = await supabase.from('productos').upsert(chunk, { onConflict: 'codigo' });
+      if (!error) {
+        successCount += chunk.length;
+      } else {
+        // Fallback to individual safeUpsert for this chunk
+        for (const item of chunk) {
+          const res = await safeUpsert('productos', item, 'codigo');
+          if (res.success) successCount++;
+          else errorCount++;
+        }
+      }
+    } catch {
+      for (const item of chunk) {
+        const res = await safeUpsert('productos', item, 'codigo');
+        if (res.success) successCount++;
+        else errorCount++;
+      }
+    }
+  }
+
+  return { successCount, errorCount };
+}
+
 export async function deleteProductFromSupabase(id: string, codigo?: string): Promise<boolean> {
   const supabase = getSupabase();
   if (!supabase) return false;
