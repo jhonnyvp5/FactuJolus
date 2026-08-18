@@ -75,10 +75,26 @@ export default function ProformaForm({
   const [notaDudas, setNotaDudas] = useState('');
 
   // Custom Company Details
-  const [empresaNombre, setEmpresaNombre] = useState('Jolus Services');
-  const [empresaDireccion, setEmpresaDireccion] = useState(config.dirMatriz || 'Cdla. Los Esteros Mz. 4A Sl. 26');
-  const [empresaTelefono, setEmpresaTelefono] = useState(config.telefono || '0967590168');
-  const [empresaCorreo, setEmpresaCorreo] = useState(config.correo || 'jhonnyvp5@gmail.com');
+  const [empresaNombre, setEmpresaNombre] = useState(config.nombreComercial || config.razonSocial || 'ORIONNX');
+  const [empresaDireccion, setEmpresaDireccion] = useState(config.dirMatriz || config.dirEstablecimiento || '');
+  const [empresaTelefono, setEmpresaTelefono] = useState(config.telefono || '');
+  const [empresaCorreo, setEmpresaCorreo] = useState(config.correo || currentUserEmail || '');
+
+  // Synchronize company info when active config changes
+  useEffect(() => {
+    if (config.nombreComercial || config.razonSocial) {
+      setEmpresaNombre(config.nombreComercial || config.razonSocial);
+    }
+    if (config.dirMatriz || config.dirEstablecimiento) {
+      setEmpresaDireccion(config.dirMatriz || config.dirEstablecimiento || '');
+    }
+    if (config.telefono) {
+      setEmpresaTelefono(config.telefono);
+    }
+    if (config.correo) {
+      setEmpresaCorreo(config.correo);
+    }
+  }, [config.nombreComercial, config.razonSocial, config.dirMatriz, config.dirEstablecimiento, config.telefono, config.correo]);
 
   // Preview Modal
   const [selectedProforma, setSelectedProforma] = useState<Proforma | null>(null);

@@ -22,7 +22,7 @@ import {
   fetchCreditNotesFromSupabase, saveCreditNoteToSupabase, deleteCreditNoteFromSupabase,
   fetchProformasFromSupabase, saveProformaToSupabase,
   fetchEmitterConfigFromSupabase, saveEmitterConfigToSupabase,
-  fetchEmpresasFromSupabase, getEmpresaByRuc,
+  fetchEmpresasFromSupabase, getEmpresaByRuc, getEmpresaForUser,
   migrateLocalDataToSupabase, subscribeToSupabaseRealtime
 } from './lib/supabase';
 import { ShieldCheck, Send, Settings, History, Plus, Layers, ArrowLeftRight, FileCheck2, CloudLightning, Package, User, Users, Menu, X, FileText, Database, Building2, RefreshCw } from 'lucide-react';
@@ -98,6 +98,10 @@ export default function App() {
         const parsed = JSON.parse(saved);
         if (parsed.correo?.toLowerCase() === 'jhonnyvp5@gmail.com') {
           parsed.role = 'SUPERADMIN';
+          if (!parsed.empresaRuc || parsed.empresaRuc === '0954594636001') {
+            parsed.empresaRuc = '0952227858001';
+            parsed.empresaNombre = 'ORIONNX';
+          }
         }
         return parsed;
       } catch {
@@ -356,22 +360,40 @@ export default function App() {
 
     const syncWithSupabase = async () => {
       // 0. Empresa Tenant
-      if (currentUser?.empresaRuc) {
-        const emp = await getEmpresaByRuc(currentUser.empresaRuc);
+      let emp: EmpresaTenant | null = null;
+      const currentRuc = currentUser?.empresaRuc;
+      if (currentRuc) {
+        emp = await getEmpresaByRuc(currentRuc);
+      }
+      if (!emp && currentUser?.correo) {
+        emp = await getEmpresaForUser(currentUser.correo, currentRuc);
         if (emp && isMounted) {
-          setCurrentEmpresa(emp);
-          if (currentUser?.role?.toUpperCase() !== 'SUPERADMIN' && currentUser?.correo?.toLowerCase() !== 'jhonnyvp5@gmail.com') {
-            if (emp.estado === 'SUSPENDIDO' || new Date(emp.fechaExpiracion) < new Date()) {
-              setInactivityNotice(`El servicio de la empresa "${emp.nombreComercial || emp.razonSocial}" expiró el ${emp.fechaExpiracion} o está suspendido. Por favor contacte al Administrador.`);
-              setCurrentUser(null);
-              localStorage.removeItem('sri_portal_active_user');
-            }
+          const updatedUser: PortalUser = {
+            ...currentUser,
+            empresaRuc: emp.ruc,
+            empresaNombre: emp.nombreComercial || emp.razonSocial
+          };
+          setCurrentUser(updatedUser);
+          localStorage.setItem('sri_portal_active_user', JSON.stringify(updatedUser));
+        }
+      }
+
+      if (emp && isMounted) {
+        setCurrentEmpresa(emp);
+        if (currentUser?.role?.toUpperCase() !== 'SUPERADMIN' && currentUser?.correo?.toLowerCase() !== 'jhonnyvp5@gmail.com') {
+          if (emp.estado === 'SUSPENDIDO' || new Date(emp.fechaExpiracion) < new Date()) {
+            setInactivityNotice(`El servicio de la empresa "${emp.nombreComercial || emp.razonSocial}" expiró el ${emp.fechaExpiracion} o está suspendido. Por favor contacte al Administrador.`);
+            setCurrentUser(null);
+            localStorage.removeItem('sri_portal_active_user');
           }
         }
       }
 
+      const activeEmpresaRuc = emp?.ruc || currentUser?.empresaRuc;
+      const activeEmpresaNombre = emp?.nombreComercial || emp?.razonSocial || currentUser?.empresaNombre;
+
       // 1. Clients
-      const dbClients = await fetchClientsFromSupabase(currentUser?.correo, currentUser?.role, currentUser?.empresaRuc);
+      const dbClients = await fetchClientsFromSupabase(currentUser?.correo, currentUser?.role, activeEmpresaRuc);
       if (dbClients && isMounted) {
         setClients(dbClients);
         const key = getUserStorageKey(STORAGE_KEYS.CLIENTS, currentUser?.correo);
@@ -379,7 +401,7 @@ export default function App() {
       }
 
       // 2. Products
-      const dbProducts = await fetchProductsFromSupabase(currentUser?.correo, currentUser?.role, currentUser?.empresaRuc);
+      const dbProducts = await fetchProductsFromSupabase(currentUser?.correo, currentUser?.role, activeEmpresaRuc);
       if (dbProducts && isMounted) {
         setProducts(dbProducts);
         const key = getUserStorageKey(STORAGE_KEYS.PRODUCTS, currentUser?.correo);
@@ -387,7 +409,7 @@ export default function App() {
       }
 
       // 3. Invoices
-      const dbInvoices = await fetchInvoicesFromSupabase(currentUser?.correo, currentUser?.role, currentUser?.empresaRuc);
+      const dbInvoices = await fetchInvoicesFromSupabase(currentUser?.correo, currentUser?.role, activeEmpresaRuc);
       if (dbInvoices && isMounted) {
         setInvoices(dbInvoices);
         const key = getUserStorageKey(STORAGE_KEYS.INVOICES, currentUser?.correo);
@@ -395,7 +417,7 @@ export default function App() {
       }
 
       // 4. Credit Notes
-      const dbCreditNotes = await fetchCreditNotesFromSupabase(currentUser?.correo, currentUser?.role, currentUser?.empresaRuc);
+      const dbCreditNotes = await fetchCreditNotesFromSupabase(currentUser?.correo, currentUser?.role, activeEmpresaRuc);
       if (dbCreditNotes && isMounted) {
         setCreditNotes(dbCreditNotes);
         const key = getUserStorageKey(STORAGE_KEYS.CREDIT_NOTES, currentUser?.correo);
@@ -403,24 +425,24 @@ export default function App() {
       }
 
       // 5. Config
-      const dbConfig = await fetchEmitterConfigFromSupabase(currentUser?.empresaRuc, currentUser?.correo, currentUser?.role, currentUser?.empresaRuc);
+      const dbConfig = await fetchEmitterConfigFromSupabase(activeEmpresaRuc, currentUser?.correo, currentUser?.role, activeEmpresaRuc);
       if (dbConfig && dbConfig.ruc && isMounted) {
-        if (!currentUser?.empresaRuc || dbConfig.ruc === currentUser.empresaRuc || dbConfig.empresaRuc === currentUser.empresaRuc) {
+        if (!activeEmpresaRuc || dbConfig.ruc === activeEmpresaRuc || dbConfig.empresaRuc === activeEmpresaRuc) {
           setConfig(dbConfig);
           const key = getUserStorageKey(STORAGE_KEYS.CONFIG, currentUser?.correo);
           localStorage.setItem(key, JSON.stringify(dbConfig));
         }
       } else if (!dbConfig && isMounted) {
         // If no config found in Supabase for this company, set clean initial state with company basics
-        if (currentUser?.empresaRuc) {
+        if (activeEmpresaRuc) {
           const cleanCompanyCfg: EmitterConfig = {
             ...DEFAULT_CONFIG,
-            ruc: currentUser.empresaRuc,
-            razonSocial: currentUser.empresaNombre || '',
-            nombreComercial: currentUser.empresaNombre || '',
-            empresaRuc: currentUser.empresaRuc,
-            empresaNombre: currentUser.empresaNombre || '',
-            correo: currentUser.correo || '',
+            ruc: activeEmpresaRuc,
+            razonSocial: activeEmpresaNombre || '',
+            nombreComercial: activeEmpresaNombre || '',
+            empresaRuc: activeEmpresaRuc,
+            empresaNombre: activeEmpresaNombre || '',
+            correo: currentUser?.correo || emp?.adminCorreo || '',
             dirMatriz: '',
             dirEstablecimiento: '',
             ultimoSecuencialFactura: '000000001'
@@ -667,6 +689,42 @@ export default function App() {
     deleteCreditNoteFromSupabase(id);
   };
 
+  const handleSelectCompany = async (emp: EmpresaTenant) => {
+    setCurrentEmpresa(emp);
+    if (currentUser) {
+      const updatedUser: PortalUser = {
+        ...currentUser,
+        empresaRuc: emp.ruc,
+        empresaNombre: emp.nombreComercial || emp.razonSocial
+      };
+      setCurrentUser(updatedUser);
+      localStorage.setItem('sri_portal_active_user', JSON.stringify(updatedUser));
+    }
+    const dbConfig = await fetchEmitterConfigFromSupabase(emp.ruc, currentUser?.correo, currentUser?.role, emp.ruc);
+    if (dbConfig && (dbConfig.ruc === emp.ruc || dbConfig.empresaRuc === emp.ruc)) {
+      setConfig(dbConfig);
+      const key = getUserStorageKey(STORAGE_KEYS.CONFIG, currentUser?.correo);
+      localStorage.setItem(key, JSON.stringify(dbConfig));
+    } else {
+      const cleanEmpConfig: EmitterConfig = {
+        ...DEFAULT_CONFIG,
+        ruc: emp.ruc,
+        razonSocial: emp.razonSocial,
+        nombreComercial: emp.nombreComercial || emp.razonSocial,
+        empresaRuc: emp.ruc,
+        empresaNombre: emp.nombreComercial || emp.razonSocial,
+        correo: currentUser?.correo || emp.adminCorreo || '',
+        dirMatriz: '',
+        dirEstablecimiento: '',
+        ultimoSecuencialFactura: '000000001'
+      };
+      setConfig(cleanEmpConfig);
+      const key = getUserStorageKey(STORAGE_KEYS.CONFIG, currentUser?.correo);
+      localStorage.setItem(key, JSON.stringify(cleanEmpConfig));
+    }
+    setActiveTab('new-invoice');
+  };
+
   if (!currentUser) {
     return (
       <>
@@ -679,11 +737,27 @@ export default function App() {
           </div>
         )}
         <LoginForm
-          onLoginSuccess={(user) => {
+          onLoginSuccess={async (user) => {
             setInactivityNotice(null);
-            const finalUser = user.correo?.toLowerCase() === 'jhonnyvp5@gmail.com' 
+            let finalUser = user.correo?.toLowerCase() === 'jhonnyvp5@gmail.com' 
               ? { ...user, role: 'SUPERADMIN' as const, nombre: user.nombre || 'Jhonny Vargas' } 
               : user;
+            if (!finalUser.empresaRuc) {
+              const emp = await getEmpresaForUser(finalUser.correo, finalUser.empresaRuc);
+              if (emp) {
+                finalUser = {
+                  ...finalUser,
+                  empresaRuc: emp.ruc,
+                  empresaNombre: emp.nombreComercial || emp.razonSocial
+                };
+              } else if (finalUser.correo?.toLowerCase() === 'jhonnyvp5@gmail.com') {
+                finalUser = {
+                  ...finalUser,
+                  empresaRuc: '0952227858001',
+                  empresaNombre: 'ORIONNX'
+                };
+              }
+            }
             setCurrentUser(finalUser);
             localStorage.setItem('sri_portal_active_user', JSON.stringify(finalUser));
           }}
@@ -748,12 +822,18 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-sm sm:text-base font-black tracking-wide text-gray-900 dark:text-white leading-tight uppercase flex items-center gap-1.5">
-                {config.nombreComercial ? (
+                {currentEmpresa?.nombreComercial ? (
+                  <span>{currentEmpresa.nombreComercial}</span>
+                ) : config.nombreComercial ? (
                   <span>{config.nombreComercial}</span>
                 ) : currentUser?.empresaNombre ? (
                   <span>{currentUser.empresaNombre}</span>
+                ) : currentEmpresa?.razonSocial ? (
+                  <span>{currentEmpresa.razonSocial}</span>
+                ) : config.razonSocial ? (
+                  <span>{config.razonSocial}</span>
                 ) : (
-                  <span>JOLUS <span className="text-sky-500 font-semibold">SERVICES</span></span>
+                  <span>ORIONNX <span className="text-sky-500 font-semibold">SERVICES</span></span>
                 )}
               </h1>
               <span className="text-[9px] sm:text-[10px] text-gray-500 dark:text-zinc-400 font-bold uppercase tracking-widest leading-none block">
@@ -835,7 +915,9 @@ export default function App() {
           <div className="relative flex flex-col w-4/5 max-w-xs h-full bg-white dark:bg-zinc-905 bg-gray-50 dark:bg-zinc-900 shadow-2xl p-5 border-r border-gray-200 dark:border-zinc-850 overflow-y-auto transform transition-transform duration-200 ease-out">
             <div className="flex items-center justify-between mb-5 pb-3 border-b border-gray-100 dark:border-zinc-800">
               <div className="flex items-center gap-2">
-                <span className="font-black text-sm text-gray-900 dark:text-white uppercase tracking-wider">JOLUS <span className="text-indigo-600 font-medium">SERVICES</span></span>
+                <span className="font-black text-sm text-gray-900 dark:text-white uppercase tracking-wider">
+                  {currentEmpresa?.nombreComercial || config.nombreComercial || currentUser?.empresaNombre || config.razonSocial || 'ORIONNX'}
+                </span>
               </div>
               <button 
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -1335,6 +1417,7 @@ export default function App() {
           {activeTab === 'tenants' && currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
             <TenantManagement
               currentUser={currentUser}
+              onCompanySelected={handleSelectCompany}
             />
           )}
 

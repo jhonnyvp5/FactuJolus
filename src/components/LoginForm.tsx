@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { PortalUser, Invitation } from '../types';
 import { logActivity } from '../lib/activityLogger';
-import { authenticateUserInSupabase, upsertUserInSupabase, getEmpresaByRuc } from '../lib/supabase';
+import { authenticateUserInSupabase, upsertUserInSupabase, getEmpresaByRuc, getEmpresaForUser } from '../lib/supabase';
 import SriNewsWidget from './SriNewsWidget';
 
 interface LoginFormProps {
@@ -116,6 +116,14 @@ export default function LoginForm({ onLoginSuccess, adminEmail, inactivityNotice
       let registeredUsers: PortalUser[] = savedUsersRaw ? JSON.parse(savedUsersRaw) : [];
 
       if (supaUser) {
+        if (!supaUser.empresaRuc) {
+          const emp = await getEmpresaForUser(cleanEmail);
+          if (emp) {
+            supaUser.empresaRuc = emp.ruc;
+            supaUser.empresaNombre = emp.nombreComercial || emp.razonSocial;
+          }
+        }
+
         const canAccess = await checkTenantAccess(supaUser);
         if (!canAccess) {
           setIsLoggingIn(false);
@@ -141,6 +149,14 @@ export default function LoginForm({ onLoginSuccess, adminEmail, inactivityNotice
 
       if (foundUser) {
         if (foundUser.clave === password) {
+          if (!foundUser.empresaRuc) {
+            const emp = await getEmpresaForUser(cleanEmail);
+            if (emp) {
+              foundUser.empresaRuc = emp.ruc;
+              foundUser.empresaNombre = emp.nombreComercial || emp.razonSocial;
+            }
+          }
+
           const canAccess = await checkTenantAccess(foundUser);
           if (!canAccess) {
             setIsLoggingIn(false);
@@ -161,13 +177,17 @@ export default function LoginForm({ onLoginSuccess, adminEmail, inactivityNotice
       // 3. Fallback admin/superadmin login
       if ((cleanEmail === 'jhonnyvp5@gmail.com' || cleanEmail === adminEmail.toLowerCase()) && password === 'admin123') {
         const isSuper = cleanEmail === 'jhonnyvp5@gmail.com';
+        const emp = await getEmpresaForUser(cleanEmail);
+
         const adminUser: PortalUser = {
           id: isSuper ? 'superadmin-jhonny' : 'admin-local',
           correo: cleanEmail,
           clave: password,
           role: isSuper ? 'SUPERADMIN' : 'ADMIN',
           nombre: isSuper ? 'Jhonny Vargas' : cleanEmail.split('@')[0].toUpperCase(),
-          fechaRegistro: new Date().toISOString()
+          fechaRegistro: new Date().toISOString(),
+          empresaRuc: emp?.ruc || (isSuper ? '0952227858001' : undefined),
+          empresaNombre: emp?.nombreComercial || emp?.razonSocial || (isSuper ? 'ORIONNX' : undefined)
         };
 
         const canAccess = await checkTenantAccess(adminUser);

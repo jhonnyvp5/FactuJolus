@@ -812,22 +812,22 @@ export async function fetchEmitterConfigFromSupabase(ruc?: string, userEmail?: s
 
   try {
     let data: any = null;
-    if (ruc) {
-      const res = await supabase.from('emisor_config').select('*').eq('ruc', ruc).maybeSingle();
+    const targetRuc = ruc || empresaRuc;
+
+    if (targetRuc) {
+      const res = await supabase.from('emisor_config').select('*').eq('ruc', targetRuc).maybeSingle();
       data = res.data;
-    } else if (empresaRuc) {
-      const resEmp = await supabase.from('emisor_config').select('*').eq('ruc', empresaRuc).maybeSingle();
-      data = resEmp.data;
       if (!data) {
-        const resEmp2 = await supabase.from('emisor_config').select('*').eq('empresa_ruc', empresaRuc).maybeSingle();
+        const resEmp2 = await supabase.from('emisor_config').select('*').eq('empresa_ruc', targetRuc).maybeSingle();
         data = resEmp2.data;
       }
-    } else if (userEmail && userRole?.toUpperCase() !== 'SUPERADMIN') {
+    } else if (userEmail) {
       const resUser = await supabase.from('emisor_config').select('*').eq('usuario_correo', userEmail).maybeSingle();
       data = resUser.data;
-    } else if (userRole?.toUpperCase() === 'SUPERADMIN') {
-      const res = await supabase.from('emisor_config').select('*').limit(1).maybeSingle();
-      data = res.data;
+      if (!data) {
+        const resUser2 = await supabase.from('emisor_config').select('*').eq('correo', userEmail).maybeSingle();
+        data = resUser2.data;
+      }
     }
 
     if (!data) return null;
@@ -1473,6 +1473,24 @@ export async function authenticateUserInSupabase(
     if (error || !data) return null;
 
     if (data.clave_hash === pass || data.clave === pass) {
+      let finalEmpresaRuc = data.empresa_ruc;
+      let finalEmpresaNombre = data.empresa_nombre;
+
+      // If user is admin of a company in empresas_inquilinos, discover and link the company
+      if (!finalEmpresaRuc) {
+        const { data: adminRows } = await supabase
+          .from('empresas_inquilinos')
+          .select('*')
+          .ilike('admin_correo', cleanEmail)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (adminRows && adminRows.length > 0) {
+          finalEmpresaRuc = adminRows[0].ruc;
+          finalEmpresaNombre = adminRows[0].nombre_comercial || adminRows[0].razon_social;
+        }
+      }
+
       return {
         id: data.id || `supa-${Date.now()}`,
         correo: data.correo,
@@ -1480,8 +1498,8 @@ export async function authenticateUserInSupabase(
         role: (data.role || 'USER').toUpperCase() as any,
         nombre: data.nombre || data.usuario || data.correo.split('@')[0],
         fechaRegistro: data.created_at || new Date().toISOString(),
-        empresaRuc: data.empresa_ruc,
-        empresaNombre: data.empresa_nombre,
+        empresaRuc: finalEmpresaRuc,
+        empresaNombre: finalEmpresaNombre,
         creadorCorreo: data.creador_correo
       };
     }
@@ -1737,6 +1755,50 @@ export async function getEmpresaByRuc(ruc: string): Promise<EmpresaTenant | null
     console.warn('Aviso getEmpresaByRuc:', e);
     return null;
   }
+}
+
+export async function getEmpresaForUser(userEmail?: string, userEmpresaRuc?: string): Promise<EmpresaTenant | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  const cleanEmail = (userEmail || '').trim().toLowerCase();
+  const cleanRuc = (userEmpresaRuc || '').trim();
+
+  try {
+    // 1. If explicit RUC is provided, fetch by RUC
+    if (cleanRuc) {
+      const byRuc = await getEmpresaByRuc(cleanRuc);
+      if (byRuc) return byRuc;
+    }
+
+    // 2. Search in usuarios_portal for user's assigned empresa_ruc
+    if (cleanEmail) {
+      const { data: userRow } = await supabase
+        .from('usuarios_portal')
+        .select('empresa_ruc, empresa_nombre')
+        .eq('correo', cleanEmail)
+        .maybeSingle();
+
+      if (userRow?.empresa_ruc) {
+        const byUserRuc = await getEmpresaByRuc(userRow.empresa_ruc);
+        if (byUserRuc) return byUserRuc;
+      }
+
+      // 3. Search in empresas_inquilinos where admin_correo is this email
+      const { data: adminRows } = await supabase
+        .from('empresas_inquilinos')
+        .select('*')
+        .ilike('admin_correo', cleanEmail)
+        .order('created_at', { ascending: false });
+
+      if (adminRows && adminRows.length > 0) {
+        const row = adminRows[0];
+        return await getEmpresaByRuc(row.ruc);
+      }
+    }
+  } catch (err) {
+    console.warn('Aviso buscando empresa para usuario:', err);
+  }
+  return null;
 }
 
 export async function saveEmpresaToSupabase(empresa: EmpresaTenant): Promise<{ success: boolean; errorDetails?: string }> {

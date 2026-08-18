@@ -142,7 +142,10 @@ export default function ClientCatalog({
     }
 
     cancelEdit();
-    setFormSuccess(false);
+    setFormSuccess(true);
+    setTimeout(() => {
+      setFormSuccess(false);
+    }, 4000);
   };
 
   const loadDefaults = () => {
@@ -321,8 +324,9 @@ export default function ClientCatalog({
             )}
 
             {formSuccess && (
-              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30 rounded-xl font-medium">
-                ¡Cliente registrado exitosamente!
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 rounded-xl font-semibold text-xs flex items-center gap-2 shadow-2xs">
+                <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>¡Cliente guardado exitosamente!</span>
               </div>
             )}
 

@@ -10,6 +10,7 @@ import RideViewer from './RideViewer';
 import { 
   saveEmitterLogoToSupabase, 
   getEmpresaByRuc, 
+  getEmpresaForUser,
   fetchEmpresasFromSupabase, 
   fetchUsersFromSupabase, 
   fetchProformasFromSupabase 
@@ -93,11 +94,8 @@ export default function CompanyProfile({
           tenantData = await getEmpresaByRuc(empRuc);
         }
 
-        if (!tenantData && currentUser?.role?.toUpperCase() === 'SUPERADMIN') {
-          const allEmp = await fetchEmpresasFromSupabase();
-          if (allEmp.length > 0) {
-            tenantData = allEmp[0];
-          }
+        if (!tenantData) {
+          tenantData = await getEmpresaForUser(currentUser?.correo, empRuc);
         }
 
         // Fetch users for this company
