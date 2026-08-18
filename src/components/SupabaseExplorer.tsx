@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Database, RefreshCw, Search, Users, ShoppingBag, FileText, 
-  Layers, FolderArchive, Shield, AlertTriangle, Eye, FileCode, CheckCircle, Mail, Activity, Settings,
+  Layers, FolderArchive, Shield, ShieldCheck, AlertTriangle, Eye, FileCode, CheckCircle, Mail, Activity, Settings,
   Plus, Edit3, Trash2, Save, X, Globe, Key, Copy, Code, Check, Building2
 } from 'lucide-react';
 import { 
@@ -28,7 +28,9 @@ type TabType =
   | 'proformas' 
   | 'proforma_detalles' 
   | 'notas_credito' 
-  | 'nota_credito_detalles' 
+  | 'nota_credito_detalles'
+  | 'retenciones'
+  | 'retencion_detalles'
   | 'invitaciones' 
   | 'bitacora_actividades' 
   | 'storage_buckets';
@@ -243,6 +245,8 @@ export const SupabaseExplorer: React.FC = () => {
     { id: 'proforma_detalles', label: 'proforma_detalles', icon: <FileCode className="w-3.5 h-3.5" />, color: 'bg-sky-600' },
     { id: 'notas_credito', label: 'notas_credito', icon: <FileText className="w-3.5 h-3.5" />, color: 'bg-rose-600' },
     { id: 'nota_credito_detalles', label: 'nota_credito_detalles', icon: <FileCode className="w-3.5 h-3.5" />, color: 'bg-pink-600' },
+    { id: 'retenciones', label: 'retenciones', icon: <ShieldCheck className="w-3.5 h-3.5" />, color: 'bg-violet-600' },
+    { id: 'retencion_detalles', label: 'retencion_detalles', icon: <FileCode className="w-3.5 h-3.5" />, color: 'bg-purple-600' },
     { id: 'invitaciones', label: 'invitaciones', icon: <Mail className="w-3.5 h-3.5" />, color: 'bg-indigo-600' },
     { id: 'bitacora_actividades', label: 'bitacora_actividades', icon: <Activity className="w-3.5 h-3.5" />, color: 'bg-violet-600' },
     { id: 'storage_buckets', label: 'Storage Buckets', icon: <FolderArchive className="w-3.5 h-3.5" />, color: 'bg-rose-700' }
@@ -443,6 +447,9 @@ export const SupabaseExplorer: React.FC = () => {
               <option value={SUPABASE_BUCKETS.NOTAS_CREDITO_PDF}>notas-credito-pdf</option>
               <option value={SUPABASE_BUCKETS.NOTAS_CREDITO_XML_FIRMADOS}>notas-credito-xml-firmados</option>
               <option value={SUPABASE_BUCKETS.NOTAS_CREDITO_XML_SIN_FIRMAR}>notas-credito-xml-sin-firmar</option>
+              <option value={SUPABASE_BUCKETS.RETENCIONES_PDF}>retenciones-pdf</option>
+              <option value={SUPABASE_BUCKETS.RETENCIONES_XML_FIRMADOS}>retenciones-xml-firmados</option>
+              <option value={SUPABASE_BUCKETS.RETENCIONES_XML_SIN_FIRMAR}>retenciones-xml-sin-firmar</option>
               <option value={SUPABASE_BUCKETS.PROFORMAS_PDF}>proformas-pdf</option>
             </select>
           </div>

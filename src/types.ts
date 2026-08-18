@@ -255,3 +255,57 @@ export interface Proforma {
   usuarioCorreo?: string;
 }
 
+// =========================================================================
+// COMPROBANTES DE RETENCIÓN (SRI COMPROBANTE TIPO 07)
+// =========================================================================
+export type RetentionTaxType = '1' | '2' | '6'; // 1 = Renta, 2 = IVA, 6 = ISD
+
+export interface RetentionTax {
+  id: string;
+  codigo: RetentionTaxType; // 1 = Renta, 2 = IVA, 6 = ISD
+  codigoRetencion: string; // Ej: 303, 304, 312, 343, 3440, 701, 702, 703
+  descripcion: string;
+  baseImponible: number;
+  porcentajeRetener: number; // Ej: 10, 8, 1.75, 2.75, 3, 30, 70, 100
+  valorRetenido: number;
+  tipoComprobanteSustento?: string; // Ej: 01 (Factura)
+  numDocSustento?: string; // Ej: 001-001-000000123
+  fechaEmisionDocSustento?: string;
+}
+
+export interface RetentionSustento {
+  tipoComprobante: string; // '01' Factura, '03' Liq. Compra, '05' Nota Débito
+  numComprobante: string; // 001-001-000000001
+  fechaEmision: string; // YYYY-MM-DD
+  numAutorizacion?: string; // 49 dígitos o 10/37 dígitos
+  totalComprobante?: number;
+  totalSinImpuestos?: number;
+  importeTotal?: number;
+}
+
+export interface Retention {
+  id: string;
+  secuencial: string; // 9 dígitos (e.g., '000000001')
+  fechaEmision: string; // YYYY-MM-DD
+  periodoFiscal: string; // MM/YYYY (e.g. '08/2026')
+  proveedor: Client; // Sujeto retenido
+  sustento: RetentionSustento;
+  impuestos: RetentionTax[];
+  totalRetenido: number;
+  claveAcceso: string;
+  xml?: string;
+  xmlFirmado?: string;
+  estado: EstadoComprobante;
+  mensajesSRI: SriMessage[];
+  fechaAutorizacion?: string;
+  numeroAutorizacion?: string;
+  pdfUrl?: string; // URL en Bucket de Supabase
+  xmlUrl?: string; // URL en Bucket de Supabase
+  infoAdicional?: AdicionalInfo[];
+  creadorNombre?: string;
+  usuarioCorreo?: string;
+  empresaRuc?: string;
+  empresaNombre?: string;
+  createdAt?: string;
+}
+

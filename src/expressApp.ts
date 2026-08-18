@@ -2,6 +2,7 @@ import express from 'express';
 import { getCertificateInfo, signXmlDocument } from './sri/signer';
 import { enviarComprobanteSri, consultarAutorizacionSri } from './sri/soap';
 import { sendInvoiceEmail, testSmtpConnection } from './sri/emailService';
+import { generateInvoicePdfBuffer, generateRetentionPdfBuffer } from './sri/pdfGenerator';
 
 export const apiRouter = express.Router();
 
@@ -94,6 +95,38 @@ apiRouter.post(['/send-invoice-email', '/api/send-invoice-email'], async (req, r
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ status: 'error', message: err.message || String(err), emailSent: false });
+  }
+});
+
+// Endpoint to generate Retention RIDE PDF
+apiRouter.post(['/generate-retention-pdf', '/api/generate-retention-pdf'], async (req, res) => {
+  try {
+    const { retention, config } = req.body;
+    if (!retention) {
+      return res.status(400).json({ status: 'error', message: 'Faltan datos de la retención.' });
+    }
+    const pdfBuffer = await generateRetentionPdfBuffer(retention, config || {});
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=RET_${retention.secuencial || 'comprobante'}.pdf`);
+    res.send(pdfBuffer);
+  } catch (err: any) {
+    res.status(500).json({ status: 'error', message: err.message || 'Error generando PDF de retención.' });
+  }
+});
+
+// Endpoint to generate Invoice RIDE PDF
+apiRouter.post(['/generate-invoice-pdf', '/api/generate-invoice-pdf'], async (req, res) => {
+  try {
+    const { invoice, config } = req.body;
+    if (!invoice) {
+      return res.status(400).json({ status: 'error', message: 'Faltan datos de la factura.' });
+    }
+    const pdfBuffer = await generateInvoicePdfBuffer(invoice, config || {});
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=FAC_${invoice.secuencial || 'comprobante'}.pdf`);
+    res.send(pdfBuffer);
+  } catch (err: any) {
+    res.status(500).json({ status: 'error', message: err.message || 'Error generando PDF de factura.' });
   }
 });
 

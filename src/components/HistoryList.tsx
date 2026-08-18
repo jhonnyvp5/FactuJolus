@@ -588,7 +588,7 @@ export default function HistoryList({
                         <div className="flex gap-2 justify-end items-center">
                           
                           {/* 1-Click Sign and Send pipeline */}
-                          {(doc.estado === 'Borrador' || doc.estado === 'Devuelto') && (
+                          {(doc.estado === 'Borrador' || doc.estado === 'Devuelto' || doc.estado === 'Firmado') && (
                             <button
                               onClick={() => handleProcessDocument(doc)}
                               disabled={isProcessing}
@@ -599,7 +599,7 @@ export default function HistoryList({
                               ) : (
                                 <Send className="w-3 h-3" />
                               )}
-                              Firmar y Enviar
+                              {doc.estado === 'Firmado' ? 'Transmitir al SRI' : 'Firmar y Enviar'}
                             </button>
                           )}
 

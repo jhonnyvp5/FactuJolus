@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Client, Product, Invoice, CreditNote, Proforma, EmitterConfig, PortalUser, ActivityLog, Invitation, EmpresaTenant } from '../types';
+import { Client, Product, Invoice, CreditNote, Proforma, EmitterConfig, PortalUser, ActivityLog, Invitation, EmpresaTenant, Retention, RetentionTax } from '../types';
 
 // Default Supabase project URL & Anon Key provided by user
 const DEFAULT_SUPABASE_URL = 'https://zrbmybedhtziyvkwrvzl.supabase.co';
@@ -328,6 +328,51 @@ CREATE TABLE IF NOT EXISTS public.bitacora_actividades (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 14. TABLA DE COMPROBANTES DE RETENCIÓN (SRI TIPO 07)
+CREATE TABLE IF NOT EXISTS public.retenciones (
+    id TEXT PRIMARY KEY,
+    secuencial TEXT NOT NULL,
+    fecha_emision TEXT NOT NULL,
+    periodo_fiscal TEXT NOT NULL,
+    proveedor_datos JSONB NOT NULL,
+    sustento JSONB NOT NULL,
+    impuestos JSONB NOT NULL DEFAULT '[]'::jsonb,
+    total_retenido NUMERIC(14,4) NOT NULL DEFAULT 0,
+    clave_acceso TEXT UNIQUE,
+    xml TEXT,
+    xml_firmado TEXT,
+    estado TEXT DEFAULT 'BORRADOR',
+    mensajes_sri JSONB DEFAULT '[]'::jsonb,
+    fecha_autorizacion TEXT,
+    numero_autorizacion TEXT,
+    pdf_url TEXT,
+    xml_url TEXT,
+    info_adicional JSONB DEFAULT '[]'::jsonb,
+    creador_nombre TEXT,
+    usuario_correo TEXT,
+    empresa_ruc VARCHAR(20),
+    empresa_nombre TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 15. TABLA DE DETALLES DE RETENCIÓN (IMPUESTOS RETENIDOS)
+CREATE TABLE IF NOT EXISTS public.retencion_detalles (
+    id TEXT PRIMARY KEY,
+    retencion_id TEXT REFERENCES public.retenciones(id) ON DELETE CASCADE,
+    codigo_impuesto TEXT NOT NULL,
+    codigo_retencion TEXT NOT NULL,
+    descripcion TEXT,
+    base_imponible NUMERIC(14,4) NOT NULL DEFAULT 0,
+    porcentaje_retener NUMERIC(6,2) NOT NULL DEFAULT 0,
+    valor_retenido NUMERIC(14,4) NOT NULL DEFAULT 0,
+    tipo_doc_sustento TEXT,
+    num_doc_sustento TEXT,
+    fecha_doc_sustento TEXT,
+    usuario_correo TEXT,
+    empresa_ruc VARCHAR(20),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- =========================================================================
 -- ALTER MIGRATIONS PARA AGREGAR COLUMNAS DE EMPRESA A TABLAS EXISTENTES
 -- =========================================================================
@@ -380,6 +425,12 @@ ALTER TABLE IF EXISTS public.notas_credito ADD COLUMN IF NOT EXISTS empresa_nomb
 ALTER TABLE IF EXISTS public.nota_credito_detalles ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
 ALTER TABLE IF EXISTS public.nota_credito_detalles ADD COLUMN IF NOT EXISTS empresa_ruc VARCHAR(20);
 
+ALTER TABLE IF EXISTS public.retenciones ADD COLUMN IF NOT EXISTS pdf_url TEXT;
+ALTER TABLE IF EXISTS public.retenciones ADD COLUMN IF NOT EXISTS xml_url TEXT;
+ALTER TABLE IF EXISTS public.retenciones ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
+ALTER TABLE IF EXISTS public.retenciones ADD COLUMN IF NOT EXISTS empresa_ruc VARCHAR(20);
+ALTER TABLE IF EXISTS public.retenciones ADD COLUMN IF NOT EXISTS empresa_nombre TEXT;
+
 ALTER TABLE IF EXISTS public.usuarios_portal ADD COLUMN IF NOT EXISTS is_temp BOOLEAN DEFAULT FALSE;
 ALTER TABLE IF EXISTS public.usuarios_portal ADD COLUMN IF NOT EXISTS empresa_ruc VARCHAR(20);
 ALTER TABLE IF EXISTS public.usuarios_portal ADD COLUMN IF NOT EXISTS empresa_nombre TEXT;
@@ -401,18 +452,20 @@ CREATE INDEX IF NOT EXISTS idx_productos_empresa ON public.productos(empresa_ruc
 CREATE INDEX IF NOT EXISTS idx_facturas_empresa ON public.facturas(empresa_ruc);
 CREATE INDEX IF NOT EXISTS idx_proformas_empresa ON public.proformas(empresa_ruc);
 CREATE INDEX IF NOT EXISTS idx_nc_empresa ON public.notas_credito(empresa_ruc);
+CREATE INDEX IF NOT EXISTS idx_retenciones_empresa ON public.retenciones(empresa_ruc);
+CREATE INDEX IF NOT EXISTS idx_retenciones_clave ON public.retenciones(clave_acceso);
 
 -- =========================================================================
 -- HABILITACIÓN DE ROW LEVEL SECURITY (RLS)
 -- =========================================================================
-DO $$
+DO $
 DECLARE
     t text;
     tables text[] := ARRAY[
         'empresas_inquilinos', 'clientes', 'productos', 'emisor_config', 
         'facturas', 'factura_detalles', 'proformas', 'proforma_detalles', 
-        'notas_credito', 'nota_credito_detalles', 'usuarios_portal', 
-        'invitaciones', 'bitacora_actividades'
+        'notas_credito', 'nota_credito_detalles', 'retenciones', 'retencion_detalles',
+        'usuarios_portal', 'invitaciones', 'bitacora_actividades'
     ];
 BEGIN
     FOREACH t IN ARRAY tables LOOP
@@ -422,7 +475,7 @@ BEGIN
             EXECUTE format('CREATE POLICY %I ON public.%I FOR ALL USING (true) WITH CHECK (true);', 'Permitir anon ' || t, t);
         END IF;
     END LOOP;
-END $$;
+END $;
 
 -- USUARIO SUPERADMIN POR DEFECTO
 INSERT INTO public.usuarios_portal (id, usuario, correo, clave_hash, role, nombre, is_temp)
@@ -448,6 +501,9 @@ INSERT INTO storage.buckets (id, name, public) VALUES
     ('notas-credito-pdf', 'notas-credito-pdf', true),
     ('notas-credito-xml-firmados', 'notas-credito-xml-firmados', true),
     ('notas-credito-xml-sin-firmar', 'notas-credito-xml-sin-firmar', true),
+    ('retenciones-pdf', 'retenciones-pdf', true),
+    ('retenciones-xml-firmados', 'retenciones-xml-firmados', true),
+    ('retenciones-xml-sin-firmar', 'retenciones-xml-sin-firmar', true),
     ('proformas-pdf', 'proformas-pdf', true)
 ON CONFLICT (id) DO NOTHING;
 
@@ -1215,6 +1271,131 @@ export async function deleteCreditNoteFromSupabase(id: string): Promise<boolean>
 }
 
 // ==========================================
+// 8.1. COMPROBANTES DE RETENCIÓN (SRI TIPO 07)
+// ==========================================
+export async function fetchRetencionesFromSupabase(userEmail?: string, userRole?: string, empresaRuc?: string): Promise<Retention[] | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+
+  try {
+    const { data, error } = await supabase.from('retenciones').select('*').order('created_at', { ascending: false });
+    if (error || !data) return null;
+
+    const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
+    const filtered = !isSuperAdmin
+      ? data.filter(item => {
+          if (empresaRuc) return item.empresa_ruc === empresaRuc;
+          if (userEmail) return item.usuario_correo === userEmail;
+          return false;
+        })
+      : data;
+
+    return filtered.map(item => ({
+      id: item.id,
+      secuencial: item.secuencial,
+      fechaEmision: item.fecha_emision,
+      periodoFiscal: item.periodo_fiscal || '',
+      proveedor: typeof item.proveedor_datos === 'string' ? JSON.parse(item.proveedor_datos) : item.proveedor_datos,
+      sustento: typeof item.sustento === 'string' ? JSON.parse(item.sustento) : (item.sustento || {}),
+      impuestos: typeof item.impuestos === 'string' ? JSON.parse(item.impuestos) : (item.impuestos || []),
+      totalRetenido: Number(item.total_retenido) || 0,
+      claveAcceso: item.clave_acceso,
+      xml: item.xml,
+      xmlFirmado: item.xml_firmado,
+      estado: item.estado,
+      mensajesSRI: typeof item.mensajes_sri === 'string' ? JSON.parse(item.mensajes_sri) : (item.mensajes_sri || []),
+      fechaAutorizacion: item.fecha_autorizacion,
+      numeroAutorizacion: item.numero_autorizacion,
+      pdfUrl: item.pdf_url,
+      xmlUrl: item.xml_url,
+      infoAdicional: typeof item.info_adicional === 'string' ? JSON.parse(item.info_adicional) : (item.info_adicional || []),
+      creadorNombre: item.creador_nombre,
+      usuarioCorreo: item.usuario_correo,
+      empresaRuc: item.empresa_ruc,
+      empresaNombre: item.empresa_nombre,
+      createdAt: item.created_at
+    }));
+  } catch {
+    return null;
+  }
+}
+
+export async function saveRetencionToSupabase(ret: Retention, userEmail?: string): Promise<{ success: boolean; errorDetails?: string }> {
+  const payload: Record<string, any> = {
+    id: ret.id,
+    secuencial: ret.secuencial,
+    fecha_emision: ret.fechaEmision,
+    periodo_fiscal: ret.periodoFiscal,
+    proveedor_datos: ret.proveedor,
+    sustento: ret.sustento,
+    impuestos: ret.impuestos,
+    total_retenido: ret.totalRetenido,
+    clave_acceso: ret.claveAcceso,
+    xml: ret.xml,
+    xml_firmado: ret.xmlFirmado,
+    estado: ret.estado || 'BORRADOR',
+    mensajes_sri: ret.mensajesSRI,
+    fecha_autorizacion: ret.fechaAutorizacion,
+    numero_autorizacion: ret.numeroAutorizacion,
+    pdf_url: ret.pdfUrl,
+    xml_url: ret.xmlUrl,
+    info_adicional: ret.infoAdicional,
+    creador_nombre: ret.creadorNombre,
+    usuario_correo: userEmail || ret.usuarioCorreo || '',
+    empresa_ruc: ret.empresaRuc || '',
+    empresa_nombre: ret.empresaNombre || ''
+  };
+
+  const res = await safeUpsert('retenciones', payload, 'id');
+
+  // Insert details in retencion_detalles
+  if (ret.impuestos && ret.impuestos.length > 0) {
+    try {
+      const supabase = getSupabase();
+      if (supabase) {
+        await supabase.from('retencion_detalles').delete().eq('retencion_id', ret.id);
+      }
+      const lineItems = ret.impuestos.map((imp, idx) => ({
+        id: `${ret.id}-tax-${idx + 1}`,
+        retencion_id: ret.id,
+        codigo_impuesto: imp.codigo,
+        codigo_retencion: imp.codigoRetencion,
+        descripcion: imp.descripcion || '',
+        base_imponible: imp.baseImponible || 0,
+        porcentaje_retener: imp.porcentajeRetener || 0,
+        valor_retenido: imp.valorRetenido || 0,
+        tipo_doc_sustento: imp.tipoComprobanteSustento || ret.sustento?.tipoComprobante || '01',
+        num_doc_sustento: imp.numDocSustento || ret.sustento?.numComprobante || '',
+        fecha_doc_sustento: imp.fechaEmisionDocSustento || ret.sustento?.fechaEmision || ret.fechaEmision,
+        usuario_correo: userEmail || ret.usuarioCorreo || '',
+        empresa_ruc: ret.empresaRuc || ''
+      }));
+      for (const item of lineItems) {
+        await safeUpsert('retencion_detalles', item, 'id');
+      }
+    } catch (e) {
+      console.warn('Aviso guardando retencion_detalles:', e);
+    }
+  }
+
+  return res;
+}
+
+export async function deleteRetencionFromSupabase(id: string): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+
+  try {
+    await supabase.from('retencion_detalles').delete().eq('retencion_id', id);
+  } catch (e) {
+    console.warn('Aviso eliminando retencion_detalles:', e);
+  }
+
+  const { error } = await supabase.from('retenciones').delete().eq('id', id);
+  return !error;
+}
+
+// ==========================================
 // 10. USUARIOS_PORTAL
 // ==========================================
 export async function fetchUsersFromSupabase(userEmail?: string, userRole?: string, empresaRuc?: string): Promise<PortalUser[] | null> {
@@ -1694,7 +1875,7 @@ export function subscribeToSupabaseRealtime(onDataChanged: () => void): (() => v
 }
 
 // ==========================================
-// SUPABASE STORAGE BUCKETS (7 BUCKETS)
+// SUPABASE STORAGE BUCKETS (10 BUCKETS)
 // ==========================================
 export const SUPABASE_BUCKETS = {
   FACTURAS_PDF: 'facturas-pdf',
@@ -1703,6 +1884,9 @@ export const SUPABASE_BUCKETS = {
   NOTAS_CREDITO_PDF: 'notas-credito-pdf',
   NOTAS_CREDITO_XML_FIRMADOS: 'notas-credito-xml-firmados',
   NOTAS_CREDITO_XML_SIN_FIRMAR: 'notas-credito-xml-sin-firmar',
+  RETENCIONES_PDF: 'retenciones-pdf',
+  RETENCIONES_XML_FIRMADOS: 'retenciones-xml-firmados',
+  RETENCIONES_XML_SIN_FIRMAR: 'retenciones-xml-sin-firmar',
   PROFORMAS_PDF: 'proformas-pdf',
 } as const;
 
@@ -1795,6 +1979,27 @@ export async function uploadCreditNoteXmlSinFirmar(estab: string = '001', ptoEmi
   const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
   const cleanSeq = String(secuencial).padStart(9, '0');
   return uploadToSupabaseBucket(SUPABASE_BUCKETS.NOTAS_CREDITO_XML_SIN_FIRMAR, `NCT ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.xml`, xmlContent, 'application/xml');
+}
+
+export async function uploadRetentionPdf(estab: string = '001', ptoEmi: string = '001', secuencial: string, pdfContent: Blob | File) {
+  const cleanEstab = String(estab).padStart(3, '0');
+  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
+  const cleanSeq = String(secuencial).padStart(9, '0');
+  return uploadToSupabaseBucket(SUPABASE_BUCKETS.RETENCIONES_PDF, `RET ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.pdf`, pdfContent, 'application/pdf');
+}
+
+export async function uploadRetentionXmlFirmado(estab: string = '001', ptoEmi: string = '001', secuencial: string, xmlContent: string) {
+  const cleanEstab = String(estab).padStart(3, '0');
+  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
+  const cleanSeq = String(secuencial).padStart(9, '0');
+  return uploadToSupabaseBucket(SUPABASE_BUCKETS.RETENCIONES_XML_FIRMADOS, `RET ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}_firmado.xml`, xmlContent, 'application/xml');
+}
+
+export async function uploadRetentionXmlSinFirmar(estab: string = '001', ptoEmi: string = '001', secuencial: string, xmlContent: string) {
+  const cleanEstab = String(estab).padStart(3, '0');
+  const cleanPtoEmi = String(ptoEmi).padStart(3, '0');
+  const cleanSeq = String(secuencial).padStart(9, '0');
+  return uploadToSupabaseBucket(SUPABASE_BUCKETS.RETENCIONES_XML_SIN_FIRMAR, `RET ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.xml`, xmlContent, 'application/xml');
 }
 
 export async function uploadProformaPdf(clienteOEmpresa: string, fecha: string, pdfContent: Blob | File) {

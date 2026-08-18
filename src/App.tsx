@@ -13,6 +13,7 @@ import ProformaForm from './components/ProformaForm';
 import ClientCatalog from './components/ClientCatalog';
 import TenantManagement from './components/TenantManagement';
 import { SupabaseExplorer } from './components/SupabaseExplorer';
+import RetentionManager from './components/RetentionManager';
 import { logActivity } from './lib/activityLogger';
 import { 
   fetchClientsFromSupabase, saveClientToSupabase, deleteClientFromSupabase,
@@ -80,13 +81,13 @@ const SEED_PRODUCTS: Product[] = [
 ];
 
 export default function App() {
-  // Navigation tabs 'history' | 'new-invoice' | 'new-nc' | 'products' | 'profile' | 'settings' | 'users' | 'proformas' | 'clients' | 'tenants' | 'supabase'
-  const [activeTab, setActiveTab ] = useState<'history' | 'new-invoice' | 'new-nc' | 'products' | 'profile' | 'settings' | 'users' | 'proformas' | 'clients' | 'tenants' | 'supabase'>('history');
+  // Navigation tabs 'history' | 'new-invoice' | 'new-nc' | 'retentions' | 'products' | 'profile' | 'settings' | 'users' | 'proformas' | 'clients' | 'tenants' | 'supabase'
+  const [activeTab, setActiveTab ] = useState<'history' | 'new-invoice' | 'new-nc' | 'retentions' | 'products' | 'profile' | 'settings' | 'users' | 'proformas' | 'clients' | 'tenants' | 'supabase'>('history');
   
   // Dynamic USER role permissions state
   const [userPermissions, setUserPermissions] = useState<string[]>(() => {
     const saved = localStorage.getItem('sri_portal_user_permissions');
-    return saved ? JSON.parse(saved) : ['history', 'new-invoice', 'products', 'proformas', 'clients'];
+    return saved ? JSON.parse(saved) : ['history', 'new-invoice', 'retentions', 'products', 'proformas', 'clients'];
   });
 
   // User Session Management
@@ -359,6 +360,13 @@ export default function App() {
         const emp = await getEmpresaByRuc(currentUser.empresaRuc);
         if (emp && isMounted) {
           setCurrentEmpresa(emp);
+          if (currentUser?.role?.toUpperCase() !== 'SUPERADMIN' && currentUser?.correo?.toLowerCase() !== 'jhonnyvp5@gmail.com') {
+            if (emp.estado === 'SUSPENDIDO' || new Date(emp.fechaExpiracion) < new Date()) {
+              setInactivityNotice(`El servicio de la empresa "${emp.nombreComercial || emp.razonSocial}" expiró el ${emp.fechaExpiracion} o está suspendido. Por favor contacte al Administrador.`);
+              setCurrentUser(null);
+              localStorage.removeItem('sri_portal_active_user');
+            }
+          }
         }
       }
 
@@ -524,7 +532,16 @@ export default function App() {
       empresaRuc: currentUser?.empresaRuc || currentEmpresa?.ruc,
       empresaNombre: currentUser?.empresaNombre || currentEmpresa?.nombreComercial || currentEmpresa?.razonSocial || config.nombreComercial || config.razonSocial
     };
-    const updated = [invoiceWithCreator, ...invoices];
+    
+    // Check if an invoice with the same ID or same secuencial already exists in state
+    const existingIndex = invoices.findIndex(i => i.id === invoice.id || (i.secuencial === invoice.secuencial && i.estado === 'Borrador'));
+    let updated: Invoice[];
+    if (existingIndex >= 0) {
+      updated = [...invoices];
+      updated[existingIndex] = invoiceWithCreator;
+    } else {
+      updated = [invoiceWithCreator, ...invoices];
+    }
     setInvoices(updated);
     const invoicesKey = getUserStorageKey(STORAGE_KEYS.INVOICES, currentUser?.correo);
     localStorage.setItem(invoicesKey, JSON.stringify(updated));
@@ -595,7 +612,16 @@ export default function App() {
       empresaRuc: currentUser?.empresaRuc || currentEmpresa?.ruc,
       empresaNombre: currentUser?.empresaNombre || currentEmpresa?.nombreComercial || currentEmpresa?.razonSocial || config.nombreComercial || config.razonSocial
     };
-    const updated = [ncWithCreator, ...creditNotes];
+
+    // Check if a credit note with the same ID or same secuencial already exists in state
+    const existingIndex = creditNotes.findIndex(c => c.id === nc.id || (c.secuencial === nc.secuencial && c.estado === 'Borrador'));
+    let updated: CreditNote[];
+    if (existingIndex >= 0) {
+      updated = [...creditNotes];
+      updated[existingIndex] = ncWithCreator;
+    } else {
+      updated = [ncWithCreator, ...creditNotes];
+    }
     setCreditNotes(updated);
     const cnKey = getUserStorageKey(STORAGE_KEYS.CREDIT_NOTES, currentUser?.correo);
     localStorage.setItem(cnKey, JSON.stringify(updated));
@@ -886,6 +912,19 @@ export default function App() {
                 </button>
               )}
 
+              {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('retentions')) && (
+                <button
+                  onClick={() => {
+                    setActiveTab('retentions');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer ${activeTab === 'retentions' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
+                >
+                  <ShieldCheck className="w-4 h-4 text-violet-500" />
+                  Retenciones
+                </button>
+              )}
+
               {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('proformas')) && (
                 <button
                   onClick={() => {
@@ -1045,6 +1084,16 @@ export default function App() {
             </button>
           )}
 
+          {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('retentions')) && (
+            <button
+              onClick={() => setActiveTab('retentions')}
+              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'retentions' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
+            >
+              <ShieldCheck className="w-4 h-4 shrink-0 text-violet-400" />
+              <span>Retenciones</span>
+            </button>
+          )}
+
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('proformas')) && (
             <button
               onClick={() => setActiveTab('proformas')}
@@ -1175,6 +1224,17 @@ export default function App() {
             />
           )}
 
+          {activeTab === 'retentions' && (
+            <RetentionManager
+              config={config}
+              clients={clients}
+              invoices={invoices}
+              currentUser={currentUser}
+              currentEmpresa={currentEmpresa}
+              onAddClient={handleAddClient}
+            />
+          )}
+
           {activeTab === 'proformas' && (
             <ProformaForm
               config={config}
@@ -1285,7 +1345,7 @@ export default function App() {
       {/* FOOTER BAR (HIDDEN IN PRINT) */}
       <footer className="bg-white border-t border-gray-100 dark:bg-zinc-900 dark:border-zinc-850 px-6 py-4 mt-auto text-center text-xs text-gray-400 print:hidden">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-          <p>© {new Date().getFullYear()} SRI Integrador de Facturas y Notas de Crédito Ecuador - J&V Soluciones.</p>
+          <p>© 2026 ORIONNX • Sistema Tributario SRI</p>
           <p className="flex items-center gap-1">
             <ShieldCheck className="w-4 h-4 text-emerald-500" />
             XAdES-BES Firmado y Conexiones Offline Oficial de Ecuador SRI habilitadas.

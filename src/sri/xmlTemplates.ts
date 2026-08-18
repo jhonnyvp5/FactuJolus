@@ -1,4 +1,4 @@
-import { EmitterConfig, Invoice, CreditNote, InvoiceDetail, CreditNoteDetail } from '../types';
+import { EmitterConfig, Invoice, CreditNote, InvoiceDetail, CreditNoteDetail, Retention } from '../types';
 
 // Helper to escape XML special characters
 function escapeXml(unsafe: string): string {
@@ -378,4 +378,91 @@ export function generateCreditNoteXml(creditNote: CreditNote, config: EmitterCon
   <detalles>${detailsXml}
   </detalles>${additionalInfoXml}
 </notaCredito>`;
+}
+
+/**
+ * Generates the unsigned XML for an Ecuadorian Comprobante de Retención (version 1.0.0)
+ */
+export function generateRetentionXml(retention: Retention, config: EmitterConfig): string {
+  const fechaEmiFormatted = formatDateDDMMYYYY(retention.fechaEmision);
+
+  // Taxes XML
+  const taxesXml = (retention.impuestos || []).map(tax => {
+    const docSustento = tax.numDocSustento || retention.sustento?.numComprobante || '001001000000001';
+    const numDocClean = docSustento.replace(/[^0-9]/g, '').padStart(15, '0');
+    const fechaDocSustentoFormatted = formatDateDDMMYYYY(tax.fechaEmisionDocSustento || retention.sustento?.fechaEmision || retention.fechaEmision);
+    const tipoDocSustento = tax.tipoComprobanteSustento || retention.sustento?.tipoComprobante || '01';
+
+    return `
+    <impuesto>
+      <codigo>${tax.codigo}</codigo>
+      <codigoRetencion>${escapeXml(tax.codigoRetencion)}</codigoRetencion>
+      <baseImponible>${formatNum(tax.baseImponible)}</baseImponible>
+      <porcentajeRetener>${formatNum(tax.porcentajeRetener)}</porcentajeRetener>
+      <valorRetenido>${formatNum(tax.valorRetenido)}</valorRetenido>
+      <codDocSustento>${tipoDocSustento}</codDocSustento>
+      <numDocSustento>${numDocClean}</numDocSustento>
+      <fechaEmisionDocSustento>${fechaDocSustentoFormatted}</fechaEmisionDocSustento>
+    </impuesto>`;
+  }).join('');
+
+  // Additional info
+  let additionalInfoXml = '';
+  if (retention.infoAdicional && retention.infoAdicional.length > 0) {
+    additionalInfoXml = `
+  <infoAdicional>${retention.infoAdicional.map(info => `
+    <campoAdicional nombre="${escapeXml(info.nombre)}">${escapeXml(info.valor)}</campoAdicional>`).join('')}
+  </infoAdicional>`;
+  }
+
+  let regimenCommentsXml = '';
+  if (config.regimen === 'RIMPE_POPULAR') {
+    regimenCommentsXml = `\n    <contribuyenteRimpe>CONTRIBUYENTE NEGOCIO POPULAR - RÉGIMEN RIMPE</contribuyenteRimpe>`;
+  } else if (config.regimen === 'RIMPE_EMPRENDEDOR') {
+    regimenCommentsXml = `\n    <contribuyenteRimpe>CONTRIBUYENTE RÉGIMEN RIMPE</contribuyenteRimpe>`;
+  }
+
+  let agenteRetencionXml = '';
+  if (config.agenteRetencion) {
+    agenteRetencionXml = `\n    <agenteRetencion>${escapeXml(config.agenteRetencion)}</agenteRetencion>`;
+  }
+
+  const estabFormatted = (config.codEstablecimiento || '001').toString().trim().padStart(3, '0');
+  const ptoEmiFormatted = (config.codPuntoEmision || '001').toString().trim().padStart(3, '0');
+  const secuencialFormatted = (retention.secuencial || '1').toString().trim().padStart(9, '0');
+  const rucFormatted = (config.ruc || '1792451083001').toString().trim().padStart(13, '0');
+  const dirMatrizClean = escapeXml(config.dirMatriz || config.dirEstablecimiento || 'Quito - Ecuador');
+  const dirEstabClean = escapeXml(config.dirEstablecimiento || config.dirMatriz || 'Quito - Ecuador');
+  const tipoIdClean = retention.proveedor?.tipoIdentificacion || '04';
+  const idSujetoClean = escapeXml(retention.proveedor?.identificacion || '9999999999999');
+  const razonSocialClean = escapeXml(retention.proveedor?.nombre || 'PROVEEDOR');
+  const periodoFiscal = retention.periodoFiscal || `${retention.fechaEmision.split('-')[1]}/${retention.fechaEmision.split('-')[0]}`;
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<comprobanteRetencion id="comprobante" version="1.0.0">
+  <infoTributaria>
+    <ambiente>${config.ambiente || '1'}</ambiente>
+    <tipoEmision>1</tipoEmision>
+    <razonSocial>${escapeXml(config.razonSocial || 'EMISOR')}</razonSocial>
+    <nombreComercial>${escapeXml(config.nombreComercial || config.razonSocial || 'EMISOR')}</nombreComercial>
+    <ruc>${rucFormatted}</ruc>
+    <claveAcceso>${retention.claveAcceso}</claveAcceso>
+    <codDoc>07</codDoc>
+    <estab>${estabFormatted}</estab>
+    <ptoEmi>${ptoEmiFormatted}</ptoEmi>
+    <secuencial>${secuencialFormatted}</secuencial>
+    <dirMatriz>${dirMatrizClean}</dirMatriz>${agenteRetencionXml}${regimenCommentsXml}
+  </infoTributaria>
+  <infoCompRetencion>
+    <fechaEmision>${fechaEmiFormatted}</fechaEmision>
+    <dirEstablecimiento>${dirEstabClean}</dirEstablecimiento>${config.contribuyenteEspecial ? `\n    <contribuyenteEspecial>${escapeXml(config.contribuyenteEspecial)}</contribuyenteEspecial>` : ''}
+    <obligadoContabilidad>${config.obligadoContabilidad ? 'SI' : 'NO'}</obligadoContabilidad>
+    <tipoIdentificacionSujetoRetenido>${tipoIdClean}</tipoIdentificacionSujetoRetenido>
+    <razonSocialSujetoRetenido>${razonSocialClean}</razonSocialSujetoRetenido>
+    <identificacionSujetoRetenido>${idSujetoClean}</identificacionSujetoRetenido>
+    <periodoFiscal>${periodoFiscal}</periodoFiscal>
+  </infoCompRetencion>
+  <impuestos>${taxesXml}
+  </impuestos>${additionalInfoXml}
+</comprobanteRetencion>`;
 }

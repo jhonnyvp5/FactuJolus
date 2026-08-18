@@ -56,7 +56,7 @@ export function generateClaveAcceso({
   tipoEmision = '1'
 }: {
   fechaEmision: string; // YYYY-MM-DD
-  tipoComprobante: '01' | '04';
+  tipoComprobante: '01' | '04' | '07' | string;
   ruc: string;
   ambiente: '1' | '2';
   establecimiento: string;

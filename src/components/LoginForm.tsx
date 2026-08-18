@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { PortalUser, Invitation } from '../types';
 import { logActivity } from '../lib/activityLogger';
-import { authenticateUserInSupabase, upsertUserInSupabase } from '../lib/supabase';
+import { authenticateUserInSupabase, upsertUserInSupabase, getEmpresaByRuc } from '../lib/supabase';
 import SriNewsWidget from './SriNewsWidget';
 
 interface LoginFormProps {
@@ -76,6 +76,26 @@ export default function LoginForm({ onLoginSuccess, adminEmail, inactivityNotice
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
 
+  const checkTenantAccess = async (user: PortalUser): Promise<boolean> => {
+    if (user.role?.toUpperCase() === 'SUPERADMIN' || user.correo?.toLowerCase() === 'jhonnyvp5@gmail.com') {
+      return true;
+    }
+    if (user.empresaRuc) {
+      const emp = await getEmpresaByRuc(user.empresaRuc);
+      if (emp) {
+        if (emp.estado === 'SUSPENDIDO') {
+          setError(`❌ Acceso Bloqueado: La empresa "${emp.nombreComercial || emp.razonSocial}" está SUSPENDIDA. Solo el SUPERADMIN puede acceder.`);
+          return false;
+        }
+        if (new Date(emp.fechaExpiracion) < new Date()) {
+          setError(`❌ Acceso Bloqueado: El servicio de la empresa "${emp.nombreComercial || emp.razonSocial}" expiró el ${emp.fechaExpiracion}. Solo el SUPERADMIN puede acceder.`);
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -96,6 +116,12 @@ export default function LoginForm({ onLoginSuccess, adminEmail, inactivityNotice
       let registeredUsers: PortalUser[] = savedUsersRaw ? JSON.parse(savedUsersRaw) : [];
 
       if (supaUser) {
+        const canAccess = await checkTenantAccess(supaUser);
+        if (!canAccess) {
+          setIsLoggingIn(false);
+          return;
+        }
+
         const idx = registeredUsers.findIndex(u => u.correo.toLowerCase() === supaUser.correo.toLowerCase());
         if (idx >= 0) {
           registeredUsers[idx] = supaUser;
@@ -115,6 +141,12 @@ export default function LoginForm({ onLoginSuccess, adminEmail, inactivityNotice
 
       if (foundUser) {
         if (foundUser.clave === password) {
+          const canAccess = await checkTenantAccess(foundUser);
+          if (!canAccess) {
+            setIsLoggingIn(false);
+            return;
+          }
+
           logActivity(foundUser, 'Inicio de Sesión', `Inicio de sesión exitoso como ${foundUser.role}.`);
           setIsLoggingIn(false);
           onLoginSuccess(foundUser);
@@ -137,6 +169,12 @@ export default function LoginForm({ onLoginSuccess, adminEmail, inactivityNotice
           nombre: isSuper ? 'Jhonny Vargas' : cleanEmail.split('@')[0].toUpperCase(),
           fechaRegistro: new Date().toISOString()
         };
+
+        const canAccess = await checkTenantAccess(adminUser);
+        if (!canAccess) {
+          setIsLoggingIn(false);
+          return;
+        }
 
         logActivity(adminUser, 'Inicio de Sesión', `Acceso al portal en modo ${adminUser.role.toLowerCase()}.`);
         setIsLoggingIn(false);
@@ -218,6 +256,12 @@ export default function LoginForm({ onLoginSuccess, adminEmail, inactivityNotice
 
     logActivity(newUser, 'Aceptación de Invitación', `Operador ${newUser.nombre} (${newUser.role}) ha establecido su contraseña.`);
     logActivity(newUser, 'Inicio de Sesión', 'Inicio de sesión automático tras activar su cuenta.');
+
+    const canAccess = await checkTenantAccess(newUser);
+    if (!canAccess) {
+      setIsLoggingIn(false);
+      return;
+    }
 
     onLoginSuccess(newUser);
   };
