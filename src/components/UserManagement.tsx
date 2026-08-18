@@ -24,6 +24,7 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
   // Filters
+  const [filterUserEmpresa, setFilterUserEmpresa] = useState<string>('ALL');
   const [filterInviteEmpresa, setFilterInviteEmpresa] = useState<string>('ALL');
   const [filterLogEmpresa, setFilterLogEmpresa] = useState<string>('ALL');
   const [searchLogQuery, setSearchLogQuery] = useState<string>('');
@@ -359,7 +360,13 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
   // Filtered Users: Non-superadmins MUST NEVER see SUPERADMIN users or users of other companies
   const filteredUsers = useMemo(() => {
     if (isSuperAdmin) {
-      return users;
+      if (filterUserEmpresa === 'ALL') return users;
+      if (filterUserEmpresa === 'GLOBAL') return users.filter(u => !u.empresaRuc);
+      const targetEmp = empresas.find(e => e.ruc === filterUserEmpresa);
+      return users.filter(u => 
+        u.empresaRuc === filterUserEmpresa || 
+        (targetEmp && u.correo.toLowerCase() === targetEmp.adminCorreo.toLowerCase())
+      );
     }
     return users.filter(u => {
       if ((u.role || '').toUpperCase() === 'SUPERADMIN') return false;
@@ -368,7 +375,17 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
       }
       return u.creadorCorreo === currentUser.correo || u.correo === currentUser.correo;
     });
-  }, [users, isSuperAdmin, currentUser]);
+  }, [users, isSuperAdmin, filterUserEmpresa, empresas, currentUser]);
+
+  // Specific count of users belonging strictly to currentEmpresa
+  const empresaUsersCount = useMemo(() => {
+    if (!currentEmpresa) return 0;
+    return users.filter(u => {
+      if (u.empresaRuc && u.empresaRuc === currentEmpresa.ruc) return true;
+      if (u.correo.toLowerCase() === currentEmpresa.adminCorreo.toLowerCase()) return true;
+      return false;
+    }).length;
+  }, [users, currentEmpresa]);
 
   // Filtered Invitations: Non-superadmins MUST NEVER see SUPERADMIN invitations or invitations of other companies
   const filteredInvitations = useMemo(() => {
@@ -442,7 +459,7 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
               </div>
               <div className="text-[11px] text-blue-700 dark:text-blue-300 flex items-center gap-3">
                 <span>RUC: <strong className="font-mono">{currentEmpresa.ruc}</strong></span>
-                <span>• Usuarios: <strong>{filteredUsers.length} / {currentEmpresa.limiteUsuarios || 3}</strong></span>
+                <span>• Usuarios: <strong>{empresaUsersCount} / {currentEmpresa.limiteUsuarios || 3}</strong></span>
                 <span>• Expira: <strong>{currentEmpresa.fechaExpiracion}</strong></span>
               </div>
             </div>
@@ -706,14 +723,41 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
             )}
 
             {/* REGISTERED USERS LIST */}
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3 dark:border-zinc-800 pt-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-100 pb-3 dark:border-zinc-800 pt-4 gap-2">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-emerald-500" />
-                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Usuarios con Acceso Permanente</h3>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white">Usuarios con Acceso Permanente</h3>
+                  <p className="text-[10px] text-gray-450 dark:text-zinc-400">
+                    {isSuperAdmin ? 'Operadores y administradores con credenciales activas en el portal.' : `Usuarios registrados para ${currentUser.empresaNombre || 'su empresa'}.`}
+                  </p>
+                </div>
               </div>
-              <span className="px-2.5 py-0.5 font-mono text-[10px] leading-none bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-full font-bold">
-                {filteredUsers.length} Usuarios
-              </span>
+
+              <div className="flex items-center gap-2">
+                {isSuperAdmin && empresas.length > 0 && (
+                  <select
+                    value={filterUserEmpresa}
+                    onChange={(e) => setFilterUserEmpresa(e.target.value)}
+                    className="px-2.5 py-1 text-[11px] font-semibold bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-gray-700 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="ALL">🏢 Todas las Empresas ({users.length})</option>
+                    <option value="GLOBAL">🌐 Sin Empresa / Global</option>
+                    {empresas.map(emp => {
+                      const countForEmp = users.filter(u => u.empresaRuc === emp.ruc || u.correo.toLowerCase() === emp.adminCorreo.toLowerCase()).length;
+                      return (
+                        <option key={emp.id} value={emp.ruc}>
+                          {emp.nombreComercial || emp.razonSocial} ({countForEmp})
+                        </option>
+                      );
+                    })}
+                  </select>
+                )}
+
+                <span className="px-2.5 py-0.5 font-mono text-[10px] leading-none bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-full font-bold">
+                  {filteredUsers.length} Usuarios
+                </span>
+              </div>
             </div>
 
             {filteredUsers.length === 0 ? (

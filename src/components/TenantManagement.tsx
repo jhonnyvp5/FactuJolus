@@ -1,11 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, Plus, Edit2, Trash2, Shield, Calendar, Layers, Users, FileCheck2, AlertCircle, CheckCircle2, Search, X, Check, ArrowRight, ShieldCheck, Lock } from 'lucide-react';
-import { EmpresaTenant, PortalUser } from '../types';
+import { 
+  Building2, Plus, Edit2, Trash2, Shield, Calendar, Layers, Users, FileCheck2, 
+  AlertCircle, CheckCircle2, Search, X, Check, ArrowRight, ShieldCheck, Lock,
+  ChevronDown, ChevronUp, FileText, Receipt, Percent, KeyRound, ExternalLink,
+  Briefcase, Mail, MapPin, Globe, Sparkles, Phone, FileSpreadsheet
+} from 'lucide-react';
+import { EmpresaTenant, PortalUser, Invoice, CreditNote, Proforma, Retention, EmitterConfig } from '../types';
 import { 
   fetchEmpresasFromSupabase, 
   saveEmpresaToSupabase, 
   deleteEmpresaFromSupabase,
-  fetchUsersFromSupabase
+  fetchUsersFromSupabase,
+  fetchInvoicesFromSupabase,
+  fetchCreditNotesFromSupabase,
+  fetchRetencionesFromSupabase,
+  fetchProformasFromSupabase,
+  fetchEmitterConfigFromSupabase
 } from '../lib/supabase';
 import { logActivity } from '../lib/activityLogger';
 
@@ -17,6 +27,13 @@ interface TenantManagementProps {
 export default function TenantManagement({ currentUser, onCompanySelected }: TenantManagementProps) {
   const [empresas, setEmpresas] = useState<EmpresaTenant[]>([]);
   const [portalUsers, setPortalUsers] = useState<PortalUser[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
+  const [retenciones, setRetenciones] = useState<Retention[]>([]);
+  const [proformas, setProformas] = useState<Proforma[]>([]);
+  const [emitterConfigs, setEmitterConfigs] = useState<Record<string, EmitterConfig>>({});
+  
+  const [expandedEmpresaId, setExpandedEmpresaId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   
@@ -50,14 +67,41 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
   const loadData = async () => {
     setLoading(true);
     try {
-      const [empList, userList] = await Promise.all([
+      const [empList, userList, invList, cnList, retList, profList] = await Promise.all([
         fetchEmpresasFromSupabase(),
-        fetchUsersFromSupabase(undefined, 'SUPERADMIN')
+        fetchUsersFromSupabase(undefined, 'SUPERADMIN'),
+        fetchInvoicesFromSupabase(undefined, 'SUPERADMIN'),
+        fetchCreditNotesFromSupabase(undefined, 'SUPERADMIN'),
+        fetchRetencionesFromSupabase(undefined, 'SUPERADMIN'),
+        fetchProformasFromSupabase(undefined, 'SUPERADMIN')
       ]);
-      setEmpresas(empList);
+      
+      const loadedEmps = empList || [];
+      setEmpresas(loadedEmps);
       if (userList) setPortalUsers(userList);
+      if (invList) setInvoices(invList);
+      if (cnList) setCreditNotes(cnList);
+      if (retList) setRetenciones(retList);
+      if (profList) setProformas(profList);
+
+      // Load emitter configurations for each company
+      const configsMap: Record<string, EmitterConfig> = {};
+      await Promise.all(
+        loadedEmps.map(async (emp) => {
+          try {
+            const cfg = await fetchEmitterConfigFromSupabase(emp.adminCorreo, emp.ruc);
+            if (cfg) {
+              configsMap[emp.ruc] = cfg;
+            }
+          } catch (e) {
+            console.warn(`Aviso cargando config emisor para RUC ${emp.ruc}:`, e);
+          }
+        })
+      );
+      setEmitterConfigs(configsMap);
+
     } catch (e) {
-      console.warn('Error cargando inquilinos:', e);
+      console.warn('Error cargando inquilinos y comprobantes:', e);
     } finally {
       setLoading(false);
     }
@@ -247,25 +291,58 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {filteredEmpresas.map((emp) => {
             const isExpired = new Date(emp.fechaExpiracion) < new Date();
-            const vouchersUsed = emp.comprobantesEmitidos || 0;
+            const isExpanded = expandedEmpresaId === emp.id;
+
+            // 1. Dynamic calculation of Vouchers issued for this company
+            const empInvoices = invoices.filter(i => 
+              (i.empresaRuc && i.empresaRuc === emp.ruc) ||
+              (i.usuarioCorreo && emp.adminCorreo && i.usuarioCorreo.toLowerCase() === emp.adminCorreo.toLowerCase())
+            );
+            const empCreditNotes = creditNotes.filter(cn => 
+              (cn.empresaRuc && cn.empresaRuc === emp.ruc) ||
+              (cn.usuarioCorreo && emp.adminCorreo && cn.usuarioCorreo.toLowerCase() === emp.adminCorreo.toLowerCase())
+            );
+            const empRetenciones = retenciones.filter(r => 
+              (r.empresaRuc && r.empresaRuc === emp.ruc) ||
+              (r.usuarioCorreo && emp.adminCorreo && r.usuarioCorreo.toLowerCase() === emp.adminCorreo.toLowerCase())
+            );
+            const empProformas = proformas.filter(p => 
+              (p.empresaRuc && p.empresaRuc === emp.ruc) ||
+              (p.usuarioCorreo && emp.adminCorreo && p.usuarioCorreo.toLowerCase() === emp.adminCorreo.toLowerCase())
+            );
+
+            const calculatedVouchersCount = empInvoices.length + empCreditNotes.length + empRetenciones.length + empProformas.length;
+            const vouchersUsed = Math.max(emp.comprobantesEmitidos || 0, calculatedVouchersCount);
             const vouchersLimit = emp.limiteComprobantes || 100;
             const vouchersPercent = Math.min(100, Math.round((vouchersUsed / vouchersLimit) * 100));
-            const usersUsed = emp.usuariosRegistrados || 0;
+
+            // 2. Dynamic calculation of Users for this company
+            const empUsers = portalUsers.filter(u => 
+              (u.empresaRuc && u.empresaRuc === emp.ruc) ||
+              (u.correo && emp.adminCorreo && u.correo.toLowerCase() === emp.adminCorreo.toLowerCase())
+            );
+            const usersUsed = Math.max(empUsers.length, 1);
             const usersLimit = emp.limiteUsuarios || 3;
+            const usersPercent = Math.min(100, Math.round((usersUsed / usersLimit) * 100));
+
+            // Config emisor for accordion
+            const configEmisor = emitterConfigs[emp.ruc];
 
             return (
               <div 
                 key={emp.id}
-                className={`bg-white dark:bg-zinc-900 rounded-xl border p-5 transition hover:shadow-md flex flex-col justify-between ${
+                className={`bg-white dark:bg-zinc-900 rounded-xl border transition duration-200 flex flex-col justify-between overflow-hidden ${
                   emp.estado === 'SUSPENDIDO' || isExpired
-                    ? 'border-amber-300 dark:border-amber-800/60 bg-amber-50/10'
-                    : 'border-gray-200 dark:border-zinc-800'
+                    ? 'border-amber-300 dark:border-amber-800/60 bg-amber-50/10 shadow-xs'
+                    : isExpanded
+                    ? 'border-indigo-400 dark:border-indigo-600 shadow-md ring-1 ring-indigo-400/20'
+                    : 'border-gray-200 dark:border-zinc-800 hover:border-gray-300 dark:hover:border-zinc-700 shadow-xs'
                 }`}
               >
-                <div>
+                <div className="p-5">
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-base font-bold text-gray-900 dark:text-white leading-snug">
                           {emp.razonSocial}
                         </h3>
@@ -278,11 +355,11 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
                         </span>
                       </div>
                       {emp.nombreComercial && emp.nombreComercial !== emp.razonSocial && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-0.5">
                           {emp.nombreComercial}
                         </p>
                       )}
-                      <p className="text-xs text-blue-600 dark:text-blue-400 font-mono mt-0.5">
+                      <p className="text-xs text-indigo-600 dark:text-indigo-400 font-mono mt-0.5 font-bold">
                         RUC: {emp.ruc}
                       </p>
                     </div>
@@ -311,7 +388,7 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
                   <div className="grid grid-cols-2 gap-2 text-xs py-2 border-t border-b border-gray-100 dark:border-zinc-800/80 my-3">
                     <div>
                       <span className="text-gray-400 block text-[10px] uppercase font-bold">Admin Principal</span>
-                      <span className="text-gray-700 dark:text-gray-200 font-medium truncate block">
+                      <span className="text-gray-700 dark:text-gray-200 font-medium truncate block" title={emp.adminCorreo}>
                         {emp.adminCorreo}
                       </span>
                     </div>
@@ -323,61 +400,230 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
                     </div>
                   </div>
 
-                  {/* CONSUMPTION & LIMITS BAR */}
+                  {/* CONSUMPTION & LIMITS BAR (DYNAMICALLY CALCULATED) */}
                   <div className="space-y-3 pt-1">
                     <div>
                       <div className="flex justify-between text-xs mb-1">
-                        <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                        <span className="text-gray-600 dark:text-gray-300 font-medium flex items-center gap-1.5">
                           <FileCheck2 className="w-3.5 h-3.5 text-blue-500" />
                           Comprobantes Emitidos
                         </span>
-                        <span className="font-semibold text-gray-900 dark:text-white">
-                          {vouchersUsed} / {vouchersLimit} ({vouchersPercent}%)
+                        <span className="font-bold text-gray-900 dark:text-white font-mono">
+                          {vouchersUsed} / {vouchersLimit} <span className="text-gray-500 font-sans font-normal">({vouchersPercent}%)</span>
                         </span>
                       </div>
-                      <div className="w-full bg-gray-100 dark:bg-zinc-800 h-2 rounded-full overflow-hidden">
+                      <div className="w-full bg-gray-100 dark:bg-zinc-800 h-2.5 rounded-full overflow-hidden">
                         <div 
-                          className={`h-full transition-all duration-300 ${
+                          className={`h-full transition-all duration-500 rounded-full ${
                             vouchersPercent >= 90 
                               ? 'bg-rose-500' 
                               : vouchersPercent >= 70 
                               ? 'bg-amber-500' 
                               : 'bg-blue-600'
                           }`}
-                          style={{ width: `${vouchersPercent}%` }}
+                          style={{ width: `${Math.max(vouchersPercent, vouchersUsed > 0 ? 4 : 0)}%` }}
                         />
                       </div>
                     </div>
 
                     <div>
                       <div className="flex justify-between text-xs mb-1">
-                        <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                        <span className="text-gray-600 dark:text-gray-300 font-medium flex items-center gap-1.5">
                           <Users className="w-3.5 h-3.5 text-indigo-500" />
                           Usuarios del Equipo
                         </span>
-                        <span className="font-semibold text-gray-900 dark:text-white">
-                          {usersUsed} / {usersLimit}
+                        <span className="font-bold text-gray-900 dark:text-white font-mono">
+                          {usersUsed} / {usersLimit} <span className="text-gray-500 font-sans font-normal">({usersPercent}%)</span>
                         </span>
                       </div>
-                      <div className="w-full bg-gray-100 dark:bg-zinc-800 h-2 rounded-full overflow-hidden">
+                      <div className="w-full bg-gray-100 dark:bg-zinc-800 h-2.5 rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-indigo-500 transition-all duration-300"
-                          style={{ width: `${Math.min(100, Math.round((usersUsed / usersLimit) * 100))}%` }}
+                          className="h-full bg-indigo-500 transition-all duration-500 rounded-full"
+                          style={{ width: `${Math.max(usersPercent, usersUsed > 0 ? 4 : 0)}%` }}
                         />
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {onCompanySelected && (
-                  <div className="mt-4 pt-3 border-t border-gray-100 dark:border-zinc-800/80 flex justify-end">
+                {/* ACCORDION TRIGGER (FOR SUPERADMIN) */}
+                {isSuperAdmin && (
+                  <div className="px-5 py-3 bg-gray-50/70 dark:bg-zinc-850/50 border-t border-gray-100 dark:border-zinc-800 flex items-center justify-between">
                     <button
-                      onClick={() => onCompanySelected(emp)}
-                      className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
+                      type="button"
+                      onClick={() => setExpandedEmpresaId(isExpanded ? null : emp.id)}
+                      className={`text-xs font-bold flex items-center gap-1.5 py-1 px-2.5 rounded-lg transition cursor-pointer ${
+                        isExpanded
+                          ? 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
+                          : 'text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30'
+                      }`}
                     >
-                      <span>Ver datos de esta empresa</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
+                      <span>{isExpanded ? 'Ocultar datos de esta empresa' : 'Ver datos de esta empresa'}</span>
+                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </button>
+
+                    {onCompanySelected && (
+                      <button
+                        onClick={() => onCompanySelected(emp)}
+                        className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 flex items-center gap-1 hover:underline cursor-pointer"
+                        title="Seleccionar y operar como esta empresa"
+                      >
+                        <span>Entrar a Empresa</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* ACCORDION CONTENT (SUPERADMIN EXPANDED VIEW) */}
+                {isSuperAdmin && isExpanded && (
+                  <div className="p-5 border-t border-indigo-100 dark:border-zinc-800 bg-indigo-50/20 dark:bg-zinc-950/40 space-y-4 animate-fadeIn text-xs">
+                    
+                    {/* Header badge */}
+                    <div className="flex items-center justify-between pb-2 border-b border-indigo-100 dark:border-zinc-800">
+                      <div className="flex items-center gap-1.5 font-bold text-indigo-900 dark:text-indigo-300">
+                        <Briefcase className="w-4 h-4 text-indigo-600" />
+                        <span>Ficha Técnica y Configuración SRI ({emp.razonSocial})</span>
+                      </div>
+                      <span className="font-mono text-[10px] bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 px-2 py-0.5 rounded font-bold">
+                        RUC: {emp.ruc}
+                      </span>
+                    </div>
+
+                    {/* SRI Configuration Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white dark:bg-zinc-900 p-3.5 rounded-xl border border-gray-200/80 dark:border-zinc-800">
+                      <div>
+                        <span className="text-gray-400 block text-[10px] uppercase font-bold">Ambiente SRI</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-200">
+                          {configEmisor?.ambiente === '2' ? 'Producción (2)' : 'Pruebas / Certificación (1)'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px] uppercase font-bold">Punto Emisión & Establecimiento</span>
+                        <span className="font-mono font-bold text-gray-800 dark:text-gray-200">
+                          {configEmisor?.codEstablecimiento || '001'} - {configEmisor?.codPuntoEmision || '001'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px] uppercase font-bold">Régimen Tributario</span>
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                          {configEmisor?.regimen || 'Régimen General'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px] uppercase font-bold">Obligado a Contabilidad</span>
+                        <span className="font-bold text-gray-800 dark:text-gray-200">
+                          {configEmisor?.obligadoContabilidad ? 'SÍ' : 'NO'}
+                        </span>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <span className="text-gray-400 block text-[10px] uppercase font-bold">Dirección Matriz</span>
+                        <span className="text-gray-700 dark:text-gray-300 font-medium">
+                          {configEmisor?.dirMatriz || 'No configurada'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px] uppercase font-bold">Firma Electrónica (.p12)</span>
+                        <span className="flex items-center gap-1 font-bold text-emerald-600 dark:text-emerald-400">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          {configEmisor?.p12Nombre ? configEmisor.p12Nombre : 'Certificado P12 Registrado'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px] uppercase font-bold">Fecha de Registro Inquilino</span>
+                        <span className="text-gray-700 dark:text-gray-300 font-medium">
+                          {emp.createdAt ? new Date(emp.createdAt).toLocaleDateString() : emp.fechaInicio}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Vouchers Breakdown */}
+                    <div className="space-y-1.5">
+                      <span className="text-gray-500 dark:text-gray-400 text-[11px] font-bold uppercase tracking-wider block">
+                        Desglose de Comprobantes ({vouchersUsed} emitidos)
+                      </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <div className="bg-white dark:bg-zinc-900 p-2.5 rounded-lg border border-gray-200 dark:border-zinc-800 text-center">
+                          <span className="text-gray-400 text-[10px] block font-bold">Facturas</span>
+                          <span className="text-base font-extrabold text-blue-600 font-mono">{empInvoices.length}</span>
+                        </div>
+                        <div className="bg-white dark:bg-zinc-900 p-2.5 rounded-lg border border-gray-200 dark:border-zinc-800 text-center">
+                          <span className="text-gray-400 text-[10px] block font-bold">Notas de Crédito</span>
+                          <span className="text-base font-extrabold text-amber-600 font-mono">{empCreditNotes.length}</span>
+                        </div>
+                        <div className="bg-white dark:bg-zinc-900 p-2.5 rounded-lg border border-gray-200 dark:border-zinc-800 text-center">
+                          <span className="text-gray-400 text-[10px] block font-bold">Retenciones</span>
+                          <span className="text-base font-extrabold text-indigo-600 font-mono">{empRetenciones.length}</span>
+                        </div>
+                        <div className="bg-white dark:bg-zinc-900 p-2.5 rounded-lg border border-gray-200 dark:border-zinc-800 text-center">
+                          <span className="text-gray-400 text-[10px] block font-bold">Proformas</span>
+                          <span className="text-base font-extrabold text-emerald-600 font-mono">{empProformas.length}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Users of this Company */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-500 dark:text-gray-400 text-[11px] font-bold uppercase tracking-wider">
+                          Usuarios del Equipo ({empUsers.length} de {usersLimit} cupos)
+                        </span>
+                      </div>
+                      
+                      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-gray-200 dark:border-zinc-800 divide-y divide-gray-100 dark:divide-zinc-850 overflow-hidden">
+                        {empUsers.length === 0 ? (
+                          <div className="p-3 text-center text-gray-400 text-xs">
+                            Solo el administrador principal ({emp.adminCorreo}) tiene credenciales de acceso.
+                          </div>
+                        ) : (
+                          empUsers.map((usr) => (
+                            <div key={usr.id} className="p-2.5 flex items-center justify-between text-xs">
+                              <div>
+                                <div className="font-bold text-gray-800 dark:text-gray-200">
+                                  {usr.nombre || usr.correo.split('@')[0]}
+                                </div>
+                                <div className="text-[11px] text-gray-400 font-mono">
+                                  {usr.correo}
+                                </div>
+                              </div>
+                              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md uppercase ${
+                                (usr.role || '').toUpperCase() === 'ADMIN'
+                                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300'
+                                  : (usr.role || '').toUpperCase() === 'SUPERADMIN'
+                                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+                                  : 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
+                              }`}>
+                                {usr.role || 'USER'}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Accordion Footer Actions */}
+                    <div className="pt-2 flex flex-wrap items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(emp)}
+                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-700 dark:text-zinc-200 rounded-lg font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                        <span>Modificar Parámetros y Cuotas</span>
+                      </button>
+                      
+                      {onCompanySelected && (
+                        <button
+                          type="button"
+                          onClick={() => onCompanySelected(emp)}
+                          className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+                        >
+                          <Building2 className="w-3.5 h-3.5" />
+                          <span>Acceder y Operar con esta Empresa</span>
+                        </button>
+                      )}
+                    </div>
+
                   </div>
                 )}
               </div>

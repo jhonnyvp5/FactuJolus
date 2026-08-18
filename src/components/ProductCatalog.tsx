@@ -3,6 +3,7 @@ import { Product, TipoIva, PortalUser } from '../types';
 import { IVA_TARIFAS } from '../sri/utils';
 import { Trash2, Sparkles, Plus, PackageCheck, Receipt, Edit3, Save, X, FileSpreadsheet, Download, Upload, AlertCircle, CheckCircle2, FileText, AlertTriangle } from 'lucide-react';
 import { saveProductToSupabase } from '../lib/supabase';
+import * as XLSX from 'xlsx';
 
 interface ProductCatalogProps {
   products: Product[];
@@ -129,49 +130,210 @@ export default function ProductCatalog({
   };
 
   // =========================================================================
-  // BULK IMPORT & VALIDATION LOGIC
+  // BULK IMPORT & VALIDATION LOGIC (XLSX / CSV)
   // =========================================================================
   const downloadTemplate = () => {
-    const headers = 'codigo,nombre,precio,iva_tipo,descuento_default';
-    const sampleRows = [
-      'PROD-001,Laptop HP Core i7 16GB RAM 512GB SSD,850.00,4,0.00',
-      'SERV-002,Servicio de Mantenimiento Preventivo Servidores,120.00,4,10.00',
-      'CONS-003,Asesoría Tributaria y Contable (Hora),45.00,0,0.00',
-      'SOFT-004,Licencia Anual Software Facturación SRI,180.00,4,0.00',
-      'EXEN-005,Insumo Agrícola Libre de Arancel,65.50,7,0.00'
+    // Sheet 1: Productos (Main Table)
+    const productData = [
+      {
+        codigo: 'PROD-001',
+        nombre: 'Laptop HP Core i7 16GB RAM 512GB SSD',
+        precio: 850.00,
+        iva_tipo: 4,
+        descuento_default: 0.00
+      },
+      {
+        codigo: 'SERV-002',
+        nombre: 'Servicio de Mantenimiento Preventivo Servidores',
+        precio: 120.00,
+        iva_tipo: 4,
+        descuento_default: 10.00
+      },
+      {
+        codigo: 'CONS-003',
+        nombre: 'Asesoría Tributaria y Contable (Hora)',
+        precio: 45.00,
+        iva_tipo: 0,
+        descuento_default: 0.00
+      },
+      {
+        codigo: 'SOFT-004',
+        nombre: 'Licencia Anual Software Facturación SRI',
+        precio: 180.00,
+        iva_tipo: 4,
+        descuento_default: 0.00
+      },
+      {
+        codigo: 'EXEN-005',
+        nombre: 'Insumo Agrícola Libre de Arancel',
+        precio: 65.50,
+        iva_tipo: 7,
+        descuento_default: 0.00
+      }
     ];
-    const csvContent = '\uFEFF' + [headers, ...sampleRows].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `plantilla_carga_masiva_productos_sri.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+
+    // Sheet 2: Guía de Códigos IVA
+    const ivaGuide = [
+      { Codigo_IVA: 4, Porcentaje: '15%', Descripcion: 'Tarifa General vigente en Ecuador (IVA 15%)' },
+      { Codigo_IVA: 2, Porcentaje: '12%', Descripcion: 'Tarifa IVA 12%' },
+      { Codigo_IVA: 0, Porcentaje: '0%', Descripcion: 'Tarifa 0% (Productos canasta básica / servicios de salud)' },
+      { Codigo_IVA: 6, Porcentaje: '0%', Descripcion: 'No Objeto de Impuesto' },
+      { Codigo_IVA: 7, Porcentaje: '0%', Descripcion: 'Exento de IVA' }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const wsProducts = XLSX.utils.json_to_sheet(productData, { header: ['codigo', 'nombre', 'precio', 'iva_tipo', 'descuento_default'] });
+    wsProducts['!cols'] = [
+      { wch: 16 }, // codigo
+      { wch: 48 }, // nombre
+      { wch: 14 }, // precio
+      { wch: 12 }, // iva_tipo
+      { wch: 18 }  // descuento_default
+    ];
+
+    const wsGuide = XLSX.utils.json_to_sheet(ivaGuide);
+    wsGuide['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 55 }];
+
+    XLSX.utils.book_append_sheet(wb, wsProducts, 'Productos');
+    XLSX.utils.book_append_sheet(wb, wsGuide, 'Guia_Tarifas_IVA');
+
+    XLSX.writeFile(wb, 'plantilla_carga_masiva_productos_sri.xlsx');
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processFile = (file: File) => {
     setBulkFileName(file.name);
     setBulkError(null);
     setBulkSuccessMsg(null);
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      if (text) {
-        setBulkFileText(text);
-        validateAndParseCSV(text);
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+
+    if (isExcel) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const buffer = e.target?.result as ArrayBuffer;
+          const workbook = XLSX.read(buffer, { type: 'array' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][];
+          validateAndParseRows(rows);
+        } catch (err: any) {
+          setBulkError('Error al leer el archivo Excel: ' + (err?.message || 'Formato no soportado'));
+        }
+      };
+      reader.onerror = () => setBulkError('Error al procesar el archivo Excel.');
+      reader.readAsArrayBuffer(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target?.result as string;
+        if (text) {
+          setBulkFileText(text);
+          validateAndParseCSV(text);
+        }
+      };
+      reader.onerror = () => setBulkError('Error al leer el archivo de texto.');
+      reader.readAsText(file);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+  };
+
+  const validateAndParseRows = (rows: any[][]) => {
+    setBulkError(null);
+    setBulkSuccessMsg(null);
+
+    if (!rows || rows.length === 0) {
+      setBulkError('El archivo Excel no contiene filas.');
+      setParsedItems([]);
+      return;
+    }
+
+    let startIndex = 0;
+    const firstRowStr = (rows[0] || []).map(c => String(c || '').toLowerCase()).join(' ');
+    if (firstRowStr.includes('codigo') || firstRowStr.includes('código') || firstRowStr.includes('nombre') || firstRowStr.includes('precio')) {
+      startIndex = 1;
+    }
+
+    const seenCodesInFile = new Set<string>();
+    const results: ParsedBulkItem[] = [];
+
+    for (let i = startIndex; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || row.length === 0 || row.every(c => c === null || c === undefined || String(c).trim() === '')) {
+        continue;
       }
-    };
-    reader.onerror = () => {
-      setBulkError('Error al leer el archivo seleccionado.');
-    };
-    reader.readAsText(file);
+
+      const rowNumber = i + 1;
+      const errors: string[] = [];
+
+      const rawCode = String(row[0] || '').trim();
+      const rawName = String(row[1] || '').trim();
+      const rawPrice = String(row[2] !== undefined ? row[2] : '').trim();
+      const rawIva = String(row[3] !== undefined ? row[3] : '4').trim();
+      const rawDiscount = String(row[4] !== undefined ? row[4] : '0').trim();
+
+      if (!rawCode) {
+        errors.push('El campo "código" es obligatorio.');
+      } else if (seenCodesInFile.has(rawCode.toUpperCase())) {
+        errors.push(`El código "${rawCode}" está duplicado en el mismo archivo.`);
+      } else {
+        seenCodesInFile.add(rawCode.toUpperCase());
+      }
+
+      if (!rawName) {
+        errors.push('El campo "nombre / descripción" es obligatorio.');
+      } else if (rawName.length < 2) {
+        errors.push('El nombre debe tener al menos 2 caracteres.');
+      }
+
+      const sanitizedPrice = rawPrice.replace('$', '').replace(',', '.');
+      const priceNum = parseFloat(sanitizedPrice);
+      if (!rawPrice || isNaN(priceNum) || priceNum < 0) {
+        errors.push(`El precio "${rawPrice}" no es un número válido.`);
+      }
+
+      let finalIva: TipoIva = '4';
+      if (['0', '2', '4', '6', '7'].includes(rawIva)) {
+        finalIva = rawIva as TipoIva;
+      } else if (rawIva.includes('15')) {
+        finalIva = '4';
+      } else if (rawIva.includes('12')) {
+        finalIva = '2';
+      } else if (rawIva === '0' || rawIva.includes('0%')) {
+        finalIva = '0';
+      } else if (rawIva.toLowerCase().includes('no objeto')) {
+        finalIva = '6';
+      } else if (rawIva.toLowerCase().includes('exento')) {
+        finalIva = '7';
+      } else {
+        errors.push(`Tarifa IVA "${rawIva}" inválida. Use 4 (15%), 2 (12%), 0 (0%), 6 (No Objeto) o 7 (Exento).`);
+      }
+
+      const sanitizedDiscount = rawDiscount.replace('%', '').replace('$', '').replace(',', '.');
+      const discNum = parseFloat(sanitizedDiscount || '0');
+      if (isNaN(discNum) || discNum < 0) {
+        errors.push(`El descuento "${rawDiscount}" no es válido.`);
+      }
+
+      results.push({
+        rowNumber,
+        codigo: rawCode.toUpperCase(),
+        nombre: rawName,
+        precio: isNaN(priceNum) ? 0 : priceNum,
+        ivaTipo: finalIva,
+        descuentoDefault: isNaN(discNum) ? 0 : discNum,
+        isValid: errors.length === 0,
+        errors
+      });
+    }
+
+    setParsedItems(results);
+    if (results.length === 0) {
+      setBulkError('No se encontraron registros válidos de productos en el archivo.');
+    }
   };
 
   const validateAndParseCSV = (csvText: string) => {
@@ -647,7 +809,7 @@ export default function ProductCatalog({
                     Paso 1: Descargar Plantilla Oficial
                   </div>
                   <p className="text-emerald-700 dark:text-emerald-400 text-[11px]">
-                    Descarga el archivo CSV con las columnas preconfiguradas: <code className="font-mono bg-emerald-100 dark:bg-emerald-900/40 px-1 py-0.5 rounded">codigo, nombre, precio, iva_tipo, descuento_default</code>
+                    Descarga la plantilla en Excel con columnas y guía: <code className="font-mono bg-emerald-100 dark:bg-emerald-900/40 px-1 py-0.5 rounded">codigo, nombre, precio, iva_tipo, descuento_default</code>
                   </p>
                 </div>
                 <button
@@ -655,35 +817,42 @@ export default function ProductCatalog({
                   onClick={downloadTemplate}
                   className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center gap-1.5 transition shrink-0 cursor-pointer shadow-xs"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  Descargar Plantilla (.csv)
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  Descargar Plantilla (.xlsx)
                 </button>
               </div>
 
               {/* Step 2: Upload File / Drag and Drop */}
               <div className="space-y-2">
                 <label className="font-bold text-gray-700 dark:text-zinc-300 block">
-                  Paso 2: Cargar Archivo CSV / Excel
+                  Paso 2: Cargar Archivo Excel / CSV
                 </label>
                 
                 <input
                   type="file"
                   ref={fileInputRef}
-                  accept=".csv,.txt"
+                  accept=".xlsx,.xls,.csv,.txt"
                   onChange={handleFileUpload}
                   className="hidden"
                 />
 
                 <div
                   onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) processFile(file);
+                  }}
                   className="border-2 border-dashed border-gray-300 dark:border-zinc-700 hover:border-emerald-500 dark:hover:border-emerald-500 rounded-xl p-6 text-center cursor-pointer transition bg-gray-50/50 dark:bg-zinc-800/30 hover:bg-emerald-50/20"
                 >
                   <Upload className="w-8 h-8 text-gray-400 dark:text-zinc-500 mx-auto mb-2" />
                   <p className="font-semibold text-gray-800 dark:text-gray-200">
-                    {bulkFileName ? `Archivo cargado: ${bulkFileName}` : 'Haz clic aquí o arrastra tu archivo CSV'}
+                    {bulkFileName ? `Archivo cargado: ${bulkFileName}` : 'Haz clic aquí o arrastra tu archivo Excel / CSV'}
                   </p>
                   <p className="text-[11px] text-gray-400 mt-1">
-                    Formatos admitidos: .csv delimitado por comas, punto y coma o tabulaciones.
+                    Formatos admitidos: .xlsx, .xls, .csv delimitado por comas o punto y coma.
                   </p>
                 </div>
               </div>

@@ -253,6 +253,7 @@ export interface Proforma {
   ivaOption?: string;
   templateId?: string;
   usuarioCorreo?: string;
+  empresaRuc?: string;
 }
 
 // =========================================================================
