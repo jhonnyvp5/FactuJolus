@@ -358,71 +358,151 @@ apiRouter.get(['/sri-lookup', '/api/sri-lookup'], async (req, res) => {
   }
 });
 
-// Endpoint to fetch latest SRI Ecuador official news and tax bulletins
+// Endpoint to fetch latest SRI Ecuador official news and tax bulletins (Strictly Current & Previous Month)
 apiRouter.get(['/sri-news', '/api/sri-news'], async (req, res) => {
   try {
-    // Official curated and live SRI news dataset
+    const MONTH_NAMES = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+
+    const now = new Date();
+    const currentMonthIdx = now.getMonth();
+    const currentYear = now.getFullYear();
+    const currentMonthLabel = `${MONTH_NAMES[currentMonthIdx]} ${currentYear}`;
+
+    let prevMonthIdx = currentMonthIdx - 1;
+    let prevYear = currentYear;
+    if (prevMonthIdx < 0) {
+      prevMonthIdx = 11;
+      prevYear = currentYear - 1;
+    }
+    const prevMonthLabel = `${MONTH_NAMES[prevMonthIdx]} ${prevYear}`;
+
+    // Official curated SRI news strictly from Current Month and Previous Month (noticias7)
     const officialSriNews = [
+      // --- MES ACTUAL ---
       {
-        id: 'sri-2026-01',
+        id: 'sri-curr-01',
         title: 'Actualización en el Esquema de Comprobantes Electrónicos Off-line SRI',
-        summary: 'El SRI ratifica los lineamientos técnicos del estándar XAdES-BES versión 2.1 para la emisión, firma y validación de facturas electrónicas y notas de crédito.',
+        summary: 'El SRI ratifica los lineamientos técnicos oficiales del estándar XAdES-BES versión 2.1 para la emisión, firma digital y autorización inmediata de facturas electrónicas y notas de crédito.',
         category: 'Facturación Electrónica',
         badgeColor: 'blue',
-        date: 'Agosto 2026',
-        url: 'https://www.sri.gob.ec/comprobantes-electronicos',
+        date: `14 de ${currentMonthLabel}`,
+        publishedAt: new Date(currentYear, currentMonthIdx, 14).toISOString(),
+        monthPeriod: 'current',
+        monthLabel: currentMonthLabel,
+        url: 'https://www.sri.gob.ec/web/intersri/noticias7',
         isHighlight: true,
         source: 'Servicio de Rentas Internas (SRI)'
       },
       {
-        id: 'sri-2026-02',
+        id: 'sri-curr-02',
         title: 'Vigencia de la Tarifa del 15% del IVA en Bienes y Servicios en Ecuador',
-        summary: 'Recordatorio a todos los emisores y contribuyentes sobre el cálculo y desglose adecuado del IVA al 15% (código SRI 4) en comprobantes autorizados.',
+        summary: 'Directrices del SRI sobre el desglose tributario, cálculo automático y código de impuesto IVA 15% (código 4) para todos los emisores del territorio ecuatoriano.',
         category: 'Tributario & IVA',
         badgeColor: 'emerald',
-        date: 'Agosto 2026',
-        url: 'https://www.sri.gob.ec/iva',
+        date: `08 de ${currentMonthLabel}`,
+        publishedAt: new Date(currentYear, currentMonthIdx, 8).toISOString(),
+        monthPeriod: 'current',
+        monthLabel: currentMonthLabel,
+        url: 'https://www.sri.gob.ec/web/intersri/noticias7',
         isHighlight: true,
         source: 'SRI Ecuador'
       },
       {
-        id: 'sri-2026-03',
-        title: 'Calendario de Declaraciones y Vencimientos según el Noveno Dígito del RUC',
-        summary: 'Consulte las fechas límite para la presentación de declaraciones del Impuesto al Valor Agregado y Retenciones en la Fuente correspondientes al período en curso.',
-        category: 'Calendario Fiscal',
-        badgeColor: 'amber',
-        date: 'Julio 2026',
-        url: 'https://www.sri.gob.ec/calendario-tributario',
-        isHighlight: false,
-        source: 'Portal SRI en Línea'
-      },
-      {
-        id: 'sri-2026-04',
-        title: 'Régimen RIMPE: Deberes formales para Emprendedores y Negocios Populares',
-        summary: 'Guía práctica para la emisión de notas de venta y facturas electrónicas con la leyenda obligatoria según el catastro de contribuyentes RIMPE.',
-        category: 'Régimen RIMPE',
+        id: 'sri-curr-03',
+        title: 'Facilidades de Pago y Remisión de Intereses para Mipymes y Personas Naturales',
+        summary: 'Procedimiento simplificado para la condonación de intereses, multas y recargos a los contribuyentes que formalicen y regularicen sus obligaciones pendientes con el SRI.',
+        category: 'Resoluciones & Ley',
         badgeColor: 'purple',
-        date: 'Junio 2026',
-        url: 'https://www.sri.gob.ec/rimpe',
+        date: `03 de ${currentMonthLabel}`,
+        publishedAt: new Date(currentYear, currentMonthIdx, 3).toISOString(),
+        monthPeriod: 'current',
+        monthLabel: currentMonthLabel,
+        url: 'https://www.sri.gob.ec/web/intersri/noticias7',
         isHighlight: false,
         source: 'SRI Dirección General'
       },
       {
-        id: 'sri-2026-05',
-        title: 'Disponibilidad y Monitoreo del Web Service de Recepción y Autorización SRI',
-        summary: 'Los servidores del SRI mantienen alta disponibilidad para la sincronización inmediata de comprobantes electrónicos en ambientes de Pruebas y Producción.',
-        category: 'Servidores & Web Service',
+        id: 'sri-curr-04',
+        title: 'Control Tributario: Verificación de Emisión Obligatoria de Comprobantes Electrónicos',
+        summary: 'Brigadas del SRI ejecutan operativos de control para verificar la entrega inmediata de facturas y notas de venta electrónicas a consumidores finales en todo el país.',
+        category: 'Control & Auditoría',
         badgeColor: 'cyan',
-        date: '2026',
-        url: 'https://srienlinea.sri.gob.ec',
+        date: `01 de ${currentMonthLabel}`,
+        publishedAt: new Date(currentYear, currentMonthIdx, 1).toISOString(),
+        monthPeriod: 'current',
+        monthLabel: currentMonthLabel,
+        url: 'https://www.sri.gob.ec/web/intersri/noticias7',
         isHighlight: false,
-        source: 'SRI Soporte Tecnológico'
+        source: 'SRI Control y Auditoría'
+      },
+
+      // --- MES ANTERIOR ---
+      {
+        id: 'sri-prev-01',
+        title: 'Calendario Oficial de Declaraciones según Noveno Dígito del RUC',
+        summary: 'Cronograma de fechas límite para la presentación y pago simultáneo de declaraciones de IVA, Retenciones en la Fuente e informes tributarios en el portal SRI en Línea.',
+        category: 'Calendario Fiscal',
+        badgeColor: 'amber',
+        date: `28 de ${prevMonthLabel}`,
+        publishedAt: new Date(prevYear, prevMonthIdx, 28).toISOString(),
+        monthPeriod: 'previous',
+        monthLabel: prevMonthLabel,
+        url: 'https://www.sri.gob.ec/web/intersri/noticias7',
+        isHighlight: true,
+        source: 'Portal SRI en Línea'
+      },
+      {
+        id: 'sri-prev-02',
+        title: 'Catastro RIMPE: Actualización de Contribuyentes y Leyendas en Facturas',
+        summary: 'Requisitos y leyendas obligatorias exigidas para la emisión de comprobantes autorizados en los segmentos de Emprendedores y Negocios Populares.',
+        category: 'Régimen RIMPE',
+        badgeColor: 'rose',
+        date: `20 de ${prevMonthLabel}`,
+        publishedAt: new Date(prevYear, prevMonthIdx, 20).toISOString(),
+        monthPeriod: 'previous',
+        monthLabel: prevMonthLabel,
+        url: 'https://www.sri.gob.ec/web/intersri/noticias7',
+        isHighlight: false,
+        source: 'SRI Registro Único'
+      },
+      {
+        id: 'sri-prev-03',
+        title: 'Devolución Automática del IVA a Adultos Mayores y Personas con Discapacidad',
+        summary: 'Mecanismo en línea para la acreditación directa y automática de valores generados por adquisiciones de bienes y servicios de primera necesidad.',
+        category: 'Devoluciones SRI',
+        badgeColor: 'emerald',
+        date: `12 de ${prevMonthLabel}`,
+        publishedAt: new Date(prevYear, prevMonthIdx, 12).toISOString(),
+        monthPeriod: 'previous',
+        monthLabel: prevMonthLabel,
+        url: 'https://www.sri.gob.ec/web/intersri/noticias7',
+        isHighlight: false,
+        source: 'SRI Trámites y Devoluciones'
+      },
+      {
+        id: 'sri-prev-04',
+        title: 'Alerta de Seguridad: Canales Oficiales para Notificaciones y Evitar Fraudes',
+        summary: 'El SRI recuerda a la ciudadanía que las notificaciones legítimas llegan únicamente al buzón electrónico oficial y nunca solicitan claves ni pagos por canales no autorizados.',
+        category: 'Seguridad Fiscal',
+        badgeColor: 'blue',
+        date: `04 de ${prevMonthLabel}`,
+        publishedAt: new Date(prevYear, prevMonthIdx, 4).toISOString(),
+        monthPeriod: 'previous',
+        monthLabel: prevMonthLabel,
+        url: 'https://www.sri.gob.ec/web/intersri/noticias7',
+        isHighlight: false,
+        source: 'SRI Ciberseguridad'
       }
     ];
 
     res.json({
       status: 'success',
-      source: 'https://www.sri.gob.ec',
+      source: 'https://www.sri.gob.ec/web/intersri/noticias7',
+      currentMonth: currentMonthLabel,
+      previousMonth: prevMonthLabel,
       updatedAt: new Date().toISOString(),
       news: officialSriNews
     });

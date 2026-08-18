@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User,
   Lock,
@@ -14,7 +14,6 @@ import {
   CheckCircle2,
   Sparkles,
   Newspaper,
-  Award,
   Globe,
   Share2
 } from 'lucide-react';
@@ -29,6 +28,29 @@ interface LoginFormProps {
   inactivityNotice?: string | null;
 }
 
+const HERO_SLIDES = [
+  {
+    url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1400&auto=format&fit=crop',
+    alt: 'Asesora Profesional de Facturación SRI',
+    tagline: 'Emisión Rápida & Firma XAdES-BES'
+  },
+  {
+    url: 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=1400&auto=format&fit=crop',
+    alt: 'Equipo de Gestión Contable y Comercial',
+    tagline: 'Facturas, Notas de Crédito & Proformas'
+  },
+  {
+    url: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=1400&auto=format&fit=crop',
+    alt: 'Consultor de Negocios y Finanzas',
+    tagline: 'Validación en Línea con SRI Ecuador'
+  },
+  {
+    url: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?q=80&w=1400&auto=format&fit=crop',
+    alt: 'Punto de Venta y Comercio Digital',
+    tagline: 'Catastro RIMPE & Seguridad Tributaria'
+  }
+];
+
 export default function LoginForm({ onLoginSuccess, adminEmail, inactivityNotice }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,8 +58,15 @@ export default function LoginForm({ onLoginSuccess, adminEmail, inactivityNotice
   const [error, setError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Left sidebar view toggle: 'news' (SRI Noticias) or 'comisiones' (Editorial / Benefits)
-  const [leftTab, setLeftTab] = useState<'news' | 'comisiones'>('news');
+  // Background carousel slide state with smooth transitions
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlideIndex((prev) => (prev + 1) % HERO_SLIDES.length);
+    }, 5500);
+    return () => clearInterval(timer);
+  }, []);
 
   // Password Recovery / Help Modal
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -206,21 +235,31 @@ export default function LoginForm({ onLoginSuccess, adminEmail, inactivityNotice
         <div className="absolute top-1/3 -right-24 w-80 h-80 bg-sky-400/15 rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute bottom-10 left-1/4 w-72 h-72 bg-indigo-600/20 rounded-full blur-[110px] pointer-events-none" />
 
-        {/* Corporate Portrait & Tech Aesthetic Overlay */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30 sm:opacity-40 lg:opacity-45 mix-blend-luminosity">
-          <img
-            src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1200&auto=format&fit=crop"
-            alt="JOLUS Business Partner"
-            referrerPolicy="no-referrer"
-            className="w-full h-full object-cover object-center translate-x-12 translate-y-6 scale-105"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#081b3b] via-[#081b3b]/90 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#051329] via-transparent to-[#081b3b]/80" />
+        {/* Corporate Background Image Carousel with Smooth Transitions and Enhanced Visibility */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          {HERO_SLIDES.map((slide, idx) => (
+            <div
+              key={slide.url}
+              className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                idx === currentSlideIndex ? 'opacity-85 sm:opacity-90' : 'opacity-0'
+              }`}
+            >
+              <img
+                src={slide.url}
+                alt={slide.alt}
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover object-center translate-x-4 sm:translate-x-8 scale-105"
+              />
+            </div>
+          ))}
+          {/* Lighter, translucent gradients ensuring clear image visibility while keeping high-contrast readability */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#06142e]/90 via-[#081b3b]/70 to-[#081b3b]/30" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#051329]/95 via-transparent to-[#081b3b]/80" />
         </div>
 
-        {/* Floating Holographic Vector Badges (as seen in image) */}
-        <div className="absolute top-32 right-12 hidden md:flex items-center gap-2 p-3 bg-blue-900/40 backdrop-blur-md rounded-2xl border border-blue-400/30 text-xs shadow-xl animate-pulse">
-          <div className="w-8 h-8 rounded-xl bg-blue-500/30 flex items-center justify-center text-cyan-300">
+        {/* Floating Holographic Vector Badges */}
+        <div className="absolute top-32 right-12 hidden md:flex items-center gap-2 p-3 bg-blue-900/60 backdrop-blur-md rounded-2xl border border-blue-400/40 text-xs shadow-2xl animate-pulse">
+          <div className="w-8 h-8 rounded-xl bg-blue-500/40 flex items-center justify-center text-cyan-300 shadow-inner">
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
@@ -231,99 +270,72 @@ export default function LoginForm({ onLoginSuccess, adminEmail, inactivityNotice
 
         {/* TOP BRAND HEADER */}
         <div className="relative z-10">
-          <div className="flex items-center gap-3">
-            {/* JOLUS Spiral Whirlwind Logo */}
-            <div className="relative group cursor-pointer">
-              <svg viewBox="0 0 100 100" className="w-12 h-12 sm:w-14 sm:h-14 animate-[spin_40s_linear_infinite]" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <linearGradient id="jolusLeftGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#ffffff" />
-                    <stop offset="35%" stopColor="#e0f2fe" />
-                    <stop offset="70%" stopColor="#38bdf8" />
-                    <stop offset="100%" stopColor="#0284c7" />
-                  </linearGradient>
-                </defs>
-                <circle cx="50" cy="50" r="48" fill="#041226" stroke="#38bdf8" strokeWidth="1.5" strokeOpacity="0.4" />
-                <path d="M50 14 C25 18 16 45 35 65 C41 71 52 74 62 70 C72 66 79 55 77 44 C75 33 65 24 54 26 C43 28 35 38 38 49 C40 57 48 62 55 59 C61 56 63 48 59 43 C55 39 49 40 48 45 C47 48 50 51 52 50" stroke="url(#jolusLeftGrad)" strokeWidth="6.5" strokeLinecap="round" />
-                <path d="M50 20 C32 24 25 45 39 60 C49 71 66 69 74 55 C79 45 74 32 61 28 C50 24 40 32 41 44 C42 51 49 55 54 52 C58 50 59 44 56 41 C53 38 49 40 49 43" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" opacity="0.95" />
-                <circle cx="50" cy="50" r="4.5" fill="#38bdf8" />
-              </svg>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {/* JOLUS Spiral Whirlwind Logo */}
+              <div className="relative group cursor-pointer">
+                <svg viewBox="0 0 100 100" className="w-12 h-12 sm:w-14 sm:h-14 animate-[spin_40s_linear_infinite]" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="jolusLeftGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#ffffff" />
+                      <stop offset="35%" stopColor="#e0f2fe" />
+                      <stop offset="70%" stopColor="#38bdf8" />
+                      <stop offset="100%" stopColor="#0284c7" />
+                    </linearGradient>
+                  </defs>
+                  <circle cx="50" cy="50" r="48" fill="#041226" stroke="#38bdf8" strokeWidth="1.5" strokeOpacity="0.4" />
+                  <path d="M50 14 C25 18 16 45 35 65 C41 71 52 74 62 70 C72 66 79 55 77 44 C75 33 65 24 54 26 C43 28 35 38 38 49 C40 57 48 62 55 59 C61 56 63 48 59 43 C55 39 49 40 48 45 C47 48 50 51 52 50" stroke="url(#jolusLeftGrad)" strokeWidth="6.5" strokeLinecap="round" />
+                  <path d="M50 20 C32 24 25 45 39 60 C49 71 66 69 74 55 C79 45 74 32 61 28 C50 24 40 32 41 44 C42 51 49 55 54 52 C58 50 59 44 56 41 C53 38 49 40 49 43" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" opacity="0.95" />
+                  <circle cx="50" cy="50" r="4.5" fill="#38bdf8" />
+                </svg>
+              </div>
+
+              <div>
+                <span className="font-sans font-black text-xl sm:text-2xl tracking-[0.2em] text-white block leading-none">
+                  JOLUS
+                </span>
+                <span className="text-[10px] text-cyan-300 font-bold tracking-[0.35em] uppercase block mt-1">
+                  — SERVICES —
+                </span>
+              </div>
             </div>
 
-            <div>
-              <span className="font-sans font-black text-xl sm:text-2xl tracking-[0.2em] text-white block leading-none">
-                JOLUS
-              </span>
-              <span className="text-[10px] text-cyan-300 font-bold tracking-[0.35em] uppercase block mt-1">
-                — SERVICES —
-              </span>
+            {/* Carousel Slide Indicators */}
+            <div className="flex items-center gap-1.5 bg-slate-950/60 px-2.5 py-1 rounded-full border border-blue-400/20">
+              {HERO_SLIDES.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentSlideIndex(i)}
+                  className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                    i === currentSlideIndex ? 'w-5 bg-cyan-400' : 'w-1.5 bg-slate-600 hover:bg-slate-400'
+                  }`}
+                  title={`Imagen ${i + 1}`}
+                />
+              ))}
             </div>
           </div>
         </div>
 
-        {/* CENTER CONTENT: HEADLINES, QUOTE & SRI LIVE NEWS TABS */}
-        <div className="relative z-10 my-6 sm:my-8 space-y-6">
+        {/* CENTER CONTENT: PLATFORM TITLE & SRI LIVE NEWS */}
+        <div className="relative z-10 my-6 sm:my-8 space-y-5">
           
-          {/* Main Typography Header (Matching image) */}
+          {/* Main Typography Header */}
           <div className="space-y-1">
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white uppercase leading-none">
-              COMISIONES
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white uppercase leading-tight">
+              PORTAL DE FACTURACIÓN ELECTRÓNICA
             </h2>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-sky-400 uppercase leading-none">
-              PREMIOS
-            </h2>
-            <div className="w-12 h-1 bg-sky-400 rounded-full mt-3" />
+            <div className="flex items-center gap-3 pt-2">
+              <div className="w-12 h-1 bg-sky-400 rounded-full" />
+              <span className="text-xs text-blue-200/90 font-medium">
+                {HERO_SLIDES[currentSlideIndex].tagline}
+              </span>
+            </div>
           </div>
 
-          {/* Switcher Tab between "Noticias SRI" and "Comunidad" */}
-          <div className="flex items-center gap-2 p-1 bg-slate-950/60 backdrop-blur-md rounded-xl border border-blue-400/20 max-w-fit">
-            <button
-              onClick={() => setLeftTab('news')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                leftTab === 'news'
-                  ? 'bg-sky-500 text-slate-950 shadow-md'
-                  : 'text-blue-200 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <Newspaper className="w-3.5 h-3.5" />
-              Novedades SRI Oficial
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-            </button>
-            <button
-              onClick={() => setLeftTab('comisiones')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                leftTab === 'comisiones'
-                  ? 'bg-sky-500 text-slate-950 shadow-md'
-                  : 'text-blue-200 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <Award className="w-3.5 h-3.5" />
-              Comunidad & Distribuidores
-            </button>
+          {/* SRI LIVE NEWS WIDGET (Directly featured, without extra Comunidad button) */}
+          <div className="max-w-xl animate-in fade-in duration-300">
+            <SriNewsWidget />
           </div>
-
-          {/* TAB 1: SRI LIVE NEWS WIDGET (Connected to SRI updates) */}
-          {leftTab === 'news' && (
-            <div className="max-w-xl animate-in fade-in duration-300">
-              <SriNewsWidget />
-            </div>
-          )}
-
-          {/* TAB 2: QUOTE & MOTIVATIONAL BANNER (Matching loginJolusNuevo.jpg) */}
-          {leftTab === 'comisiones' && (
-            <div className="max-w-lg space-y-3 bg-slate-900/40 backdrop-blur-sm p-5 rounded-2xl border border-blue-400/20 animate-in fade-in duration-300">
-              <div className="text-4xl sm:text-5xl font-serif text-sky-400 leading-none select-none">
-                “
-              </div>
-              <p className="text-sm sm:text-base font-normal text-slate-200 leading-relaxed italic">
-                Súmate a nuestra comunidad de distribuidores y crece con nosotros llevando soluciones digitales seguras y eficientes a todo el país.
-              </p>
-              <div className="pt-2 flex items-center gap-2 text-xs text-sky-300 font-semibold">
-                <Sparkles className="w-4 h-4 text-cyan-300" />
-                Facturación electrónica autorizada por el SRI Ecuador
-              </div>
-            </div>
-          )}
         </div>
 
         {/* BOTTOM FOOTER: SOCIAL ICONS & SRI BADGE */}
@@ -370,7 +382,7 @@ export default function LoginForm({ onLoginSuccess, adminEmail, inactivityNotice
           </div>
 
           <div className="text-[10px] text-blue-200/60 text-right">
-            © {new Date().getFullYear()} JOLUS Services • Sistema Tributario SRI
+            © {new Date().getFullYear()} ORIONNX • Sistema Tributario SRI
           </div>
         </div>
       </div>
