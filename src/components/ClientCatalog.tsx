@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Client, TipoIdentificacion, PortalUser } from '../types';
-import { Trash2, UserPlus, Users, Search, Sparkles, AlertCircle, Phone, Mail, MapPin, CreditCard, Database, Check, Copy, AlertTriangle, Edit3, Save, X } from 'lucide-react';
+import { Trash2, UserPlus, Users, Search, Sparkles, AlertCircle, Phone, Mail, MapPin, CreditCard, Database, Check, Copy, AlertTriangle, Edit3, Save, X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { saveClientToSupabase, deleteClientFromSupabase, SUPABASE_SQL_SCRIPT, testSupabaseConnection } from '../lib/supabase';
 
 interface ClientCatalogProps {
@@ -193,11 +193,32 @@ export default function ClientCatalog({
     }
   };
 
-  const filteredClients = clients.filter(c => 
-    c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.identificacion.includes(searchTerm) ||
-    c.correo.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const [sortField, setSortField] = useState<'nombre' | 'identificacion' | 'tipoIdentificacion' | 'correo'>('nombre');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (field: 'nombre' | 'identificacion' | 'tipoIdentificacion' | 'correo') => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const filteredClients = useMemo(() => {
+    const list = clients.filter(c => 
+      c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.identificacion.includes(searchTerm) ||
+      c.correo.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    return list.sort((a, b) => {
+      let valA = String(a[sortField] || '').toLowerCase();
+      let valB = String(b[sortField] || '').toLowerCase();
+      const cmp = valA.localeCompare(valB);
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+  }, [clients, searchTerm, sortField, sortDirection]);
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto pb-12 animate-fade-in" id="client-catalog-box">
@@ -391,11 +412,50 @@ export default function ClientCatalog({
           ) : (
             <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-zinc-800">
               <table className="w-full text-left border-collapse text-xs">
-                <thead>
+                <thead className="select-none">
                   <tr className="bg-gray-50 dark:bg-zinc-850 text-gray-500 dark:text-zinc-400 font-extrabold uppercase tracking-wider border-b border-gray-100 dark:border-zinc-800">
-                    <th className="p-3 pl-4">Cliente / Razón Social</th>
-                    <th className="p-3">Identificación</th>
-                    <th className="p-3">Contacto</th>
+                    <th 
+                      onClick={() => handleSort('nombre')}
+                      className="p-3 pl-4 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                      title="Ordenar por Nombre / Razón Social"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Cliente / Razón Social</span>
+                        {sortField === 'nombre' ? (
+                          sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-40" />
+                        )}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleSort('identificacion')}
+                      className="p-3 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                      title="Ordenar por Identificación"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Identificación</span>
+                        {sortField === 'identificacion' ? (
+                          sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-40" />
+                        )}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleSort('correo')}
+                      className="p-3 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                      title="Ordenar por Contacto / Correo"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Contacto</span>
+                        {sortField === 'correo' ? (
+                          sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-40" />
+                        )}
+                      </div>
+                    </th>
                     <th className="p-3 pr-4 text-center">Acciones</th>
                   </tr>
                 </thead>

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Building2, Plus, Edit2, Trash2, Shield, Calendar, Layers, Users, FileCheck2, 
   AlertCircle, CheckCircle2, Search, X, Check, ArrowRight, ShieldCheck, Lock,
   ChevronDown, ChevronUp, FileText, Receipt, Percent, KeyRound, ExternalLink,
-  Briefcase, Mail, MapPin, Globe, Sparkles, Phone, FileSpreadsheet
+  Briefcase, Mail, MapPin, Globe, Sparkles, Phone, FileSpreadsheet,
+  ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { EmpresaTenant, PortalUser, Invoice, CreditNote, Proforma, Retention, EmitterConfig } from '../types';
 import { 
@@ -210,12 +211,52 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
     }
   };
 
-  const filteredEmpresas = empresas.filter(e => 
-    e.razonSocial.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    e.ruc.includes(searchTerm) ||
-    e.adminCorreo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (e.nombreComercial && e.nombreComercial.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const [sortField, setSortField] = useState<'razonSocial' | 'ruc' | 'estado' | 'fechaExpiracion' | 'comprobantes'>('razonSocial');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (field: 'razonSocial' | 'ruc' | 'estado' | 'fechaExpiracion' | 'comprobantes') => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const filteredEmpresas = useMemo(() => {
+    const list = empresas.filter(e => 
+      e.razonSocial.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      e.ruc.includes(searchTerm) ||
+      e.adminCorreo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (e.nombreComercial && e.nombreComercial.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+
+    return list.sort((a, b) => {
+      let valA: any = '';
+      let valB: any = '';
+
+      if (sortField === 'razonSocial') {
+        valA = a.razonSocial.toLowerCase();
+        valB = b.razonSocial.toLowerCase();
+      } else if (sortField === 'ruc') {
+        valA = a.ruc;
+        valB = b.ruc;
+      } else if (sortField === 'estado') {
+        valA = a.estado;
+        valB = b.estado;
+      } else if (sortField === 'fechaExpiracion') {
+        valA = a.fechaExpiracion;
+        valB = b.fechaExpiracion;
+      } else if (sortField === 'comprobantes') {
+        valA = a.comprobantesEmitidos || 0;
+        valB = b.comprobantesEmitidos || 0;
+        return sortDirection === 'asc' ? valA - valB : valB - valA;
+      }
+
+      const cmp = String(valA).localeCompare(String(valB));
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+  }, [empresas, searchTerm, sortField, sortDirection]);
 
   return (
     <div className="space-y-6">
@@ -271,6 +312,51 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
           <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
             {empresas.filter(e => e.estado === 'ACTIVO').length}
           </span>
+        </div>
+      </div>
+
+      {/* SORT CONTROLS BAR */}
+      <div className="flex items-center justify-between flex-wrap gap-2 text-xs bg-gray-50 dark:bg-zinc-850 p-2.5 px-4 rounded-xl border border-gray-200/80 dark:border-zinc-800">
+        <span className="font-bold text-gray-500 dark:text-zinc-400 flex items-center gap-1.5">
+          <ArrowUpDown className="w-3.5 h-3.5 text-blue-500" />
+          Ordenar Inquilinos:
+        </span>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            onClick={() => handleSort('razonSocial')}
+            className={`px-2.5 py-1 rounded-lg font-medium transition flex items-center gap-1 cursor-pointer ${sortField === 'razonSocial' ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-white dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700'}`}
+          >
+            <span>Razón Social</span>
+            {sortField === 'razonSocial' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+          </button>
+          <button
+            onClick={() => handleSort('ruc')}
+            className={`px-2.5 py-1 rounded-lg font-medium transition flex items-center gap-1 cursor-pointer ${sortField === 'ruc' ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-white dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700'}`}
+          >
+            <span>RUC</span>
+            {sortField === 'ruc' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+          </button>
+          <button
+            onClick={() => handleSort('estado')}
+            className={`px-2.5 py-1 rounded-lg font-medium transition flex items-center gap-1 cursor-pointer ${sortField === 'estado' ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-white dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700'}`}
+          >
+            <span>Estado</span>
+            {sortField === 'estado' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+          </button>
+          <button
+            onClick={() => handleSort('fechaExpiracion')}
+            className={`px-2.5 py-1 rounded-lg font-medium transition flex items-center gap-1 cursor-pointer ${sortField === 'fechaExpiracion' ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-white dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700'}`}
+          >
+            <span>Vencimiento</span>
+            {sortField === 'fechaExpiracion' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+          </button>
+          <button
+            onClick={() => handleSort('comprobantes')}
+            className={`px-2.5 py-1 rounded-lg font-medium transition flex items-center gap-1 cursor-pointer ${sortField === 'comprobantes' ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-white dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700'}`}
+          >
+            <span>Comprobantes</span>
+            {sortField === 'comprobantes' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+          </button>
         </div>
       </div>
 

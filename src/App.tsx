@@ -974,10 +974,13 @@ export default function App() {
                     setActiveTab('history');
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer ${activeTab === 'history' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
+                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${activeTab === 'history' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20' : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
                 >
-                  <History className="w-4 h-4" />
-                  Historial de RIDE
+                  <div className="flex items-center gap-3">
+                    <History className={`w-4 h-4 ${activeTab === 'history' ? 'text-white' : 'text-blue-500'}`} />
+                    <span>Historial de RIDE</span>
+                  </div>
+                  {activeTab === 'history' && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
                 </button>
               )}
 
@@ -987,10 +990,13 @@ export default function App() {
                     setActiveTab('new-invoice');
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer ${activeTab === 'new-invoice' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
+                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${activeTab === 'new-invoice' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20' : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
                 >
-                  <Plus className="w-4 h-4" />
-                  Emitir Factura
+                  <div className="flex items-center gap-3">
+                    <Plus className={`w-4 h-4 ${activeTab === 'new-invoice' ? 'text-white' : 'text-sky-500'}`} />
+                    <span>Emitir Factura</span>
+                  </div>
+                  {activeTab === 'new-invoice' && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
                 </button>
               )}
 
@@ -1000,10 +1006,13 @@ export default function App() {
                     setActiveTab('retentions');
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer ${activeTab === 'retentions' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
+                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${activeTab === 'retentions' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20' : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
                 >
-                  <ShieldCheck className="w-4 h-4 text-violet-500" />
-                  Retenciones
+                  <div className="flex items-center gap-3">
+                    <ShieldCheck className={`w-4 h-4 ${activeTab === 'retentions' ? 'text-white' : 'text-purple-500'}`} />
+                    <span>Retenciones</span>
+                  </div>
+                  {activeTab === 'retentions' && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
                 </button>
               )}
 
@@ -1013,10 +1022,13 @@ export default function App() {
                     setActiveTab('proformas');
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer ${activeTab === 'proformas' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
+                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${activeTab === 'proformas' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20' : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
                 >
-                  <FileText className="w-4 h-4" />
-                  Generar Proforma
+                  <div className="flex items-center gap-3">
+                    <FileText className={`w-4 h-4 ${activeTab === 'proformas' ? 'text-white' : 'text-teal-500'}`} />
+                    <span>Generar Proforma</span>
+                  </div>
+                  {activeTab === 'proformas' && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
                 </button>
               )}
 
@@ -1026,10 +1038,13 @@ export default function App() {
                     setActiveTab('new-nc');
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer ${activeTab === 'new-nc' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
+                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${activeTab === 'new-nc' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20' : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
                 >
-                  <ArrowLeftRight className="w-4 h-4" />
-                  Nota de Crédito
+                  <div className="flex items-center gap-3">
+                    <ArrowLeftRight className={`w-4 h-4 ${activeTab === 'new-nc' ? 'text-white' : 'text-amber-500'}`} />
+                    <span>Nota de Crédito</span>
+                  </div>
+                  {activeTab === 'new-nc' && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
                 </button>
               )}
 
@@ -1039,10 +1054,13 @@ export default function App() {
                     setActiveTab('products');
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer ${activeTab === 'products' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
+                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${activeTab === 'products' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20' : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
                 >
-                  <Package className="w-4 h-4" />
-                  Catálogo Productos
+                  <div className="flex items-center gap-3">
+                    <Package className={`w-4 h-4 ${activeTab === 'products' ? 'text-white' : 'text-emerald-500'}`} />
+                    <span>Catálogo Productos</span>
+                  </div>
+                  {activeTab === 'products' && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
                 </button>
               )}
 
@@ -1052,10 +1070,13 @@ export default function App() {
                     setActiveTab('clients');
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer ${activeTab === 'clients' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
+                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${activeTab === 'clients' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20' : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
                 >
-                  <Users className="w-4 h-4" />
-                  Catálogo Clientes
+                  <div className="flex items-center gap-3">
+                    <Users className={`w-4 h-4 ${activeTab === 'clients' ? 'text-white' : 'text-cyan-600'}`} />
+                    <span>Catálogo Clientes</span>
+                  </div>
+                  {activeTab === 'clients' && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
                 </button>
               )}
 
@@ -1065,10 +1086,13 @@ export default function App() {
                     setActiveTab('profile');
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer ${activeTab === 'profile' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
+                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${activeTab === 'profile' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20' : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
                 >
-                  <User className="w-4 h-4" />
-                  Mi Perfil
+                  <div className="flex items-center gap-3">
+                    <User className={`w-4 h-4 ${activeTab === 'profile' ? 'text-white' : 'text-indigo-500'}`} />
+                    <span>Mi Perfil</span>
+                  </div>
+                  {activeTab === 'profile' && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
                 </button>
               )}
 
@@ -1078,10 +1102,13 @@ export default function App() {
                     setActiveTab('settings');
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
+                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${activeTab === 'settings' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20' : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
                 >
-                  <Settings className="w-4 h-4" />
-                  Configuración SRI
+                  <div className="flex items-center gap-3">
+                    <Settings className={`w-4 h-4 ${activeTab === 'settings' ? 'text-white' : 'text-slate-500'}`} />
+                    <span>Configuración SRI</span>
+                  </div>
+                  {activeTab === 'settings' && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
                 </button>
               )}
 
@@ -1091,10 +1118,13 @@ export default function App() {
                     setActiveTab('users');
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer ${activeTab === 'users' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
+                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${activeTab === 'users' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20' : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
                 >
-                  <Users className="w-4 h-4" />
-                  Gestión Usuarios
+                  <div className="flex items-center gap-3">
+                    <Users className={`w-4 h-4 ${activeTab === 'users' ? 'text-white' : 'text-purple-600'}`} />
+                    <span>Gestión Usuarios</span>
+                  </div>
+                  {activeTab === 'users' && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
                 </button>
               )}
 
@@ -1104,10 +1134,13 @@ export default function App() {
                     setActiveTab('tenants');
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer ${activeTab === 'tenants' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
+                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${activeTab === 'tenants' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20' : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
                 >
-                  <Building2 className="w-4 h-4 text-indigo-500" />
-                  Empresas / Inquilinos
+                  <div className="flex items-center gap-3">
+                    <Building2 className={`w-4 h-4 ${activeTab === 'tenants' ? 'text-white' : 'text-blue-600'}`} />
+                    <span>Empresas / Inquilinos</span>
+                  </div>
+                  {activeTab === 'tenants' && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
                 </button>
               )}
 
@@ -1117,10 +1150,13 @@ export default function App() {
                     setActiveTab('supabase');
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer ${activeTab === 'supabase' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
+                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${activeTab === 'supabase' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20' : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
                 >
-                  <Database className="w-4 h-4 text-emerald-500" />
-                  Base de Datos Supabase
+                  <div className="flex items-center gap-3">
+                    <Database className={`w-4 h-4 ${activeTab === 'supabase' ? 'text-white' : 'text-emerald-500'}`} />
+                    <span>Base de Datos Supabase</span>
+                  </div>
+                  {activeTab === 'supabase' && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
                 </button>
               )}
             </div>
@@ -1143,126 +1179,210 @@ export default function App() {
       {/* CORE HUB LAYOUT */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
         
-        {/* DESKTOP TABS NAVBAR (COMPACT, MODERN, MINIMALIST & TECH-FORWARD) */}
-        <nav className="hidden lg:flex bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md p-1.5 rounded-2xl border border-gray-200/80 dark:border-zinc-800 shadow-xs max-w-7xl mx-auto print:hidden items-center justify-start xl:justify-center overflow-x-auto no-scrollbar gap-1 animate-fade-in scroll-smooth">
+        {/* DESKTOP TABS NAVBAR (FUTURISTIC, MODERN, FRIENDLY & HIGH-TECH FLOATING HUD) */}
+        <nav className="hidden lg:flex bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl p-1.5 rounded-2xl border border-slate-200/90 dark:border-zinc-800 shadow-sm dark:shadow-xl shadow-slate-200/50 dark:shadow-black/40 max-w-7xl mx-auto print:hidden items-center justify-start xl:justify-center overflow-x-auto no-scrollbar gap-1 animate-fade-in scroll-smooth ring-1 ring-slate-900/5 dark:ring-white/10 select-none">
           
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('history')) && (
             <button
                onClick={() => setActiveTab('history')}
-               className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'history' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
+               className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'history' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+               title="Historial de comprobantes y RIDE"
             >
-              <History className="w-4 h-4 shrink-0" />
+              <History className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'history' ? 'text-white' : 'text-blue-500 dark:text-blue-400 group-hover:scale-110'}`} />
               <span>Historial</span>
+              {activeTab === 'history' && (
+                <span className="relative flex h-2 w-2 shrink-0 ml-0.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-300 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+              )}
             </button>
           )}
 
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('new-invoice')) && (
             <button
               onClick={() => setActiveTab('new-invoice')}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'new-invoice' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
+              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'new-invoice' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              title="Emitir nueva factura electrónica"
             >
-              <Plus className="w-4 h-4 shrink-0" />
+              <Plus className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'new-invoice' ? 'text-white' : 'text-sky-500 dark:text-sky-400 group-hover:scale-110'}`} />
               <span>Emitir Factura</span>
+              {activeTab === 'new-invoice' && (
+                <span className="relative flex h-2 w-2 shrink-0 ml-0.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-300 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+              )}
             </button>
           )}
 
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('retentions')) && (
             <button
               onClick={() => setActiveTab('retentions')}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'retentions' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
+              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'retentions' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              title="Gestor de Comprobantes de Retención"
             >
-              <ShieldCheck className="w-4 h-4 shrink-0 text-violet-400" />
+              <ShieldCheck className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'retentions' ? 'text-white' : 'text-purple-500 dark:text-purple-400 group-hover:scale-110'}`} />
               <span>Retenciones</span>
+              {activeTab === 'retentions' && (
+                <span className="relative flex h-2 w-2 shrink-0 ml-0.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-300 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+              )}
             </button>
           )}
 
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('proformas')) && (
             <button
               onClick={() => setActiveTab('proformas')}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'proformas' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
+              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'proformas' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              title="Cotizaciones y Proformas comerciales"
             >
-              <FileText className="w-4 h-4 shrink-0" />
+              <FileText className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'proformas' ? 'text-white' : 'text-teal-500 dark:text-teal-400 group-hover:scale-110'}`} />
               <span>Proforma</span>
+              {activeTab === 'proformas' && (
+                <span className="relative flex h-2 w-2 shrink-0 ml-0.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-300 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+              )}
             </button>
           )}
 
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('new-nc')) && (
             <button
               onClick={() => setActiveTab('new-nc')}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'new-nc' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
+              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'new-nc' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              title="Emitir Nota de Crédito"
             >
-              <ArrowLeftRight className="w-4 h-4 shrink-0" />
+              <ArrowLeftRight className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'new-nc' ? 'text-white' : 'text-amber-500 dark:text-amber-400 group-hover:scale-110'}`} />
               <span>Nota Crédito</span>
+              {activeTab === 'new-nc' && (
+                <span className="relative flex h-2 w-2 shrink-0 ml-0.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+              )}
             </button>
           )}
 
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('products')) && (
             <button
               onClick={() => setActiveTab('products')}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'products' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
+              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'products' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              title="Catálogo de Productos y Servicios"
             >
-              <Package className="w-4 h-4 shrink-0" />
+              <Package className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'products' ? 'text-white' : 'text-emerald-500 dark:text-emerald-400 group-hover:scale-110'}`} />
               <span>Productos</span>
+              {activeTab === 'products' && (
+                <span className="relative flex h-2 w-2 shrink-0 ml-0.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+              )}
             </button>
           )}
 
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('clients')) && (
             <button
               onClick={() => setActiveTab('clients')}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'clients' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
+              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'clients' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              title="Catálogo de Clientes registrados"
             >
-              <Users className="w-4 h-4 shrink-0" />
+              <Users className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'clients' ? 'text-white' : 'text-cyan-600 dark:text-cyan-400 group-hover:scale-110'}`} />
               <span>Clientes</span>
+              {activeTab === 'clients' && (
+                <span className="relative flex h-2 w-2 shrink-0 ml-0.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-300 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+              )}
             </button>
           )}
 
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('profile')) && (
             <button
               onClick={() => setActiveTab('profile')}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'profile' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
+              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'profile' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              title="Mi perfil de usuario"
             >
-              <User className="w-4 h-4 shrink-0" />
+              <User className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'profile' ? 'text-white' : 'text-indigo-500 dark:text-indigo-400 group-hover:scale-110'}`} />
               <span>Mi Perfil</span>
+              {activeTab === 'profile' && (
+                <span className="relative flex h-2 w-2 shrink-0 ml-0.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-300 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+              )}
             </button>
           )}
 
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('settings')) && (
             <button
               onClick={() => setActiveTab('settings')}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'settings' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
+              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'settings' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              title="Configuración de Firma Electrónica y Emisor SRI"
             >
-              <Settings className="w-4 h-4 shrink-0" />
+              <Settings className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'settings' ? 'text-white' : 'text-slate-500 dark:text-zinc-400 group-hover:scale-110'}`} />
               <span>Configuración</span>
+              {activeTab === 'settings' && (
+                <span className="relative flex h-2 w-2 shrink-0 ml-0.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-300 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+              )}
             </button>
           )}
 
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN') && (
             <button
               onClick={() => setActiveTab('users')}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'users' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
+              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'users' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              title="Gestión de usuarios y permisos"
             >
-              <ShieldCheck className="w-4 h-4 shrink-0" />
+              <ShieldCheck className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'users' ? 'text-white' : 'text-purple-600 dark:text-purple-400 group-hover:scale-110'}`} />
               <span>Usuarios</span>
+              {activeTab === 'users' && (
+                <span className="relative flex h-2 w-2 shrink-0 ml-0.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-300 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+              )}
             </button>
           )}
 
           {currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
             <button
               onClick={() => setActiveTab('tenants')}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'tenants' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
+              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'tenants' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              title="Gestión de Empresas e Inquilinos (Multi-Tenant)"
             >
-              <Building2 className="w-4 h-4 shrink-0 text-indigo-500" />
+              <Building2 className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'tenants' ? 'text-white' : 'text-blue-600 dark:text-blue-400 group-hover:scale-110'}`} />
               <span>Empresas</span>
+              {activeTab === 'tenants' && (
+                <span className="relative flex h-2 w-2 shrink-0 ml-0.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-300 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+              )}
             </button>
           )}
 
           {currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
             <button
               onClick={() => setActiveTab('supabase')}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'supabase' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs shadow-indigo-500/20' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'}`}
+              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'supabase' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              title="Estado de conexión Supabase"
             >
-              <Database className="w-4 h-4 shrink-0 text-emerald-500" />
+              <Database className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'supabase' ? 'text-white' : 'text-emerald-500 dark:text-emerald-400 group-hover:scale-110'}`} />
               <span>Supabase</span>
+              {activeTab === 'supabase' && (
+                <span className="relative flex h-2 w-2 shrink-0 ml-0.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+              )}
             </button>
           )}
           

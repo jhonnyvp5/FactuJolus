@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Invoice, CreditNote, EmitterConfig, EstadoComprobante } from '../types';
 import { generateInvoiceXml, generateCreditNoteXml } from '../sri/xmlTemplates';
-import { Search, Filter, RefreshCw, Send, ShieldCheck, Download, Printer, AlertTriangle, HelpCircle, ArrowDownCircle, Trash2, Mail } from 'lucide-react';
+import { Search, Filter, RefreshCw, Send, ShieldCheck, Download, Printer, AlertTriangle, HelpCircle, ArrowDownCircle, Trash2, Mail, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { apiSignXml, apiSendSri, apiAuthorizeSri, apiSendInvoiceEmail } from '../lib/apiClient';
 
 interface HistoryListProps {
@@ -37,6 +37,19 @@ export default function HistoryList({
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
   const [selectedErrorDoc, setSelectedErrorDoc] = useState<Invoice | CreditNote | null>(null);
+
+  // Sorting state for History Grid
+  const [sortField, setSortField] = useState<'secuencial' | 'fechaEmision' | 'cliente' | 'total' | 'estado' | 'tipo'>('fechaEmision');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (field: 'secuencial' | 'fechaEmision' | 'cliente' | 'total' | 'estado' | 'tipo') => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
 
   const handleSendEmail = async (doc: Invoice) => {
     try {
@@ -82,6 +95,39 @@ export default function HistoryList({
     const matchesStatus = statusFilter === 'ALL' || doc.estado === statusFilter;
 
     return matchesSearch && matchesStatus;
+  });
+
+  // Sort according to active sortField and sortDirection
+  filteredDocuments.sort((a, b) => {
+    const isInvoiceA = !('facturaModificadaSecuencial' in a);
+    const isInvoiceB = !('facturaModificadaSecuencial' in b);
+
+    let valA: any = '';
+    let valB: any = '';
+
+    if (sortField === 'tipo') {
+      valA = isInvoiceA ? 'Factura' : 'Nota Cred';
+      valB = isInvoiceB ? 'Factura' : 'Nota Cred';
+    } else if (sortField === 'secuencial') {
+      valA = a.secuencial;
+      valB = b.secuencial;
+    } else if (sortField === 'fechaEmision') {
+      valA = a.fechaEmision;
+      valB = b.fechaEmision;
+    } else if (sortField === 'cliente') {
+      valA = (a.cliente.nombre || '').toLowerCase();
+      valB = (b.cliente.nombre || '').toLowerCase();
+    } else if (sortField === 'total') {
+      valA = a.resumenImpuestos.total || 0;
+      valB = b.resumenImpuestos.total || 0;
+      return sortDirection === 'asc' ? valA - valB : valB - valA;
+    } else if (sortField === 'estado') {
+      valA = a.estado || '';
+      valB = b.estado || '';
+    }
+
+    const cmp = String(valA).localeCompare(String(valB));
+    return sortDirection === 'asc' ? cmp : -cmp;
   });
 
   // Calculate cumulative stats
@@ -462,7 +508,7 @@ export default function HistoryList({
       <div className="bg-white rounded-2xl shadow-xs border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs whitespace-nowrap">
-            <thead className="bg-gray-50 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 text-xs font-semibold uppercase">
+            <thead className="bg-gray-50 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 text-xs font-semibold uppercase select-none">
               <tr>
                 <th className="px-5 py-3 w-10 text-center">
                   <input
@@ -479,13 +525,91 @@ export default function HistoryList({
                     title="Seleccionar todos los comprobantes eliminables"
                   />
                 </th>
-                <th className="px-5 py-3">Tipo</th>
-                <th className="px-5 py-3">Est-PtoEmi-Secuencial</th>
-                <th className="px-5 py-3">Fecha Emisión</th>
-                <th className="px-5 py-3">Cliente / Comprador</th>
+                <th 
+                  onClick={() => handleSort('tipo')}
+                  className="px-5 py-3 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                  title="Ordenar por Tipo"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>Tipo</span>
+                    {sortField === 'tipo' ? (
+                      sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 opacity-40" />
+                    )}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort('secuencial')}
+                  className="px-5 py-3 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                  title="Ordenar por Secuencial"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>Est-PtoEmi-Secuencial</span>
+                    {sortField === 'secuencial' ? (
+                      sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 opacity-40" />
+                    )}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort('fechaEmision')}
+                  className="px-5 py-3 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                  title="Ordenar por Fecha de Emisión"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>Fecha Emisión</span>
+                    {sortField === 'fechaEmision' ? (
+                      sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 opacity-40" />
+                    )}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort('cliente')}
+                  className="px-5 py-3 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                  title="Ordenar por Cliente"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>Cliente / Comprador</span>
+                    {sortField === 'cliente' ? (
+                      sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 opacity-40" />
+                    )}
+                  </div>
+                </th>
                 <th className="px-5 py-3">Usuario Emisor</th>
-                <th className="px-5 py-3 text-right">Monto Total ($)</th>
-                <th className="px-5 py-3 text-center">Estado SRI</th>
+                <th 
+                  onClick={() => handleSort('total')}
+                  className="px-5 py-3 text-right cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                  title="Ordenar por Monto Total (Mayor a menor / Menor a mayor)"
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    <span>Monto Total ($)</span>
+                    {sortField === 'total' ? (
+                      sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 opacity-40" />
+                    )}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort('estado')}
+                  className="px-5 py-3 text-center cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                  title="Ordenar por Estado SRI"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>Estado SRI</span>
+                    {sortField === 'estado' ? (
+                      sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 opacity-40" />
+                    )}
+                  </div>
+                </th>
                 <th className="px-5 py-3 text-right">Acciones de Emisor</th>
               </tr>
             </thead>

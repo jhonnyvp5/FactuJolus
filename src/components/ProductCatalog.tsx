@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Product, TipoIva, PortalUser } from '../types';
 import { IVA_TARIFAS } from '../sri/utils';
-import { Trash2, Sparkles, Plus, PackageCheck, Receipt, Edit3, Save, X, FileSpreadsheet, Download, Upload, AlertCircle, CheckCircle2, FileText, AlertTriangle, Loader2 } from 'lucide-react';
+import { Trash2, Sparkles, Plus, PackageCheck, Receipt, Edit3, Save, X, FileSpreadsheet, Download, Upload, AlertCircle, CheckCircle2, FileText, AlertTriangle, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { saveProductToSupabase, saveBulkProductsToSupabase } from '../lib/supabase';
 import * as XLSX from 'xlsx';
 
@@ -38,6 +38,38 @@ export default function ProductCatalog({
   const [price, setPrice] = useState('0.00');
   const [ivaType, setIvaType] = useState<TipoIva>('4'); // Default 15% IVA
   const [discountDefault, setDiscountDefault] = useState('0.00');
+
+  // Table Sorting State
+  const [sortField, setSortField] = useState<'codigo' | 'nombre' | 'precio' | 'ivaTipo' | 'descuentoDefault'>('codigo');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (field: 'codigo' | 'nombre' | 'precio' | 'ivaTipo' | 'descuentoDefault') => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedProducts = useMemo(() => {
+    return [...products].sort((a, b) => {
+      let valA: any = a[sortField];
+      let valB: any = b[sortField];
+
+      if (sortField === 'precio' || sortField === 'descuentoDefault') {
+        valA = Number(valA) || 0;
+        valB = Number(valB) || 0;
+      } else {
+        valA = String(valA || '').toLowerCase();
+        valB = String(valB || '').toLowerCase();
+      }
+
+      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [products, sortField, sortDirection]);
 
   // Error/Success state
   const [formError, setFormError] = useState('');
@@ -499,7 +531,7 @@ export default function ProductCatalog({
             className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs transition cursor-pointer"
           >
             <FileSpreadsheet className="w-4 h-4" />
-            Carga Masiva (Excel / CSV)
+            Carga Masiva (Excel)
           </button>
 
           <button
@@ -512,7 +544,7 @@ export default function ProductCatalog({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* ADD / EDIT PRODUCT FORM */}
         <div className="bg-white p-6 rounded-2xl border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 space-y-4">
@@ -619,18 +651,30 @@ export default function ProductCatalog({
         </div>
 
         {/* PRODUCTS LIST TABLE */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 md:col-span-2 space-y-4">
-          <div className="flex items-center justify-between border-b border-gray-50 dark:border-zinc-800 pb-2">
-            <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm flex items-center gap-1.5">
-              <Receipt className="w-4 h-4 text-indigo-600" />
-              Catálogo de Ítems e Impuestos ({products.length})
-            </h3>
-            <span className="text-[11px] text-gray-400">
-              {currentUser?.empresaNombre ? `Empresa: ${currentUser.empresaNombre}` : 'Productos Registrados'}
-            </span>
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 lg:col-span-2 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-50 dark:border-zinc-800 pb-3">
+            <div>
+              <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm flex items-center gap-1.5">
+                <Receipt className="w-4 h-4 text-indigo-600" />
+                Catálogo de Ítems e Impuestos ({products.length})
+              </h3>
+              <span className="text-[11px] text-gray-400">
+                {currentUser?.empresaNombre ? `Empresa: ${currentUser.empresaNombre}` : 'Productos Registrados'}
+              </span>
+            </div>
+
+            {/* Quick Sort Direction Badge */}
+            {products.length > 0 && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-gray-400 text-[11px]">Ordenar por:</span>
+                <span className="font-semibold text-indigo-600 dark:text-indigo-400 uppercase text-[10px] bg-indigo-50 dark:bg-indigo-950/30 px-2 py-0.5 rounded-md">
+                  {sortField} ({sortDirection === 'asc' ? 'Menor a Mayor ↑' : 'Mayor a Menor ↓'})
+                </span>
+              </div>
+            )}
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="w-full">
             {products.length === 0 ? (
               <div className="py-12 text-center text-gray-400 space-y-3">
                 <PackageCheck className="w-12 h-12 text-gray-300 mx-auto" />
@@ -641,7 +685,7 @@ export default function ProductCatalog({
                     className="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-400 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
                   >
                     <Upload className="w-3.5 h-3.5" />
-                    Cargar Masivamente por Excel/CSV
+                    Cargar Masiva (Excel)
                   </button>
                   <button
                     onClick={loadDefaults}
@@ -652,54 +696,110 @@ export default function ProductCatalog({
                 </div>
               </div>
             ) : (
-              <table className="w-full text-left text-xs whitespace-nowrap divide-y divide-gray-150 dark:divide-zinc-800">
-                <thead className="bg-gray-50 dark:bg-zinc-800 text-gray-500 font-semibold uppercase">
-                  <tr>
-                    <th className="px-3 py-2 rounded-l">Código</th>
-                    <th className="px-3 py-2">Nombre / Descripción</th>
-                    <th className="px-3 py-2 text-right">Precio Base</th>
-                    <th className="px-3 py-2">IVA SRI</th>
-                    <th className="px-3 py-2 text-center rounded-r">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-150 dark:divide-zinc-800/60 font-medium">
-                  {products.map((item) => {
-                    const ivaDef = IVA_TARIFAS[item.ivaTipo] || { label: 'Desconocido' };
-                    return (
-                      <tr key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-zinc-850/20">
-                        <td className="px-3 py-3 font-mono text-indigo-600 dark:text-indigo-400 font-bold">{item.codigo}</td>
-                        <td className="px-3 py-3 truncate max-w-[200px] text-gray-900 dark:text-gray-100" title={item.nombre}>
-                          {item.nombre}
-                        </td>
-                        <td className="px-3 py-3 text-right font-mono text-gray-800 dark:text-gray-200">
-                          ${item.precio.toFixed(2)}
-                        </td>
-                        <td className="px-3 py-3 text-gray-500 font-sans text-[10px]">{ivaDef.label}</td>
-                        <td className="px-3 py-3 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => startEditProduct(item)}
-                              className="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/20 rounded cursor-pointer transition"
-                              title="Editar producto"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onDeleteProduct(item.id)}
-                              className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 rounded cursor-pointer transition"
-                              title="Eliminar producto de catálogo"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div className="w-full overflow-visible">
+                <table className="w-full text-left text-xs divide-y divide-gray-150 dark:divide-zinc-800">
+                  <thead className="bg-gray-50 dark:bg-zinc-800 text-gray-500 font-semibold uppercase select-none">
+                    <tr>
+                      <th 
+                        onClick={() => handleSort('codigo')}
+                        className="px-3 py-2.5 rounded-l cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                        title="Ordenar por Código"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Código</span>
+                          {sortField === 'codigo' ? (
+                            sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 opacity-40" />
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        onClick={() => handleSort('nombre')}
+                        className="px-3 py-2.5 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                        title="Ordenar por Descripción"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Nombre / Descripción</span>
+                          {sortField === 'nombre' ? (
+                            sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 opacity-40" />
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        onClick={() => handleSort('precio')}
+                        className="px-3 py-2.5 text-right cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                        title="Ordenar por Precio (Mayor a menor / Menor a mayor)"
+                      >
+                        <div className="flex items-center justify-end gap-1">
+                          <span>Precio Base</span>
+                          {sortField === 'precio' ? (
+                            sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 opacity-40" />
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        onClick={() => handleSort('ivaTipo')}
+                        className="px-3 py-2.5 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                        title="Ordenar por IVA"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>IVA SRI</span>
+                          {sortField === 'ivaTipo' ? (
+                            sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 opacity-40" />
+                          )}
+                        </div>
+                      </th>
+                      <th className="px-3 py-2.5 text-center rounded-r">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-150 dark:divide-zinc-800/60 font-medium">
+                    {sortedProducts.map((item) => {
+                      const ivaDef = IVA_TARIFAS[item.ivaTipo] || { label: 'Desconocido' };
+                      return (
+                        <tr key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-zinc-850/20 transition">
+                          <td className="px-3 py-2.5 font-mono text-indigo-600 dark:text-indigo-400 font-bold whitespace-nowrap">{item.codigo}</td>
+                          <td className="px-3 py-2.5 text-gray-900 dark:text-gray-100 font-sans">
+                            <div className="font-semibold break-words leading-tight">{item.nombre}</div>
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-mono text-gray-800 dark:text-gray-200 font-bold whitespace-nowrap">
+                            ${item.precio.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-2.5 text-gray-500 font-sans text-[11px] whitespace-nowrap">
+                            <span className="px-1.5 py-0.5 bg-gray-100 dark:bg-zinc-800 rounded">{ivaDef.label}</span>
+                          </td>
+                          <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => startEditProduct(item)}
+                                className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/20 rounded-lg cursor-pointer transition"
+                                title="Editar producto"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onDeleteProduct(item.id)}
+                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg cursor-pointer transition"
+                                title="Eliminar producto de catálogo"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>
