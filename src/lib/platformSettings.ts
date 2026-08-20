@@ -39,12 +39,143 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformCustomizationSettings = {
     { id: 'menu-supabase', key: 'supabase', label: 'Supabase', iconName: 'Database', visible: true, order: 13, requiredRole: 'SUPERADMIN' },
   ],
 
-  // Theme & Colors
+  // Global Theme & Advanced Colors Engine
   primaryColorName: 'blue',
   customPrimaryHex: '#2563eb',
+  customSecondaryHex: '#4f46e5',
+  customNavbarBgHex: '#ffffff',
+  customSidebarBgHex: '#0f172a',
+  customCardBgHex: '#ffffff',
+  customTextColorHex: '#0f172a',
+  customButtonColorHex: '#2563eb',
+  customButtonTextColorHex: '#ffffff',
+  buttonBorderRadius: 'xl',
+  enableCustomColorPalette: false,
   accentGradient: 'blue-indigo',
   headerStyle: 'modern-white',
   borderRadiusStyle: 'xl',
+
+  // Global Text & Button Names / Microcopy Overrides
+  textOverrides: {
+    btn_new_invoice: 'Emitir Factura',
+    btn_sign_transmit: 'Firmar y Transmitir al SRI',
+    btn_save_draft: 'Guardar Borrador',
+    btn_new_nc: 'Emitir Nota de Crédito',
+    btn_new_retention: 'Nueva Retención',
+    btn_new_proforma: 'Generar Proforma',
+    btn_new_client: 'Nuevo Cliente',
+    btn_new_product: 'Nuevo Producto',
+    btn_download_ride: 'Descargar RIDE (PDF)',
+    btn_download_xml: 'Descargar XML Firmado',
+    btn_send_email: 'Enviar Comprobante por Correo',
+    btn_plans: 'Ver Planes de Facturación',
+    btn_login: 'Ingresar al Sistema',
+    btn_logout: 'Salir',
+    title_history: 'Historial de Comprobantes',
+    subtitle_history: 'Consulta, reenvío y descarga de comprobantes emitidos ante el SRI',
+    title_new_invoice: 'Emisión de Factura Electrónica',
+    subtitle_new_invoice: 'Genera facturas con cálculo automático de impuestos y firma digital XAdES-BES',
+    title_new_nc: 'Emisión de Nota de Crédito',
+    subtitle_new_nc: 'Modifica o anula valores de facturas autorizadas previamente por el SRI',
+    title_retentions: 'Comprobantes de Retención Electrónica',
+    subtitle_retentions: 'Emisión de retenciones en la fuente de Impuesto a la Renta e IVA',
+    title_proformas: 'Cotizaciones y Proformas Comerciales',
+    subtitle_proformas: 'Crea proformas con conversión directa a factura electrónica',
+    title_products: 'Catálogo de Productos y Servicios',
+    subtitle_products: 'Administra precios, tarifas IVA y códigos principales',
+    title_clients: 'Directorio de Clientes',
+    subtitle_clients: 'Gestiona datos tributarios de clientes para emisión rápida',
+  },
+
+  // Screen-by-Screen Builder & Component Customizations
+  screenCustomizations: {
+    'history': {
+      screenId: 'history',
+      title: 'Historial de Facturas & Notas',
+      subtitle: 'Comprobantes autorizados en línea por el SRI con acceso directo a RIDE y XML.',
+      badge: 'SRI XAdES-BES',
+      iconName: 'History',
+      sections: [
+        { id: 'sec-kpis', name: 'Tarjetas de Métricas & Resumen', visible: true, order: 1 },
+        { id: 'sec-search-filters', name: 'Barra de Búsqueda y Filtros', visible: true, order: 2 },
+        { id: 'sec-table-invoices', name: 'Tabla de Facturas Emitidas', visible: true, order: 3 },
+        { id: 'sec-table-nc', name: 'Tabla de Notas de Crédito', visible: true, order: 4 },
+      ],
+      customBlocks: []
+    },
+    'new-invoice': {
+      screenId: 'new-invoice',
+      title: 'Emisión de Factura Electrónica',
+      subtitle: 'Formulario oficial de facturación con validación de RUC/Cédula y cálculo automático de IVA.',
+      badge: 'Emisión SRI',
+      iconName: 'PlusCircle',
+      sections: [
+        { id: 'sec-emitter-bar', name: 'Cabecera de Emisor & Secuencial', visible: true, order: 1 },
+        { id: 'sec-client-picker', name: 'Selector de Cliente & Datos Fiscales', visible: true, order: 2 },
+        { id: 'sec-items-table', name: 'Detalle de Productos & Servicios', visible: true, order: 3 },
+        { id: 'sec-payment-taxes', name: 'Formas de Pago y Resumen de Totales', visible: true, order: 4 },
+        { id: 'sec-additional-info', name: 'Campos de Información Adicional', visible: true, order: 5 },
+      ],
+      customBlocks: []
+    },
+    'new-nc': {
+      screenId: 'new-nc',
+      title: 'Nota de Crédito Electrónica',
+      subtitle: 'Anulación o ajuste de montos de comprobantes autorizados.',
+      badge: 'Documento Tributario',
+      iconName: 'Receipt',
+      sections: [
+        { id: 'sec-nc-header', name: 'Datos de la Factura a Modificar', visible: true, order: 1 },
+        { id: 'sec-nc-details', name: 'Detalle de Ítems Modificados', visible: true, order: 2 },
+        { id: 'sec-nc-summary', name: 'Totales y Motivo de Modificación', visible: true, order: 3 }
+      ]
+    },
+    'retentions': {
+      screenId: 'retentions',
+      title: 'Gestor de Retenciones SRI',
+      subtitle: 'Emisión y control de comprobantes de retención en la fuente de IVA e Impuesto a la Renta.',
+      badge: 'Retención Oficial',
+      iconName: 'Coins',
+      sections: [
+        { id: 'sec-ret-stats', name: 'Resumen de Retenciones del Mes', visible: true, order: 1 },
+        { id: 'sec-ret-form', name: 'Formulario de Nueva Retención', visible: true, order: 2 },
+        { id: 'sec-ret-history', name: 'Listado de Retenciones Emitidas', visible: true, order: 3 }
+      ]
+    },
+    'proformas': {
+      screenId: 'proformas',
+      title: 'Cotizaciones y Proformas Comerciales',
+      subtitle: 'Presupuestos para clientes con conversión a factura en 1 clic.',
+      badge: 'Ventas & Cotizaciones',
+      iconName: 'FileSpreadsheet',
+      sections: [
+        { id: 'sec-prof-form', name: 'Generador de Cotización', visible: true, order: 1 },
+        { id: 'sec-prof-list', name: 'Historial de Cotizaciones Emitidas', visible: true, order: 2 }
+      ]
+    },
+    'products': {
+      screenId: 'products',
+      title: 'Catálogo de Productos y Servicios',
+      subtitle: 'Inventario, listas de precios, impuestos IVA diferenciados y códigos de barras.',
+      badge: 'Inventario Activo',
+      iconName: 'Package',
+      sections: [
+        { id: 'sec-prod-header', name: 'Búsqueda y Acciones de Creación', visible: true, order: 1 },
+        { id: 'sec-prod-grid', name: 'Cuadrícula y Lista de Productos', visible: true, order: 2 }
+      ]
+    },
+    'clients': {
+      screenId: 'clients',
+      title: 'Directorio de Clientes',
+      subtitle: 'Base de datos de compradores con validación de identificación ecuatoriana.',
+      badge: 'Clientes SRI',
+      iconName: 'Users',
+      sections: [
+        { id: 'sec-cli-header', name: 'Búsqueda y Registro de Clientes', visible: true, order: 1 },
+        { id: 'sec-cli-list', name: 'Tabla de Directorio de Clientes', visible: true, order: 2 }
+      ]
+    }
+  },
 
   // Custom Visual Containers & Blocks (Hostinger / Figma Drag-and-Build)
   customContainers: [

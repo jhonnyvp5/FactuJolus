@@ -478,6 +478,43 @@ export interface CustomContainerWidget {
   };
 }
 
+export interface ScreenSectionItem {
+  id: string;
+  name: string;
+  visible: boolean;
+  order: number;
+  customTitle?: string;
+  customHelp?: string;
+}
+
+export interface ScreenCustomBlock {
+  id: string;
+  title: string;
+  type: 'notice' | 'html' | 'kpis' | 'actions' | 'faq' | 'embed';
+  content: string;
+  order: number;
+  visible: boolean;
+  columnSpan?: 'full' | 'half' | 'third';
+  accentColor?: string;
+}
+
+export interface ScreenCustomizationConfig {
+  screenId: string;
+  title?: string;
+  subtitle?: string;
+  badge?: string;
+  iconName?: string;
+  bannerAlert?: {
+    enabled: boolean;
+    type: 'info' | 'success' | 'warning' | 'purple' | 'rose';
+    message: string;
+    linkText?: string;
+    linkUrl?: string;
+  };
+  sections?: ScreenSectionItem[];
+  customBlocks?: ScreenCustomBlock[];
+}
+
 export interface PlatformCustomizationSettings {
   id: string;
   updatedAt: string;
@@ -500,12 +537,27 @@ export interface PlatformCustomizationSettings {
   density: 'comfortable' | 'compact' | 'spacious';
   customMenuItems: CustomMenuItem[];
 
-  // Theme & Colors
+  // Global Theme & Advanced Colors Engine
   primaryColorName: 'blue' | 'indigo' | 'purple' | 'emerald' | 'teal' | 'rose' | 'amber' | 'cyan' | 'slate' | 'custom';
   customPrimaryHex: string;
+  customSecondaryHex?: string;
+  customNavbarBgHex?: string;
+  customSidebarBgHex?: string;
+  customCardBgHex?: string;
+  customTextColorHex?: string;
+  customButtonColorHex?: string;
+  customButtonTextColorHex?: string;
+  buttonBorderRadius?: 'none' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full';
+  enableCustomColorPalette?: boolean;
   accentGradient: 'blue-indigo' | 'purple-indigo' | 'emerald-teal' | 'amber-orange' | 'rose-pink' | 'cyber-dark';
   headerStyle: 'modern-white' | 'gradient-glass' | 'dark-slate' | 'minimal-clean';
   borderRadiusStyle: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+
+  // Global Text & Button Names / Microcopy Overrides
+  textOverrides?: Record<string, string>;
+
+  // Screen-by-Screen Builder & Component Customizations
+  screenCustomizations?: Record<string, ScreenCustomizationConfig>;
 
   // Custom Visual Containers & Blocks (Hostinger / Figma Drag-and-Build)
   customContainers: CustomContainerWidget[];

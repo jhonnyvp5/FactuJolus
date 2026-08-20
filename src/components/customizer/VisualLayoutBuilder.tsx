@@ -116,7 +116,41 @@ export default function VisualLayoutBuilder() {
     modalAlert.info('Elemento Eliminado', 'Se ha removido el elemento del menú.');
   };
 
-  // Save new custom item
+  // Edit custom or default item
+  const [editingItem, setEditingItem] = useState<CustomMenuItem | null>(null);
+
+  const handleSaveEditedItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingItem) return;
+    const updated = menuItems.map(it => it.id === editingItem.id ? editingItem : it);
+    updateSettings({ customMenuItems: updated });
+    setEditingItem(null);
+    modalAlert.success('Menú Actualizado', 'Los cambios en la opción del menú se aplicaron correctamente.');
+  };
+
+  const handleResetMenuItems = () => {
+    const confirmed = window.confirm('¿Restablecer el menú y el orden a los valores predeterminados?');
+    if (!confirmed) return;
+    updateSettings({
+      customMenuItems: [
+        { id: 'menu-history', key: 'history', label: 'Facturas & Notas', iconName: 'FileText', visible: true, order: 1, requiredRole: 'ALL' },
+        { id: 'menu-invoice', key: 'new-invoice', label: 'Nueva Factura', iconName: 'PlusCircle', visible: true, order: 2, requiredRole: 'ALL' },
+        { id: 'menu-nc', key: 'new-nc', label: 'Nota Crédito', iconName: 'Receipt', visible: true, order: 3, requiredRole: 'ALL' },
+        { id: 'menu-retentions', key: 'retentions', label: 'Retenciones', iconName: 'Coins', visible: true, order: 4, requiredRole: 'ALL' },
+        { id: 'menu-proformas', key: 'proformas', label: 'Proformas', iconName: 'FileSpreadsheet', visible: true, order: 5, requiredRole: 'ALL' },
+        { id: 'menu-products', key: 'products', label: 'Productos', iconName: 'Package', visible: true, order: 6, requiredRole: 'ALL' },
+        { id: 'menu-clients', key: 'clients', label: 'Clientes', iconName: 'Users', visible: true, order: 7, requiredRole: 'ALL' },
+        { id: 'menu-profile', key: 'profile', label: 'Mi Perfil', iconName: 'User', visible: true, order: 8, requiredRole: 'ALL' },
+        { id: 'menu-settings', key: 'settings', label: 'Configuración', iconName: 'Settings', visible: true, order: 9, requiredRole: 'ALL' },
+        { id: 'menu-users', key: 'users', label: 'Usuarios', iconName: 'ShieldCheck', visible: true, order: 10, requiredRole: 'ADMIN' },
+        { id: 'menu-tenants', key: 'tenants', label: 'Empresas', iconName: 'Building2', visible: true, order: 11, requiredRole: 'SUPERADMIN' },
+        { id: 'menu-customizer', key: 'customizer', label: 'Diseño & Plataforma', iconName: 'Palette', visible: true, order: 12, requiredRole: 'SUPERADMIN' },
+        { id: 'menu-supabase', key: 'supabase', label: 'Supabase', iconName: 'Database', visible: true, order: 13, requiredRole: 'SUPERADMIN' },
+      ]
+    });
+    modalAlert.info('Menú Restaurado', 'Se ha restablecido la lista y orden original de las secciones.');
+  };
+
   const handleCreateCustomItem = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItemFormData.label?.trim()) {
@@ -373,14 +407,24 @@ export default function VisualLayoutBuilder() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setShowNewItemModal(true)}
-            className="px-4 py-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 flex items-center gap-2 cursor-pointer transition active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Crear Opción Personalizada</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleResetMenuItems}
+              className="px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 text-xs font-bold transition cursor-pointer"
+              title="Restablecer menú por defecto"
+            >
+              Restablecer
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowNewItemModal(true)}
+              className="px-4 py-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 flex items-center gap-2 cursor-pointer transition active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Crear Opción Personalizada</span>
+            </button>
+          </div>
         </div>
 
         {/* ITEMS LIST WITH REORDER & TOGGLE */}
@@ -432,8 +476,17 @@ export default function VisualLayoutBuilder() {
                 </div>
               </div>
 
-              {/* Right: Actions (Move Up, Move Down, Toggle Visibility, Delete) */}
+              {/* Right: Actions (Edit, Move Up, Move Down, Toggle Visibility, Delete) */}
               <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setEditingItem({ ...item })}
+                  className="p-1.5 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 text-blue-600 dark:text-blue-400 transition cursor-pointer"
+                  title="Editar nombre e icono"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+
                 <button
                   type="button"
                   onClick={() => handleMoveUp(index)}
@@ -483,7 +536,105 @@ export default function VisualLayoutBuilder() {
         </div>
       </div>
 
-      {/* MODAL PARA CREAR NUEVA OPCIÓN DEL MENÚ */}
+      {/* MODAL PARA EDITAR OPCIÓN DE MENÚ EXISTENTE */}
+      {editingItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 sm:p-8 max-w-md w-full border border-slate-200 dark:border-zinc-800 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-lg font-black text-slate-900 dark:text-white">
+                  Editar Opción de Menú
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-zinc-400">
+                  Clave del sistema: <span className="font-mono font-bold text-blue-600">{editingItem.key}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingItem(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditedItem} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">
+                  Nombre / Etiqueta del Botón *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editingItem.label}
+                  onChange={(e) => setEditingItem({ ...editingItem, label: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white focus:outline-blue-500 font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">
+                    Badge / Placa (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej: NUEVO, PRO, SRI"
+                    value={editingItem.badge || ''}
+                    onChange={(e) => setEditingItem({ ...editingItem, badge: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white focus:outline-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">
+                    Visibilidad por Rol
+                  </label>
+                  <select
+                    value={editingItem.requiredRole || 'ALL'}
+                    onChange={(e) => setEditingItem({ ...editingItem, requiredRole: e.target.value as any })}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white focus:outline-blue-500"
+                  >
+                    <option value="ALL">Todos los Usuarios</option>
+                    <option value="ADMIN">Solo Administradores</option>
+                    <option value="SUPERADMIN">Solo Superadmin</option>
+                  </select>
+                </div>
+              </div>
+
+              {editingItem.isCustom && (
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">
+                    Enlace Externo o URL
+                  </label>
+                  <input
+                    type="url"
+                    value={editingItem.customUrl || ''}
+                    onChange={(e) => setEditingItem({ ...editingItem, customUrl: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white focus:outline-blue-500"
+                  />
+                </div>
+              )}
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingItem(null)}
+                  className="px-4 py-2 rounded-xl text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 font-bold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/20 cursor-pointer"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {showNewItemModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
           <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 sm:p-8 max-w-md w-full border border-slate-200 dark:border-zinc-800 shadow-2xl space-y-5">

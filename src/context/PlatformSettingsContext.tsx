@@ -14,6 +14,7 @@ interface PlatformSettingsContextType {
   resetToDefaults: () => Promise<void>;
   isLoading: boolean;
   isSaving: boolean;
+  getLabel: (key: string, fallback: string) => string;
   themeClasses: {
     primaryBg: string;
     primaryText: string;
@@ -160,6 +161,75 @@ export function PlatformSettingsProvider({ children }: { children: React.ReactNo
     }
   }, [settings.platformName, settings.platformTagline, settings.faviconUrl]);
 
+  // Inject Dynamic Color Variables
+  useEffect(() => {
+    const primaryHex = settings.primaryColorName === 'custom' || settings.enableCustomColorPalette
+      ? settings.customPrimaryHex || '#2563eb'
+      : (THEME_COLOR_MAP[settings.primaryColorName]?.hex || '#2563eb');
+    
+    const secondaryHex = settings.customSecondaryHex || '#4f46e5';
+    const buttonHex = settings.customButtonColorHex || primaryHex;
+    const buttonTextHex = settings.customButtonTextColorHex || '#ffffff';
+    const navbarBg = settings.customNavbarBgHex || '#ffffff';
+    const sidebarBg = settings.customSidebarBgHex || '#0f172a';
+
+    const radiusMap: Record<string, string> = {
+      none: '0px',
+      sm: '0.25rem',
+      md: '0.5rem',
+      lg: '0.75rem',
+      xl: '1rem',
+      '2xl': '1.25rem',
+      full: '9999px'
+    };
+    const borderRadius = radiusMap[settings.buttonBorderRadius || settings.borderRadiusStyle || 'xl'] || '0.75rem';
+
+    let styleEl = document.getElementById('sri-platform-dynamic-colors-style') as HTMLStyleElement | null;
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'sri-platform-dynamic-colors-style';
+      document.head.appendChild(styleEl);
+    }
+
+    styleEl.innerHTML = `
+      :root {
+        --color-brand-primary: ${primaryHex};
+        --color-brand-secondary: ${secondaryHex};
+        --color-brand-button: ${buttonHex};
+        --color-brand-button-text: ${buttonTextHex};
+        --color-brand-navbar: ${navbarBg};
+        --color-brand-sidebar: ${sidebarBg};
+        --radius-brand: ${borderRadius};
+      }
+      ${settings.enableCustomColorPalette ? `
+        .bg-blue-600, .bg-indigo-600 {
+          background-color: ${primaryHex} !important;
+        }
+        .text-blue-600, .text-indigo-600 {
+          color: ${primaryHex} !important;
+        }
+        .border-blue-500, .border-indigo-500 {
+          border-color: ${primaryHex} !important;
+        }
+      ` : ''}
+    `;
+  }, [
+    settings.primaryColorName,
+    settings.customPrimaryHex,
+    settings.customSecondaryHex,
+    settings.customButtonColorHex,
+    settings.customButtonTextColorHex,
+    settings.customNavbarBgHex,
+    settings.customSidebarBgHex,
+    settings.buttonBorderRadius,
+    settings.borderRadiusStyle,
+    settings.enableCustomColorPalette
+  ]);
+
+  const getLabel = (key: string, fallback: string): string => {
+    return settings.textOverrides?.[key] || fallback;
+  };
+
   const updateSettings = (newSettingsOrUpdater: Partial<PlatformCustomizationSettings> | ((prev: PlatformCustomizationSettings) => Partial<PlatformCustomizationSettings> | PlatformCustomizationSettings)) => {
     setSettings(prev => {
       const result = typeof newSettingsOrUpdater === 'function' ? newSettingsOrUpdater(prev) : newSettingsOrUpdater;
@@ -197,7 +267,15 @@ export function PlatformSettingsProvider({ children }: { children: React.ReactNo
     modalAlert.info('Valores Restaurados', 'Se ha restablecido el diseño y configuración original de la plataforma.');
   };
 
-  const selectedTheme = THEME_COLOR_MAP[settings.primaryColorName] || THEME_COLOR_MAP.blue;
+  const selectedTheme = settings.primaryColorName === 'custom' || settings.enableCustomColorPalette ? {
+    primaryBg: `bg-blue-600 hover:bg-blue-700`,
+    primaryText: `text-blue-600 dark:text-blue-400`,
+    primaryBorder: `border-blue-500`,
+    primaryGradient: `from-blue-600 via-indigo-600 to-sky-500`,
+    badgeBg: `bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300`,
+    activeTabBg: `bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25`,
+    hex: settings.customPrimaryHex || '#2563eb'
+  } : (THEME_COLOR_MAP[settings.primaryColorName] || THEME_COLOR_MAP.blue);
 
   return (
     <PlatformSettingsContext.Provider
@@ -208,6 +286,7 @@ export function PlatformSettingsProvider({ children }: { children: React.ReactNo
         resetToDefaults,
         isLoading,
         isSaving,
+        getLabel,
         themeClasses: selectedTheme,
       }}
     >
