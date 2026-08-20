@@ -150,6 +150,7 @@ CREATE TABLE IF NOT EXISTS public.emisor_config (
     regimen TEXT DEFAULT 'GENERAL',
     regimen_tributario TEXT DEFAULT 'GENERAL',
     ambiente TEXT DEFAULT '1',
+    is_demo_mode BOOLEAN DEFAULT true,
     logo_url TEXT,
     logo_b64 TEXT,
     ultimo_secuencial_factura TEXT DEFAULT '000000001',
@@ -177,6 +178,7 @@ ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_port TEXT;
 ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_user TEXT;
 ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_pass TEXT;
 ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_from TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS is_demo_mode BOOLEAN DEFAULT true;
 
 -- 5. TABLA DE FACTURAS
 CREATE TABLE IF NOT EXISTS public.facturas (
@@ -924,7 +926,9 @@ export async function fetchEmitterConfigFromSupabase(ruc?: string, userEmail?: s
       smtpUser: data.smtp_user || '',
       smtpPass: data.smtp_pass || '',
       smtpFrom: data.smtp_from || '',
-      isDemoMode: false,
+      isDemoMode: data.is_demo_mode !== undefined && data.is_demo_mode !== null
+        ? (data.is_demo_mode === true || data.is_demo_mode === 'true' || data.is_demo_mode === 'SI' || data.is_demo_mode === 1)
+        : (data.isDemoMode !== undefined && data.isDemoMode !== null ? Boolean(data.isDemoMode) : true),
       usuarioCorreo: data.usuario_correo,
       empresaRuc: data.empresa_ruc || data.ruc,
       empresaNombre: data.empresa_nombre || data.razon_social
@@ -956,6 +960,7 @@ export async function saveEmitterConfigToSupabase(config: EmitterConfig, userEma
     regimen: config.regimen || '',
     regimen_tributario: config.regimen || '',
     ambiente: config.ambiente || '1',
+    is_demo_mode: config.isDemoMode !== undefined ? config.isDemoMode : true,
     logo_url: config.logoB64 !== undefined ? config.logoB64 : '',
     logo_b64: config.logoB64 !== undefined ? config.logoB64 : '',
     ultimo_secuencial_factura: config.ultimoSecuencialFactura || '',

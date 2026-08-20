@@ -21,7 +21,16 @@ import {
   Info,
   ShieldAlert,
   FileCheck2,
-  FileText
+  FileText,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  AlertOctagon,
+  Cpu,
+  Key,
+  FileEdit,
+  Layers,
+  Activity
 } from 'lucide-react';
 import { apiSignXml, apiSendSri, apiAuthorizeSri, apiSendInvoiceEmail } from '../lib/apiClient';
 
@@ -463,78 +472,154 @@ export default function HistoryList({
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       
-      {/* TARJETAS DE SUMMARY CONTABLE - MODERNIZADAS */}
+      {/* TARJETAS DE SUMMARY CONTABLE - MODERNIZADAS & PROFESIONALES */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         
-        <div className="bg-white p-5 rounded-2xl shadow-xs border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 transition hover:shadow-sm">
-          <span className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-widest">Facturación Bruta (SRI)</span>
-          <div className="mt-2 text-2xl font-black text-gray-900 dark:text-white font-mono">${totalInvoiced.toFixed(2)}</div>
-          <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-semibold flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            {authorizedInvoices.length} Facturas Autorizadas
-          </p>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl shadow-xs border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 transition hover:shadow-sm">
-          <span className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-widest">Ajustes Notas de Crédito (-)</span>
-          <div className="mt-2 text-2xl font-black text-rose-600 dark:text-rose-400 font-mono">-${totalRefunded.toFixed(2)}</div>
-          <p className="text-[11px] text-rose-500 mt-1 font-semibold flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-            {authorizedNCs.length} Directivas Modificadas
-          </p>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl shadow-xs border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 transition hover:shadow-sm">
-          <span className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-widest">Resultados Netos</span>
-          <div className="mt-2 text-2xl font-black text-indigo-600 dark:text-indigo-400 font-mono">${netEarnings.toFixed(2)}</div>
-          <p className="text-[10px] text-gray-500 dark:text-zinc-400 mt-1">Cálculos en base imponible + IVA</p>
-        </div>
-
-        {/* INCONCLUSOS / RECHAZADOS */}
-        <div className="bg-white p-5 rounded-2xl shadow-xs border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 flex flex-col justify-between transition hover:shadow-sm">
+        {/* CARD 1: FACTURACIÓN BRUTA */}
+        <div className="bg-white p-4.5 rounded-2xl shadow-xs border border-gray-200/80 dark:bg-zinc-900 dark:border-zinc-800 transition hover:shadow-sm hover:border-emerald-200 dark:hover:border-emerald-900/50 flex flex-col justify-between">
           <div>
-            <span className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-widest">Inconclusos / Rechazados</span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Facturación Bruta</span>
+              <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/40">
+                <TrendingUp className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div className="mt-2 text-2xl font-black text-slate-900 dark:text-white font-mono tracking-tight">
+              ${totalInvoiced.toFixed(2)}
+            </div>
+          </div>
+          <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-zinc-800/80 flex items-center">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60 shadow-2xs">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              {authorizedInvoices.length} {authorizedInvoices.length === 1 ? 'Factura Autorizada' : 'Facturas Autorizadas'}
+            </span>
+          </div>
+        </div>
+
+        {/* CARD 2: AJUSTES NOTAS DE CRÉDITO */}
+        <div className="bg-white p-4.5 rounded-2xl shadow-xs border border-gray-200/80 dark:bg-zinc-900 dark:border-zinc-800 transition hover:shadow-sm hover:border-rose-200 dark:hover:border-rose-900/50 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Ajustes Notas Crédito</span>
+              <div className="p-1.5 rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400 border border-rose-100 dark:border-rose-900/40">
+                <TrendingDown className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div className="mt-2 text-2xl font-black text-rose-600 dark:text-rose-400 font-mono tracking-tight">
+              -${totalRefunded.toFixed(2)}
+            </div>
+          </div>
+          <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-zinc-800/80 flex items-center">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60 shadow-2xs">
+              <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0"></span>
+              {authorizedNCs.length} {authorizedNCs.length === 1 ? 'Nota de Crédito' : 'Notas de Crédito'}
+            </span>
+          </div>
+        </div>
+
+        {/* CARD 3: RESULTADOS NETOS */}
+        <div className="bg-white p-4.5 rounded-2xl shadow-xs border border-gray-200/80 dark:bg-zinc-900 dark:border-zinc-800 transition hover:shadow-sm hover:border-indigo-200 dark:hover:border-indigo-900/50 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Resultados Netos</span>
+              <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/40">
+                <Wallet className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div className="mt-2 text-2xl font-black text-indigo-600 dark:text-indigo-400 font-mono tracking-tight">
+              ${netEarnings.toFixed(2)}
+            </div>
+          </div>
+          <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-zinc-800/80 flex items-center">
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-mono text-slate-600 bg-slate-50 dark:bg-zinc-800/80 dark:text-zinc-300 border border-slate-200/70 dark:border-zinc-700/60">
+              <Activity className="w-3 h-3 text-indigo-500" /> Base imponible + IVA
+            </span>
+          </div>
+        </div>
+
+        {/* CARD 4: INCONCLUSOS / RECHAZADOS */}
+        <div className="bg-white p-4.5 rounded-2xl shadow-xs border border-gray-200/80 dark:bg-zinc-900 dark:border-zinc-800 transition hover:shadow-sm hover:border-amber-200 dark:hover:border-amber-900/50 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Inconclusos / Alertas</span>
+              <div className="p-1.5 rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400 border border-amber-100 dark:border-amber-900/40">
+                <AlertOctagon className="w-3.5 h-3.5" />
+              </div>
+            </div>
             <div className="mt-2 space-y-1.5">
               <div className="flex justify-between items-center text-[11px]">
-                <span className="text-gray-500 dark:text-zinc-400 font-medium">📝 Borradores:</span>
-                <span className="font-mono font-bold text-gray-800 dark:text-zinc-200">
-                  {draftInvoices.length} <span className="text-gray-400 font-normal">(${totalDraftAmount.toFixed(0)})</span>
+                <span className="text-slate-600 dark:text-zinc-400 font-medium flex items-center gap-1.5">
+                  <FileEdit className="w-3 h-3 text-slate-400" /> Borradores:
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700">
+                  {draftInvoices.length} <span className="text-slate-400 font-normal">(${totalDraftAmount.toFixed(0)})</span>
                 </span>
               </div>
               <div className="flex justify-between items-center text-[11px]">
-                <span className="font-semibold text-rose-600 dark:text-rose-400">❌ Devueltas:</span>
-                <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
-                  {devueltoInvoices.length} <span className="text-rose-500/80 font-normal">(${totalDevueltoAmount.toFixed(0)})</span>
+                <span className="text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1.5">
+                  <XCircle className="w-3 h-3 text-rose-500" /> Devueltas:
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800">
+                  {devueltoInvoices.length} <span className="text-rose-500/70 font-normal">(${totalDevueltoAmount.toFixed(0)})</span>
                 </span>
               </div>
               <div className="flex justify-between items-center text-[11px]">
-                <span className="font-semibold text-amber-600 dark:text-amber-400">⚠️ No Autorizadas:</span>
-                <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
-                  {noAutorizadoInvoices.length} <span className="text-amber-500/80 font-normal">(${totalNoAutorizadoAmount.toFixed(0)})</span>
+                <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1.5">
+                  <AlertTriangle className="w-3 h-3 text-amber-500" /> No Autoriz.:
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
+                  {noAutorizadoInvoices.length} <span className="text-amber-500/70 font-normal">(${totalNoAutorizadoAmount.toFixed(0)})</span>
                 </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* AMBIENTE DE OPERACIÓN */}
-        <div className="bg-white p-5 rounded-2xl shadow-xs border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 flex flex-col justify-between transition hover:shadow-sm">
+        {/* CARD 5: AMBIENTE DE OPERACIÓN */}
+        <div className="bg-white p-4.5 rounded-2xl shadow-xs border border-gray-200/80 dark:bg-zinc-900 dark:border-zinc-800 transition hover:shadow-sm hover:border-indigo-200 dark:hover:border-indigo-900/50 flex flex-col justify-between">
           <div>
-            <span className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-widest">Ambiente de Operación</span>
-            <div className="mt-2">
-              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-bold tracking-wider uppercase border shadow-2xs ${
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Ambiente Operación</span>
+              <div className={`p-1.5 rounded-lg border ${
                 config.isDemoMode 
-                  ? 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800' 
-                  : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                  ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/40' 
+                  : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/40'
               }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${config.isDemoMode ? 'bg-indigo-500' : 'bg-rose-500 animate-pulse'}`}></span>
-                {config.isDemoMode ? 'SIMULADOR' : `REAL - ${config.ambiente === '1' ? 'SAND' : 'PROD'}`}
+                <Cpu className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            
+            <div className="mt-2.5">
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-bold tracking-wide uppercase border shadow-2xs ${
+                config.isDemoMode 
+                  ? 'bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800' 
+                  : 'bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/10 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+              }`}>
+                <span className="relative flex h-2 w-2">
+                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${config.isDemoMode ? 'bg-indigo-400' : 'bg-emerald-400'}`}></span>
+                  <span className={`relative inline-flex rounded-full h-2 w-2 ${config.isDemoMode ? 'bg-indigo-500' : 'bg-emerald-500'}`}></span>
+                </span>
+                {config.isDemoMode ? 'SIMULADOR SRI' : `REAL · ${config.ambiente === '1' ? 'PRUEBAS' : 'PRODUCCIÓN'}`}
               </span>
             </div>
           </div>
-          <p className="text-[10px] text-gray-400 dark:text-zinc-500 leading-none mt-2">
-            Firma .p12: <span className="font-medium text-gray-600 dark:text-zinc-300">{config.isDemoMode ? 'Simulada' : (config.p12Nombre ? 'Cargada' : 'No configurada')}</span>
-          </p>
+
+          <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-zinc-800/80 flex items-center justify-between text-[11px]">
+            <span className="text-slate-400 dark:text-zinc-500">Firma .p12:</span>
+            <span className={`inline-flex items-center gap-1 font-mono font-semibold px-2 py-0.5 rounded-md text-[10px] border ${
+              config.isDemoMode 
+                ? 'bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-900' 
+                : (config.p12Nombre 
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900' 
+                    : 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900')
+            }`}>
+              <Key className="w-2.5 h-2.5" />
+              {config.isDemoMode ? 'Simulada' : (config.p12Nombre ? 'Cargada' : 'No configurada')}
+            </span>
+          </div>
         </div>
 
       </div>
