@@ -1873,6 +1873,9 @@ export async function fetchEmpresasFromSupabase(): Promise<EmpresaTenant[]> {
       limiteUsuarios: Number(item.limite_usuarios ?? item.limiteUsuarios ?? 3),
       comprobantesEmitidos: Number(item.comprobantes_emitidos || 0),
       usuariosRegistrados: Number(item.usuarios_registrados || 0),
+      featurePermissions: typeof item.feature_permissions === 'string' 
+        ? JSON.parse(item.feature_permissions) 
+        : (item.feature_permissions || item.featurePermissions || undefined),
       createdAt: item.created_at,
       updatedAt: item.updated_at
     }));
@@ -1921,6 +1924,9 @@ export async function getEmpresaByRuc(ruc: string): Promise<EmpresaTenant | null
       limiteUsuarios: Number(data.limite_usuarios ?? data.limiteUsuarios ?? 3),
       comprobantesEmitidos: totalDocs,
       usuariosRegistrados: totalUsers,
+      featurePermissions: typeof data.feature_permissions === 'string' 
+        ? JSON.parse(data.feature_permissions) 
+        : (data.feature_permissions || data.featurePermissions || undefined),
       createdAt: data.created_at,
       updatedAt: data.updated_at
     };
@@ -1985,7 +1991,8 @@ export async function saveEmpresaToSupabase(empresa: EmpresaTenant): Promise<{ s
     fecha_inicio: empresa.fechaInicio || new Date().toISOString().split('T')[0],
     fecha_expiracion: empresa.fechaExpiracion,
     limite_comprobantes: Number(empresa.limiteComprobantes) || 100,
-    limite_usuarios: Number(empresa.limiteUsuarios) || 3
+    limite_usuarios: Number(empresa.limiteUsuarios) || 3,
+    feature_permissions: empresa.featurePermissions || null
   };
 
   return safeUpsert('empresas_inquilinos', payload, 'ruc');

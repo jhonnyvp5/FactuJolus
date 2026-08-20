@@ -196,6 +196,60 @@ export interface ActivityLog {
   empresaNombre?: string;
 }
 
+export interface TenantModulePermissions {
+  invoices?: {
+    enabled: boolean;
+    canCreate: boolean;
+    canExportRide: boolean;
+    canSendEmail: boolean;
+    canVoid: boolean;
+  };
+  creditNotes?: {
+    enabled: boolean;
+    canCreate: boolean;
+    canExportRide: boolean;
+  };
+  retentions?: {
+    enabled: boolean;
+    canCreate: boolean;
+    canExportRide: boolean;
+  };
+  proformas?: {
+    enabled: boolean;
+    canCreate: boolean;
+    canConvertToInvoice: boolean;
+    canExportPdf: boolean;
+  };
+  products?: {
+    enabled: boolean;
+    canCreate: boolean;
+    canImportExport: boolean;
+  };
+  clients?: {
+    enabled: boolean;
+    canCreate: boolean;
+    canSearchSri: boolean;
+  };
+  users?: {
+    enabled: boolean;
+    canManageRoles: boolean;
+  };
+  sriSettings?: {
+    enabled: boolean;
+    canUploadSignature: boolean;
+    canChangeEnvironment: boolean;
+  };
+}
+
+export interface TenantFeaturePermissions {
+  allowedLayouts?: ('topbar-classic' | 'sidebar-left' | 'sidebar-right' | 'compact-dock' | 'floating-island')[];
+  canCustomizeTheme?: boolean;
+  canCustomizeMenu?: boolean;
+  canUseGroups?: boolean;
+  modules?: TenantModulePermissions;
+  customNotes?: string;
+}
+
 export interface EmpresaTenant {
   id: string;
   ruc: string;
@@ -209,6 +263,7 @@ export interface EmpresaTenant {
   limiteUsuarios: number;
   comprobantesEmitidos?: number;
   usuariosRegistrados?: number;
+  featurePermissions?: TenantFeaturePermissions;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -409,6 +464,15 @@ export interface ModuleVisibilityFlags {
   allowPublicRegistration: boolean;
 }
 
+export interface MenuGroup {
+  id: string;
+  name: string;
+  iconName?: string;
+  order: number;
+  visible?: boolean;
+  color?: string;
+}
+
 export interface CustomMenuItem {
   id: string;
   key: string;
@@ -421,6 +485,7 @@ export interface CustomMenuItem {
   customUrl?: string;
   openInNewTab?: boolean;
   requiredRole?: 'ALL' | 'ADMIN' | 'SUPERADMIN';
+  groupId?: string; // Group ID to group items into dropdowns/accordions
 }
 
 export interface CustomWidgetMetric {
@@ -535,6 +600,7 @@ export interface PlatformCustomizationSettings {
   menuLayout: 'topbar-classic' | 'sidebar-left' | 'sidebar-right' | 'compact-dock' | 'floating-island';
   contentLayoutWidth: 'contained-sm' | 'contained-lg' | 'full-width' | 'fluid';
   density: 'comfortable' | 'compact' | 'spacious';
+  menuGroups?: MenuGroup[];
   customMenuItems: CustomMenuItem[];
 
   // Global Theme & Advanced Colors Engine

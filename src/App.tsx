@@ -1097,7 +1097,13 @@ export default function App() {
           
           {/* TOPBAR / FLOATING ISLAND / COMPACT DOCK NAVIGATION (WHEN NOT SIDEBAR) */}
           {settings.menuLayout !== 'sidebar-left' && settings.menuLayout !== 'sidebar-right' && (
-            <div className={`${
+            <div className={`sticky top-[64px] sm:top-[68px] z-30 transition-all ${
+              settings.menuLayout === 'topbar-classic'
+                ? 'bg-slate-100/90 dark:bg-zinc-950/90 backdrop-blur-md py-2.5 border-b border-slate-200/50 dark:border-zinc-800/50 shadow-xs'
+                : settings.menuLayout === 'floating-island'
+                ? 'py-3 pointer-events-none'
+                : 'py-2'
+            } ${
               settings.contentLayoutWidth === 'fluid'
                 ? 'w-full px-2 sm:px-4'
                 : settings.contentLayoutWidth === 'full-width'
@@ -1105,14 +1111,16 @@ export default function App() {
                 : settings.contentLayoutWidth === 'contained-sm'
                 ? 'max-w-5xl w-full mx-auto px-4 sm:px-6'
                 : 'max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8'
-            } pt-4`}>
-              <DynamicPlatformNavigation
-                layoutMode={settings.menuLayout || 'topbar-classic'}
-                activeTab={activeTab}
-                onSelectTab={(tab) => setActiveTab(tab as any)}
-                currentUser={currentUser}
-                userPermissions={userPermissions}
-              />
+            }`}>
+              <div className="pointer-events-auto">
+                <DynamicPlatformNavigation
+                  layoutMode={settings.menuLayout || 'topbar-classic'}
+                  activeTab={activeTab}
+                  onSelectTab={(tab) => setActiveTab(tab as any)}
+                  currentUser={currentUser}
+                  userPermissions={userPermissions}
+                />
+              </div>
             </div>
           )}
 

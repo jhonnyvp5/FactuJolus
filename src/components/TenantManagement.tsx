@@ -4,9 +4,10 @@ import {
   AlertCircle, CheckCircle2, Search, X, Check, ArrowRight, ShieldCheck, Lock,
   ChevronDown, ChevronUp, FileText, Receipt, Percent, KeyRound, ExternalLink,
   Briefcase, Mail, MapPin, Globe, Sparkles, Phone, FileSpreadsheet,
-  ArrowUpDown, ArrowUp, ArrowDown
+  ArrowUpDown, ArrowUp, ArrowDown, Sliders, ToggleRight
 } from 'lucide-react';
 import { EmpresaTenant, PortalUser, Invoice, CreditNote, Proforma, Retention, EmitterConfig } from '../types';
+import TenantPermissionsModal from './tenants/TenantPermissionsModal';
 import { 
   fetchEmpresasFromSupabase, 
   saveEmpresaToSupabase, 
@@ -36,6 +37,7 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
   const [emitterConfigs, setEmitterConfigs] = useState<Record<string, EmitterConfig>>({});
   
   const [expandedEmpresaId, setExpandedEmpresaId] = useState<string | null>(null);
+  const [selectedEmpresaForPerms, setSelectedEmpresaForPerms] = useState<EmpresaTenant | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   
@@ -227,6 +229,24 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
     } else {
       setSortField(field);
       setSortDirection('asc');
+    }
+  };
+
+  const handleSavePermissions = async (updatedEmpresa: EmpresaTenant) => {
+    const res = await saveEmpresaToSupabase(updatedEmpresa);
+    if (res.success) {
+      setEmpresas(prev => prev.map(e => e.id === updatedEmpresa.id || e.ruc === updatedEmpresa.ruc ? updatedEmpresa : e));
+      logActivity(
+        currentUser,
+        'PERMISOS_ACTUALIZADOS',
+        `Funciones y diseños actualizados para inquilino: ${updatedEmpresa.razonSocial} (${updatedEmpresa.ruc})`
+      );
+      modalAlert.success(
+        'Permisos Actualizados',
+        `Las funciones, subfunciones y estilos autorizados para "${updatedEmpresa.razonSocial}" se han guardado exitosamente.`
+      );
+    } else {
+      throw new Error(res.errorDetails || 'Error al guardar en base de datos');
     }
   };
 
@@ -459,6 +479,14 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
 
                     {isSuperAdmin && (
                       <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => setSelectedEmpresaForPerms(emp)}
+                          className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 rounded-md transition cursor-pointer flex items-center gap-1 text-[11px] font-bold"
+                          title="Gestionar permisos, módulos y diseños autorizados"
+                        >
+                          <Sliders className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                          <span>Funciones</span>
+                        </button>
                         <button
                           onClick={() => handleOpenEditModal(emp)}
                           className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md transition cursor-pointer"
@@ -698,6 +726,15 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
                     <div className="pt-2 flex flex-wrap items-center justify-end gap-2">
                       <button
                         type="button"
+                        onClick={() => setSelectedEmpresaForPerms(emp)}
+                        className="px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 rounded-lg font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+                      >
+                        <Sliders className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                        <span>Permisos, Módulos & Diseños</span>
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => handleOpenEditModal(emp)}
                         className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-700 dark:text-zinc-200 rounded-lg font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
                       >
@@ -914,6 +951,16 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
             </form>
           </div>
         </div>
+      )}
+
+      {/* SUPERADMIN TENANT PERMISSIONS MODAL */}
+      {selectedEmpresaForPerms && (
+        <TenantPermissionsModal
+          empresa={selectedEmpresaForPerms}
+          isOpen={!!selectedEmpresaForPerms}
+          onClose={() => setSelectedEmpresaForPerms(null)}
+          onSave={handleSavePermissions}
+        />
       )}
     </div>
   );
