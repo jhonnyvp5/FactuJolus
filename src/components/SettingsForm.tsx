@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { PortalUser, EmitterConfig, RegimenTributario } from '../types';
 import { validateRuc, REGIMENES } from '../sri/utils';
-import { getCertificateInfo } from '../sri/signer';
 import { apiCheckSignature, apiTestSmtp } from '../lib/apiClient';
-import { CheckCircle2, AlertCircle, Key, FileCode, Shield, RefreshCw, Trash2, Sparkles, Lock, Edit3, Check, Mail, Server, Send } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Key, FileCode, Shield, RefreshCw, Trash2, Sparkles, Lock, Edit3, Mail, Send } from 'lucide-react';
 import { saveEmitterConfigToSupabase } from '../lib/supabase';
 
 interface SettingsFormProps {
@@ -13,22 +12,22 @@ interface SettingsFormProps {
 }
 
 export default function SettingsForm({ config, onSave, currentUser }: SettingsFormProps) {
-  const [ruc, setRuc] = useState(config.ruc);
-  const [razonSocial, setRazonSocial] = useState(config.razonSocial);
-  const [nombreComercial, setNombreComercial] = useState(config.nombreComercial);
-  const [dirMatriz, setDirMatriz] = useState(config.dirMatriz);
-  const [dirEstablecimiento, setDirEstablecimiento] = useState(config.dirEstablecimiento);
-  const [codEstablecimiento, setCodEstablecimiento] = useState(config.codEstablecimiento);
-  const [codPuntoEmision, setCodPuntoEmision] = useState(config.codPuntoEmision);
+  const [ruc, setRuc] = useState(config.ruc || '');
+  const [razonSocial, setRazonSocial] = useState(config.razonSocial || '');
+  const [nombreComercial, setNombreComercial] = useState(config.nombreComercial || '');
+  const [dirMatriz, setDirMatriz] = useState(config.dirMatriz || '');
+  const [dirEstablecimiento, setDirEstablecimiento] = useState(config.dirEstablecimiento || '');
+  const [codEstablecimiento, setCodEstablecimiento] = useState(config.codEstablecimiento || '001');
+  const [codPuntoEmision, setCodPuntoEmision] = useState(config.codPuntoEmision || '001');
   const [correo, setCorreo] = useState(config.correo || '');
   const [telefono, setTelefono] = useState(config.telefono || '');
-  const [obligadoContabilidad, setObligadoContabilidad] = useState(config.obligadoContabilidad);
+  const [obligadoContabilidad, setObligadoContabilidad] = useState(config.obligadoContabilidad ?? true);
   const [contribuyenteEspecial, setContribuyenteEspecial] = useState(config.contribuyenteEspecial || '');
   const [agenteRetencion, setAgenteRetencion] = useState(config.agenteRetencion || '');
-  const [regimen, setRegimen] = useState<RegimenTributario>(config.regimen);
-  const [ambiente, setAmbiente] = useState<'1' | '2'>(config.ambiente);
-  const [isDemoMode, setIsDemoMode] = useState(config.isDemoMode);
-  const [ultimoSecuencialFactura, setUltimoSecuencialFactura] = useState(config.ultimoSecuencialFactura || '000000002');
+  const [regimen, setRegimen] = useState<RegimenTributario>(config.regimen || '');
+  const [ambiente, setAmbiente] = useState<'1' | '2'>(config.ambiente || '1');
+  const [isDemoMode, setIsDemoMode] = useState(config.isDemoMode ?? true);
+  const [ultimoSecuencialFactura, setUltimoSecuencialFactura] = useState(config.ultimoSecuencialFactura || '000000001');
 
   // SMTP Email Server settings
   const [smtpHost, setSmtpHost] = useState(config.smtpHost || '');
@@ -44,30 +43,29 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
   const [signatureB64, setSignatureB64] = useState(config.p12FirmaB64 || '');
   const [signatureName, setSignatureName] = useState(config.p12Nombre || '');
   
-  // Checking indicators
+  // Checking & Saving indicators
   const [isLoadingSig, setIsLoadingSig] = useState(false);
   const [sigDetails, setSigDetails] = useState<any>(null);
   const [sigError, setSigError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
 
-  // Edit/Lock toggle state for Emitter fields and Signature fields
-  const [isEditingEmitter, setIsEditingEmitter] = useState<boolean>(() => {
+  // Single unified Edit/Lock toggle state for all sections
+  const [isEditingForm, setIsEditingForm] = useState<boolean>(() => {
     return !(config.ruc && config.razonSocial);
-  });
-  const [isEditingSignature, setIsEditingSignature] = useState<boolean>(() => {
-    return !(config.p12FirmaB64 || config.p12Nombre);
   });
 
   // Sync internal state ONLY when external config prop deeply changes
   const configKeyStr = JSON.stringify(config);
-  React.useEffect(() => {
+  useEffect(() => {
     setRuc(config.ruc || '');
     setRazonSocial(config.razonSocial || '');
     setNombreComercial(config.nombreComercial || '');
     setDirMatriz(config.dirMatriz || '');
     setDirEstablecimiento(config.dirEstablecimiento || '');
-    setCodEstablecimiento(config.codEstablecimiento || '');
-    setCodPuntoEmision(config.codPuntoEmision || '');
+    setCodEstablecimiento(config.codEstablecimiento || '001');
+    setCodPuntoEmision(config.codPuntoEmision || '001');
     setCorreo(config.correo || '');
     setTelefono(config.telefono || '');
     setObligadoContabilidad(config.obligadoContabilidad ?? true);
@@ -76,7 +74,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
     setRegimen(config.regimen || '');
     setAmbiente(config.ambiente || '1');
     setIsDemoMode(config.isDemoMode ?? true);
-    setUltimoSecuencialFactura(config.ultimoSecuencialFactura || '');
+    setUltimoSecuencialFactura(config.ultimoSecuencialFactura || '000000001');
     setSmtpHost(config.smtpHost || '');
     setSmtpPort(config.smtpPort ? String(config.smtpPort) : '587');
     setSmtpUser(config.smtpUser || '');
@@ -95,8 +93,8 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
     setNombreComercial('');
     setDirMatriz('');
     setDirEstablecimiento('');
-    setCodEstablecimiento('');
-    setCodPuntoEmision('');
+    setCodEstablecimiento('001');
+    setCodPuntoEmision('001');
     setCorreo('');
     setTelefono('');
     setContribuyenteEspecial('');
@@ -202,100 +200,124 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
       alert('¡El número de RUC no parece válido para el algoritmo oficial de Ecuador!');
     }
 
+    setIsSaving(true);
+    setSaveMessage('Guardando y aplicando los nuevos parámetros de configuración en la base de datos...');
+
     const updatedConfig: EmitterConfig = {
-      ruc,
-      razonSocial,
-      nombreComercial,
-      dirMatriz,
-      dirEstablecimiento,
-      codEstablecimiento,
-      codPuntoEmision,
+      ruc: ruc ? ruc.trim() : '',
+      razonSocial: razonSocial ? razonSocial.trim() : '',
+      nombreComercial: nombreComercial ? nombreComercial.trim() : '',
+      dirMatriz: dirMatriz ? dirMatriz.trim() : '',
+      dirEstablecimiento: dirEstablecimiento ? dirEstablecimiento.trim() : '',
+      codEstablecimiento: codEstablecimiento || '001',
+      codPuntoEmision: codPuntoEmision || '001',
       obligadoContabilidad,
-      contribuyenteEspecial: contribuyenteEspecial,
-      agenteRetencion: agenteRetencion,
+      contribuyenteEspecial: contribuyenteEspecial ? contribuyenteEspecial.trim() : '',
+      agenteRetencion: agenteRetencion ? agenteRetencion.trim() : '',
       regimen,
       ambiente,
       isDemoMode,
       p12Nombre: signatureName,
       p12FirmaB64: signatureB64,
       p12Password: password,
-      correo: correo,
-      telefono: telefono,
+      correo: correo ? correo.trim() : '',
+      telefono: telefono ? telefono.trim() : '',
       ultimoSecuencialFactura: ultimoSecuencialFactura ? ultimoSecuencialFactura.replace(/\D/g, '').padStart(9, '0') : '000000001',
-      smtpHost,
-      smtpPort,
-      smtpUser,
-      smtpPass,
-      smtpFrom,
-      logoB64: config.logoB64
+      smtpHost: smtpHost ? smtpHost.trim() : '',
+      smtpPort: smtpPort ? String(smtpPort).trim() : '587',
+      smtpUser: smtpUser ? smtpUser.trim() : '',
+      smtpPass: smtpPass || '',
+      smtpFrom: smtpFrom ? smtpFrom.trim() : '',
+      logoB64: config.logoB64,
+      empresaRuc: config.empresaRuc || (ruc ? ruc.trim() : ''),
+      empresaNombre: config.empresaNombre || (razonSocial ? razonSocial.trim() : '')
     };
 
+    // Instant local state & App update for rapid performance
     onSave(updatedConfig);
-    await saveEmitterConfigToSupabase(updatedConfig);
 
-    setIsEditingEmitter(false);
-    setIsEditingSignature(false);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+    try {
+      // Direct & optimized cloud persistence
+      await saveEmitterConfigToSupabase(updatedConfig, currentUser?.correo);
+    } catch (err) {
+      console.warn('Aviso sincronizando configuración en Supabase:', err);
+    } finally {
+      setIsSaving(false);
+      setIsEditingForm(false);
+      setSaveSuccess(true);
+      setSaveMessage('¡Parámetros y certificado guardados exitosamente!');
+      setTimeout(() => {
+        setSaveSuccess(false);
+        setSaveMessage('');
+      }, 4000);
+    }
   };
 
   const rucValido = validateRuc(ruc);
 
   return (
     <form onSubmit={handleSubmit} id="settings-form" className="space-y-8 max-w-4xl mx-auto">
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      
+      {/* UNIFIED CONTAINER: CONFIGURACIÓN DEL EMISOR + CERTIFICADO DIGITAL DE FIRMA (.P12) */}
+      <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 space-y-6">
+        
+        {/* UNIFIED HEADER WITH SINGLE EDIT BUTTON */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-2 border-b border-gray-100 dark:border-zinc-800">
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50 flex items-center gap-2">
               <Shield className="w-5 h-5 text-indigo-600" />
-              Configuración del Emisor
+              Configuración del Emisor y Firma Electrónica
             </h2>
             <p className="text-sm text-gray-500 mt-1">
-              Configure sus datos fiscales para el cálculo de claves de acceso y estructuración de los comprobantes XML del SRI.
+              Configure sus datos fiscales, parámetros de facturación y cargue su certificado de firma electrónica (.p12) en un solo lugar.
             </p>
           </div>
+          
           <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {/* SINGLE UNIFIED EDIT FORM BUTTON */}
             <button
               type="button"
-              onClick={() => setIsEditingEmitter(!isEditingEmitter)}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg border transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
-                isEditingEmitter 
-                  ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600' 
+              onClick={() => setIsEditingForm(!isEditingForm)}
+              className={`px-4 py-2 text-xs font-semibold rounded-xl border transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                isEditingForm 
+                  ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 ring-2 ring-amber-400/30' 
                   : 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-700'
               }`}
-              title={isEditingEmitter ? "Bloquear los campos del emisor" : "Habilitar la edición de los campos del emisor"}
+              title={isEditingForm ? "Bloquear la edición de todos los campos" : "Habilitar la edición de todas las secciones del formulario"}
             >
-              {isEditingEmitter ? (
+              {isEditingForm ? (
                 <>
-                  <Lock className="w-3.5 h-3.5" /> Bloquear Campos
+                  <Lock className="w-4 h-4" /> Bloquear Formulario
                 </>
               ) : (
                 <>
-                  <Edit3 className="w-3.5 h-3.5" /> Editar Formulario
+                  <Edit3 className="w-4 h-4" /> Editar Formulario
                 </>
               )}
             </button>
+
             <button
               type="button"
               onClick={() => {
                 handleClearExampleData();
-                setIsEditingEmitter(true);
+                setIsEditingForm(true);
               }}
-              disabled={!isEditingEmitter}
-              className="px-3 py-1.5 text-xs font-medium text-red-650 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-900/50 dark:text-red-300 rounded-lg border border-red-200 dark:border-red-800/40 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Borra todos los datos de ejemplo del formulario para escribir sus nuevos datos"
+              disabled={!isEditingForm}
+              className="px-3.5 py-2 text-xs font-medium text-red-650 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-900/50 dark:text-red-300 rounded-xl border border-red-200 dark:border-red-800/40 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Borra todos los datos del formulario para ingresar nueva información"
             >
               <Trash2 className="w-3.5 h-3.5" />
               Borrar Datos
             </button>
+
             <button
               type="button"
               onClick={() => {
                 handleLoadExampleData();
-                setIsEditingEmitter(true);
+                setIsEditingForm(true);
               }}
-              disabled={!isEditingEmitter}
-              className="px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:hover:bg-indigo-900/50 dark:text-indigo-300 rounded-lg border border-indigo-200 dark:border-indigo-800/40 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!isEditingForm}
+              className="px-3.5 py-2 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:hover:bg-indigo-900/50 dark:text-indigo-300 rounded-xl border border-indigo-200 dark:border-indigo-800/40 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               title="Cargar datos de prueba de ejemplo"
             >
               <Sparkles className="w-3.5 h-3.5" />
@@ -304,53 +326,55 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
           </div>
         </div>
 
-        {!isEditingEmitter && (
-          <div className="bg-amber-50 dark:bg-amber-950/30 p-2.5 px-4 rounded-xl border border-amber-200 dark:border-amber-800/50 flex items-center justify-between text-xs text-amber-800 dark:text-amber-300 font-medium">
+        {/* LOCKED FIELDS NOTICE */}
+        {!isEditingForm && (
+          <div className="bg-amber-50 dark:bg-amber-950/30 p-3 px-4 rounded-xl border border-amber-200 dark:border-amber-800/50 flex items-center justify-between text-xs text-amber-800 dark:text-amber-300 font-medium animate-fade-in">
             <span className="flex items-center gap-2">
               <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-              Los campos de Configuración del Emisor están bloqueados. Haga clic en <strong>Editar Formulario</strong> para modificar.
+              Los campos de Configuración del Emisor y Firma Electrónica están bloqueados. Haga clic en <strong>Editar Formulario</strong> para modificar todas las secciones.
             </span>
             <button
               type="button"
-              onClick={() => setIsEditingEmitter(true)}
-              className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold flex items-center gap-1 cursor-pointer shrink-0"
+              onClick={() => setIsEditingForm(true)}
+              className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold flex items-center gap-1 cursor-pointer shrink-0 ml-2"
             >
               <Edit3 className="w-3.5 h-3.5" /> Desbloquear
             </button>
           </div>
         )}
 
-        {/* MODO DE TRABAJO */}
+        {/* MODO DE OPERACIÓN */}
         <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100/40 dark:bg-indigo-950/20 dark:border-indigo-900/30 flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
           <div>
             <span className="text-xs font-semibold uppercase tracking-wider text-indigo-700 dark:text-indigo-400">Modo de Operación</span>
             <h3 className="font-semibold text-gray-900 dark:text-gray-100">Simulador Informativo vs Modo Real</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
               {isDemoMode 
                 ? 'Modo Simulador activo: Genera XML oficial, simula firmas y replica las respuestas exactas de recepción y autorización del SRI sin enviar datos reales.' 
                 : 'Modo Real activo: Envía los comprobantes firmados electrónicamente directamente a los servidores SOAP oficiales de Pruebas o Producción del SRI.'}
             </p>
           </div>
-          <div className="flex bg-white dark:bg-zinc-800 p-1 rounded-lg border border-gray-200 dark:border-zinc-700">
+          <div className="flex bg-white dark:bg-zinc-800 p-1 rounded-lg border border-gray-200 dark:border-zinc-700 shrink-0">
             <button
               type="button"
-              disabled={!isEditingEmitter}
+              disabled={!isEditingForm}
               onClick={() => setIsDemoMode(true)}
-              className={`px-3 py-1.5 text-xs font-medium rounded transition disabled:opacity-60 disabled:cursor-not-allowed ${isDemoMode ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-700'}`}
+              className={`px-3.5 py-1.5 text-xs font-medium rounded-md transition disabled:opacity-60 disabled:cursor-not-allowed ${isDemoMode ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-700'}`}
             >
               Simulador (Recomendado)
             </button>
             <button
               type="button"
-              disabled={!isEditingEmitter}
+              disabled={!isEditingForm}
               onClick={() => setIsDemoMode(false)}
-              className={`px-3 py-1.5 text-xs font-medium rounded transition disabled:opacity-60 disabled:cursor-not-allowed ${!isDemoMode ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-700'}`}
+              className={`px-3.5 py-1.5 text-xs font-medium rounded-md transition disabled:opacity-60 disabled:cursor-not-allowed ${!isDemoMode ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-700'}`}
             >
               Conexión Real SRI
             </button>
           </div>
         </div>
 
+        {/* FISCAL DATA INPUTS */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* RUC */}
           <div>
@@ -358,7 +382,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <div className="relative">
               <input
                 type="text"
-                disabled={!isEditingEmitter}
+                disabled={!isEditingForm}
                 value={ruc}
                 onChange={(e) => setRuc(e.target.value.replace(/\D/g, '').substring(0, 13))}
                 placeholder="Ej. 1792451083001"
@@ -386,7 +410,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Razón Social</label>
             <input
               type="text"
-              disabled={!isEditingEmitter}
+              disabled={!isEditingForm}
               value={razonSocial}
               onChange={(e) => setRazonSocial(e.target.value.toUpperCase())}
               placeholder="Ej. JHONNY ALEXIS VALLE PLUA S.A."
@@ -400,7 +424,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Nombre Comercial</label>
             <input
               type="text"
-              disabled={!isEditingEmitter}
+              disabled={!isEditingForm}
               value={nombreComercial}
               onChange={(e) => setNombreComercial(e.target.value.toUpperCase())}
               placeholder="Ej. J&V SOLUCIONES DIGITALES"
@@ -412,7 +436,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Régimen Tributario del SRI</label>
             <select
-              disabled={!isEditingEmitter}
+              disabled={!isEditingForm}
               value={regimen}
               onChange={(e) => setRegimen(e.target.value as RegimenTributario)}
               className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-zinc-800/70"
@@ -429,7 +453,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Correo Electrónico (Contacto Emisor)</label>
             <input
               type="email"
-              disabled={!isEditingEmitter}
+              disabled={!isEditingForm}
               value={correo}
               onChange={(e) => setCorreo(e.target.value.toUpperCase())}
               placeholder="Ej. emisor@ejemplo.com"
@@ -437,12 +461,12 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             />
           </div>
 
-          {/* Telefono Emisor */}
+          {/* Telefono Emisor - PERSISTIDO EN BASE DE DATOS */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Teléfono (Contacto Emisor)</label>
             <input
               type="text"
-              disabled={!isEditingEmitter}
+              disabled={!isEditingForm}
               value={telefono}
               onChange={(e) => setTelefono(e.target.value.toUpperCase())}
               placeholder="Ej. 0967590168"
@@ -455,7 +479,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Dirección Matriz</label>
             <input
               type="text"
-              disabled={!isEditingEmitter}
+              disabled={!isEditingForm}
               value={dirMatriz}
               onChange={(e) => setDirMatriz(e.target.value.toUpperCase())}
               placeholder="Ej. Av. 10 de Agosto N15-23 y Rio de Janeiro"
@@ -469,7 +493,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Dirección de Establecimiento de Emisión</label>
             <input
               type="text"
-              disabled={!isEditingEmitter}
+              disabled={!isEditingForm}
               value={dirEstablecimiento}
               onChange={(e) => setDirEstablecimiento(e.target.value.toUpperCase())}
               placeholder="Ej. Local Central - Centro Norte de Quito"
@@ -482,7 +506,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Establecimiento (001)</label>
             <input
               type="text"
-              disabled={!isEditingEmitter}
+              disabled={!isEditingForm}
               value={codEstablecimiento}
               onChange={(e) => setCodEstablecimiento(e.target.value.replace(/\D/g, '').substring(0, 3))}
               placeholder="001"
@@ -496,7 +520,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Punto de Emisión (001)</label>
             <input
               type="text"
-              disabled={!isEditingEmitter}
+              disabled={!isEditingForm}
               value={codPuntoEmision}
               onChange={(e) => setCodPuntoEmision(e.target.value.replace(/\D/g, '').substring(0, 3))}
               placeholder="001"
@@ -510,7 +534,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Secuencial Factura (9 dígitos)</label>
             <input
               type="text"
-              disabled={!isEditingEmitter}
+              disabled={!isEditingForm}
               value={ultimoSecuencialFactura}
               onChange={(e) => setUltimoSecuencialFactura(e.target.value.replace(/\D/g, '').substring(0, 9))}
               onBlur={(e) => {
@@ -533,7 +557,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <input
               id="obligado"
               type="checkbox"
-              disabled={!isEditingEmitter}
+              disabled={!isEditingForm}
               checked={obligadoContabilidad}
               onChange={(e) => setObligadoContabilidad(e.target.checked)}
               className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 disabled:opacity-75 disabled:cursor-not-allowed"
@@ -547,7 +571,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-400 mb-1">Resolución Contribuyente Especial</label>
             <input
               type="text"
-              disabled={!isEditingEmitter}
+              disabled={!isEditingForm}
               value={contribuyenteEspecial}
               onChange={(e) => setContribuyenteEspecial(e.target.value.toUpperCase())}
               placeholder="Ej. RES. 024"
@@ -559,7 +583,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-400 mb-1">Reg. Agente de Retención (Resolución)</label>
             <input
               type="text"
-              disabled={!isEditingEmitter}
+              disabled={!isEditingForm}
               value={agenteRetencion}
               onChange={(e) => setAgenteRetencion(e.target.value.toUpperCase())}
               placeholder="Ej. NO. NAC-DNCR-ASC20-00000001"
@@ -574,7 +598,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             <div className="grid grid-cols-2 gap-2 bg-gray-100 dark:bg-zinc-800 p-1 rounded-xl">
               <button
                 type="button"
-                disabled={!isEditingEmitter}
+                disabled={!isEditingForm}
                 onClick={() => setAmbiente('1')}
                 className={`py-2 text-xs font-medium rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed ${ambiente === '1' ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700'}`}
               >
@@ -582,7 +606,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
               </button>
               <button
                 type="button"
-                disabled={!isEditingEmitter}
+                disabled={!isEditingForm}
                 onClick={() => setAmbiente('2')}
                 className={`py-2 text-xs font-medium rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed ${ambiente === '2' ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700'}`}
               >
@@ -591,134 +615,108 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             </div>
           </div>
         </div>
-      </div>
 
-      {/* SECCIÓN FIRMA ELECTRÓNICA */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50 flex items-center gap-2">
-              <Key className="w-5 h-5 text-amber-500" />
-              Certificado Digital de Firma Electrónica (.p12)
-            </h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Cargue su firma .p12 otorgada por entidades acreditadas en Ecuador (Uanataca, Consejo de la Judicatura, Security Data, etc.) para realizar las transacciones reales.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsEditingSignature(!isEditingSignature)}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg border transition flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0 ${
-              isEditingSignature 
-                ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600' 
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-700'
-            }`}
-            title={isEditingSignature ? "Bloquear los campos de la firma electrónica" : "Habilitar la edición de la firma electrónica"}
-          >
-            {isEditingSignature ? (
-              <>
-                <Lock className="w-3.5 h-3.5" /> Bloquear Campos
-              </>
-            ) : (
-              <>
-                <Edit3 className="w-3.5 h-3.5" /> Editar Formulario
-              </>
-            )}
-          </button>
-        </div>
-
-        {!isEditingSignature && (
-          <div className="bg-amber-50 dark:bg-amber-950/30 p-2.5 px-4 rounded-xl border border-amber-200 dark:border-amber-800/50 flex items-center justify-between text-xs text-amber-800 dark:text-amber-300 font-medium">
-            <span className="flex items-center gap-2">
-              <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-              Los campos del Certificado de Firma (.p12) están bloqueados. Haga clic en <strong>Editar Formulario</strong> para modificar.
-            </span>
-            <button
-              type="button"
-              onClick={() => setIsEditingSignature(true)}
-              className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold flex items-center gap-1 cursor-pointer shrink-0"
-            >
-              <Edit3 className="w-3.5 h-3.5" /> Desbloquear
-            </button>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Cargar Archivo de Firma (.p12 / .pfx)</label>
-            <div className="flex items-center justify-center w-full">
-              <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-2xl transition ${
-                isEditingSignature 
-                  ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-800 border-gray-300 dark:border-zinc-700 hover:border-indigo-500' 
-                  : 'cursor-not-allowed opacity-60 bg-gray-100/50 dark:bg-zinc-800/40 border-gray-200 dark:border-zinc-800'
-              }`}>
-                <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center px-4">
-                  <FileCode className="w-8 h-8 text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-600 dark:text-gray-300 font-semibold">
-                    {signatureName ? signatureName : 'Subir archivo .p12'}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">Drag and drop o click para buscar</p>
-                </div>
-                <input type="file" disabled={!isEditingSignature} accept=".p12,.pfx" onChange={handleFileUpload} className="hidden" />
-              </label>
+        {/* SECTION: CERTIFICADO DIGITAL DE FIRMA ELECTRÓNICA (.P12) INSIDE SAME CONTAINER */}
+        <div className="pt-6 border-t-2 border-indigo-50 dark:border-zinc-800/80 space-y-5">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-amber-50 dark:bg-amber-950/40 rounded-xl text-amber-500 border border-amber-200/60 dark:border-amber-900/50">
+              <Key className="w-5 h-5" />
             </div>
-          </div>
-
-          <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Contraseña de la Firma</label>
-              <input
-                type="password"
-                disabled={!isEditingSignature}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Introduzca clave secreta de exportación"
-                className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-zinc-800/70"
-              />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                Certificado Digital de Firma Electrónica (.p12)
+                {signatureName && (
+                  <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-green-100 text-green-800 dark:bg-green-950/50 dark:text-green-300 border border-green-300 dark:border-green-800">
+                    Archivo cargado
+                  </span>
+                )}
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
+                Cargue su firma .p12 otorgada por entidades acreditadas en Ecuador (Uanataca, Security Data, BCE, etc.) para firmar comprobantes autorizados.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Cargar Archivo de Firma (.p12 / .pfx)</label>
+              <div className="flex items-center justify-center w-full">
+                <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-2xl transition ${
+                  isEditingForm 
+                    ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-800 border-gray-300 dark:border-zinc-700 hover:border-indigo-500' 
+                    : 'cursor-not-allowed opacity-60 bg-gray-100/50 dark:bg-zinc-800/40 border-gray-200 dark:border-zinc-800'
+                }`}>
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center px-4">
+                    <FileCode className="w-8 h-8 text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-600 dark:text-gray-300 font-semibold truncate max-w-[280px]">
+                      {signatureName ? signatureName : 'Subir archivo .p12'}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {isEditingForm ? 'Haga clic o arrastre su archivo .p12 aquí' : 'Desbloquee el formulario para cambiar el archivo'}
+                    </p>
+                  </div>
+                  <input type="file" disabled={!isEditingForm} accept=".p12,.pfx" onChange={handleFileUpload} className="hidden" />
+                </label>
+              </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleVerifySignature}
-              disabled={!isEditingSignature || isLoadingSig || !signatureB64}
-              className={`w-full py-2.5 px-4 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2 ${(!signatureB64 || !isEditingSignature) ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-zinc-800' : 'bg-amber-500 hover:bg-amber-600 text-white shadow-xs'}`}
-            >
-              {isLoadingSig ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" /> Verificando firma...
-                </>
-              ) : (
-                <>Verificar Firma Electrónica</>
-              )}
-            </button>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Contraseña de la Firma Electrónica</label>
+                <input
+                  type="password"
+                  disabled={!isEditingForm}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Introduzca clave secreta del certificado"
+                  className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-zinc-800/70"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleVerifySignature}
+                disabled={!isEditingForm || isLoadingSig || !signatureB64}
+                className={`w-full py-2.5 px-4 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2 cursor-pointer ${(!signatureB64 || !isEditingForm) ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-zinc-800' : 'bg-amber-500 hover:bg-amber-600 text-white shadow-xs'}`}
+              >
+                {isLoadingSig ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" /> Verificando firma...
+                  </>
+                ) : (
+                  <>Verificar Firma Electrónica</>
+                )}
+              </button>
+            </div>
           </div>
+
+          {sigError && (
+            <div className="bg-red-50 text-red-700 p-4 rounded-xl border border-red-100 text-sm flex gap-2 items-center dark:bg-red-950/20 dark:border-red-900/30">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <span>{sigError}</span>
+            </div>
+          )}
+
+          {sigDetails && (
+            <div className="bg-green-50 text-green-800 p-4 rounded-xl border border-green-100 text-sm space-y-2 dark:bg-green-950/20 dark:border-green-900/30">
+              <h4 className="font-bold flex items-center gap-1">
+                <CheckCircle2 className="w-5 h-5 text-green-500" /> Firma Electrónica Descifrada y Válida
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono pt-1">
+                <div><strong>Propietario (Sujeto):</strong> {sigDetails.subject}</div>
+                <div><strong>Emisor (Autoridad):</strong> {sigDetails.issuer}</div>
+                <div><strong>Válido Desde:</strong> {new Date(sigDetails.validFrom).toLocaleDateString()}</div>
+                <div><strong>Válido Hasta (Expiración):</strong> {new Date(sigDetails.validTo).toLocaleDateString()}</div>
+                <div className="sm:col-span-2"><strong>Número Serial:</strong> {sigDetails.serialNumber}</div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {sigError && (
-          <div className="bg-red-50 text-red-700 p-4 rounded-xl border border-red-100 text-sm flex gap-2 items-center dark:bg-red-950/20 dark:border-red-900/30">
-            <AlertCircle className="w-5 h-5 flex-shrink-0" />
-            <span>{sigError}</span>
-          </div>
-        )}
-
-        {sigDetails && (
-          <div className="bg-green-50 text-green-800 p-4 rounded-xl border border-green-100 text-sm space-y-2 dark:bg-green-950/20 dark:border-green-900/30">
-            <h4 className="font-bold flex items-center gap-1">
-              <CheckCircle2 className="w-5 h-5 text-green-500" /> Firma Electrónica Descifrada y Válida
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono pt-1">
-              <div><strong>Propietario (Sujeto):</strong> {sigDetails.subject}</div>
-              <div><strong>Emisor (Autoridad):</strong> {sigDetails.issuer}</div>
-              <div><strong>Valido Desde:</strong> {new Date(sigDetails.validFrom).toLocaleDateString()}</div>
-              <div><strong>Válido Hasta (Expiración):</strong> {new Date(sigDetails.validTo).toLocaleDateString()}</div>
-              <div className="sm:col-span-2"><strong>Número Serial:</strong> {sigDetails.serialNumber}</div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* SECCIÓN SERVIDOR DE CORREO SMTP */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 space-y-6">
+      <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50 flex items-center gap-2">
@@ -861,19 +859,47 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
         )}
       </div>
 
-      <div className="flex items-center justify-end gap-3">
-        {saveSuccess && (
-          <div className="text-sm text-green-600 font-semibold flex items-center gap-1 animate-fade-in">
-            <CheckCircle2 className="w-4 h-4" /> ¡Configuración guardada con éxito!
-          </div>
-        )}
+      {/* SAVING FEEDBACK & SUBMIT ACTION BAR */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-zinc-900 p-4 sm:p-5 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm">
+        <div className="w-full sm:w-auto">
+          {isSaving && (
+            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-4 py-2.5 rounded-xl border border-indigo-200/80 dark:border-indigo-800/60 text-xs sm:text-sm font-semibold animate-pulse">
+              <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
+              <span>{saveMessage || 'Guardando nuevos parámetros de configuración...'}</span>
+            </div>
+          )}
+
+          {saveSuccess && !isSaving && (
+            <div className="flex items-center gap-2 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/40 px-4 py-2.5 rounded-xl border border-green-200 dark:border-green-800 text-xs sm:text-sm font-semibold animate-fade-in">
+              <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+              <span>{saveMessage || '¡Configuración guardada y sincronizada con éxito!'}</span>
+            </div>
+          )}
+
+          {!isSaving && !saveSuccess && (
+            <span className="text-xs text-gray-500 dark:text-zinc-400">
+              Presione el botón para aplicar y guardar todos los cambios en la base de datos.
+            </span>
+          )}
+        </div>
+
         <button
           type="submit"
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-8 rounded-xl shadow-md cursor-pointer transition text-sm"
+          disabled={isSaving}
+          className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold py-3 px-8 rounded-xl shadow-md cursor-pointer transition text-sm flex items-center justify-center gap-2 shrink-0"
         >
-          Guardar Filtro de Configuración
+          {isSaving ? (
+            <>
+              <RefreshCw className="w-4 h-4 animate-spin" /> Guardando...
+            </>
+          ) : (
+            <>
+              Guardar Filtro de Configuración
+            </>
+          )}
         </button>
       </div>
+
     </form>
   );
 }

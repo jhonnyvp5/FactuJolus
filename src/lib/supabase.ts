@@ -158,11 +158,25 @@ CREATE TABLE IF NOT EXISTS public.emisor_config (
     p12_firma_b64 TEXT,
     p12_password TEXT,
     correo TEXT,
+    telefono TEXT,
+    smtp_host TEXT,
+    smtp_port TEXT,
+    smtp_user TEXT,
+    smtp_pass TEXT,
+    smtp_from TEXT,
     usuario_correo TEXT,
     empresa_ruc VARCHAR(20),
     empresa_nombre TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Asegurar columnas para instalaciones existentes
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS telefono TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_host TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_port TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_user TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_pass TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_from TEXT;
 
 -- 5. TABLA DE FACTURAS
 CREATE TABLE IF NOT EXISTS public.facturas (
@@ -895,6 +909,7 @@ export async function fetchEmitterConfigFromSupabase(ruc?: string, userEmail?: s
       codPuntoEmision: (data.punto_emision || '001').toString().trim().padStart(3, '0'),
       obligadoContabilidad: data.lleva_contabilidad === 'SI' || data.lleva_contabilidad === true,
       contribuyenteEspecial: data.contribuyente_especial || '',
+      agenteRetencion: data.agente_retencion || '',
       regimen: data.regimen || data.regimen_tributario || '',
       ambiente: data.ambiente || '',
       logoB64: data.logo_b64 || data.logo_url || '',
@@ -903,6 +918,12 @@ export async function fetchEmitterConfigFromSupabase(ruc?: string, userEmail?: s
       p12FirmaB64: data.p12_firma_b64 || '',
       p12Password: data.p12_password || data.clave_firma || '',
       correo: data.correo || userEmail || '',
+      telefono: data.telefono || data.telefono_emisor || '',
+      smtpHost: data.smtp_host || '',
+      smtpPort: data.smtp_port || '',
+      smtpUser: data.smtp_user || '',
+      smtpPass: data.smtp_pass || '',
+      smtpFrom: data.smtp_from || '',
       isDemoMode: false,
       usuarioCorreo: data.usuario_correo,
       empresaRuc: data.empresa_ruc || data.ruc,
@@ -931,6 +952,7 @@ export async function saveEmitterConfigToSupabase(config: EmitterConfig, userEma
     punto_emision: config.codPuntoEmision || '',
     lleva_contabilidad: config.obligadoContabilidad ? 'SI' : 'NO',
     contribuyente_especial: config.contribuyenteEspecial || '',
+    agente_retencion: config.agenteRetencion || '',
     regimen: config.regimen || '',
     regimen_tributario: config.regimen || '',
     ambiente: config.ambiente || '1',
@@ -942,6 +964,12 @@ export async function saveEmitterConfigToSupabase(config: EmitterConfig, userEma
     p12_firma_b64: config.p12FirmaB64 || '',
     p12_password: config.p12Password !== undefined ? config.p12Password : '',
     correo: config.correo || userEmail || '',
+    telefono: config.telefono ? config.telefono.trim() : '',
+    smtp_host: config.smtpHost || '',
+    smtp_port: config.smtpPort ? String(config.smtpPort) : '',
+    smtp_user: config.smtpUser || '',
+    smtp_pass: config.smtpPass || '',
+    smtp_from: config.smtpFrom || '',
     usuario_correo: userEmail || config.usuarioCorreo || '',
     empresa_ruc: config.empresaRuc || targetRuc,
     empresa_nombre: config.empresaNombre || config.razonSocial || ''
