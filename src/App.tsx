@@ -1179,13 +1179,13 @@ export default function App() {
       {/* CORE HUB LAYOUT */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
         
-        {/* DESKTOP TABS NAVBAR (FUTURISTIC, MODERN, FRIENDLY & HIGH-TECH FLOATING HUD) */}
-        <nav className="hidden lg:flex bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl p-1.5 rounded-2xl border border-slate-200/90 dark:border-zinc-800 shadow-sm dark:shadow-xl shadow-slate-200/50 dark:shadow-black/40 max-w-7xl mx-auto print:hidden items-center justify-start xl:justify-center overflow-x-auto no-scrollbar gap-1 animate-fade-in scroll-smooth ring-1 ring-slate-900/5 dark:ring-white/10 select-none">
+        {/* DESKTOP & TABLET TABS NAVBAR (FUTURISTIC, MODERN, ALL-VISIBLE HUD) */}
+        <nav className="hidden md:flex flex-wrap items-center justify-center gap-1.5 p-1.5 sm:p-2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl rounded-2xl border border-slate-200/90 dark:border-zinc-800 shadow-sm dark:shadow-xl shadow-slate-200/50 dark:shadow-black/40 w-full mx-auto print:hidden animate-fade-in ring-1 ring-slate-900/5 dark:ring-white/10 select-none">
           
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('history')) && (
             <button
                onClick={() => setActiveTab('history')}
-               className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'history' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+               className={`group px-2.5 lg:px-3 py-1.5 lg:py-2 rounded-xl text-[11px] lg:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'history' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
                title="Historial de comprobantes y RIDE"
             >
               <History className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'history' ? 'text-white' : 'text-blue-500 dark:text-blue-400 group-hover:scale-110'}`} />
@@ -1202,7 +1202,7 @@ export default function App() {
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('new-invoice')) && (
             <button
               onClick={() => setActiveTab('new-invoice')}
-              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'new-invoice' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              className={`group px-2.5 lg:px-3 py-1.5 lg:py-2 rounded-xl text-[11px] lg:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'new-invoice' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
               title="Emitir nueva factura electrónica"
             >
               <Plus className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'new-invoice' ? 'text-white' : 'text-sky-500 dark:text-sky-400 group-hover:scale-110'}`} />
@@ -1219,7 +1219,7 @@ export default function App() {
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('retentions')) && (
             <button
               onClick={() => setActiveTab('retentions')}
-              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'retentions' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              className={`group px-2.5 lg:px-3 py-1.5 lg:py-2 rounded-xl text-[11px] lg:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'retentions' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
               title="Gestor de Comprobantes de Retención"
             >
               <ShieldCheck className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'retentions' ? 'text-white' : 'text-purple-500 dark:text-purple-400 group-hover:scale-110'}`} />
@@ -1236,7 +1236,7 @@ export default function App() {
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('proformas')) && (
             <button
               onClick={() => setActiveTab('proformas')}
-              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'proformas' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              className={`group px-2.5 lg:px-3 py-1.5 lg:py-2 rounded-xl text-[11px] lg:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'proformas' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
               title="Cotizaciones y Proformas comerciales"
             >
               <FileText className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'proformas' ? 'text-white' : 'text-teal-500 dark:text-teal-400 group-hover:scale-110'}`} />
@@ -1253,7 +1253,7 @@ export default function App() {
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('new-nc')) && (
             <button
               onClick={() => setActiveTab('new-nc')}
-              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'new-nc' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              className={`group px-2.5 lg:px-3 py-1.5 lg:py-2 rounded-xl text-[11px] lg:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'new-nc' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
               title="Emitir Nota de Crédito"
             >
               <ArrowLeftRight className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'new-nc' ? 'text-white' : 'text-amber-500 dark:text-amber-400 group-hover:scale-110'}`} />
@@ -1270,7 +1270,7 @@ export default function App() {
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('products')) && (
             <button
               onClick={() => setActiveTab('products')}
-              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'products' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              className={`group px-2.5 lg:px-3 py-1.5 lg:py-2 rounded-xl text-[11px] lg:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'products' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
               title="Catálogo de Productos y Servicios"
             >
               <Package className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'products' ? 'text-white' : 'text-emerald-500 dark:text-emerald-400 group-hover:scale-110'}`} />
@@ -1287,7 +1287,7 @@ export default function App() {
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('clients')) && (
             <button
               onClick={() => setActiveTab('clients')}
-              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'clients' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              className={`group px-2.5 lg:px-3 py-1.5 lg:py-2 rounded-xl text-[11px] lg:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'clients' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
               title="Catálogo de Clientes registrados"
             >
               <Users className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'clients' ? 'text-white' : 'text-cyan-600 dark:text-cyan-400 group-hover:scale-110'}`} />
@@ -1304,7 +1304,7 @@ export default function App() {
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('profile')) && (
             <button
               onClick={() => setActiveTab('profile')}
-              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'profile' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              className={`group px-2.5 lg:px-3 py-1.5 lg:py-2 rounded-xl text-[11px] lg:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'profile' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
               title="Mi perfil de usuario"
             >
               <User className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'profile' ? 'text-white' : 'text-indigo-500 dark:text-indigo-400 group-hover:scale-110'}`} />
@@ -1321,7 +1321,7 @@ export default function App() {
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || userPermissions.includes('settings')) && (
             <button
               onClick={() => setActiveTab('settings')}
-              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'settings' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              className={`group px-2.5 lg:px-3 py-1.5 lg:py-2 rounded-xl text-[11px] lg:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'settings' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
               title="Configuración de Firma Electrónica y Emisor SRI"
             >
               <Settings className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'settings' ? 'text-white' : 'text-slate-500 dark:text-zinc-400 group-hover:scale-110'}`} />
@@ -1338,7 +1338,7 @@ export default function App() {
           {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN') && (
             <button
               onClick={() => setActiveTab('users')}
-              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'users' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              className={`group px-2.5 lg:px-3 py-1.5 lg:py-2 rounded-xl text-[11px] lg:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'users' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
               title="Gestión de usuarios y permisos"
             >
               <ShieldCheck className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'users' ? 'text-white' : 'text-purple-600 dark:text-purple-400 group-hover:scale-110'}`} />
@@ -1355,7 +1355,7 @@ export default function App() {
           {currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
             <button
               onClick={() => setActiveTab('tenants')}
-              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'tenants' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              className={`group px-2.5 lg:px-3 py-1.5 lg:py-2 rounded-xl text-[11px] lg:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'tenants' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
               title="Gestión de Empresas e Inquilinos (Multi-Tenant)"
             >
               <Building2 className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'tenants' ? 'text-white' : 'text-blue-600 dark:text-blue-400 group-hover:scale-110'}`} />
@@ -1372,7 +1372,7 @@ export default function App() {
           {currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
             <button
               onClick={() => setActiveTab('supabase')}
-              className={`group px-2.5 xl:px-3 py-2 rounded-xl text-[11.5px] xl:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'supabase' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              className={`group px-2.5 lg:px-3 py-1.5 lg:py-2 rounded-xl text-[11px] lg:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'supabase' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
               title="Estado de conexión Supabase"
             >
               <Database className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'supabase' ? 'text-white' : 'text-emerald-500 dark:text-emerald-400 group-hover:scale-110'}`} />
