@@ -716,16 +716,23 @@ export default function RetentionManager({
 
   // Delete Retention
   const handleDeleteRetention = async (id: string, seq: string) => {
-    if (!confirm(`¿Está seguro de eliminar el comprobante de retención No. ${seq}? Esta acción no se puede deshacer.`)) {
+    const targetRet = retenciones.find(r => r.id === id);
+    if (!confirm(`¿Está seguro de eliminar el comprobante de retención No. ${seq}?\n\nEsta acción borrará el registro de la base de datos y eliminará automáticamente el PDF y los XMLs generados en los buckets de almacenamiento.`)) {
       return;
     }
 
     try {
-      await deleteRetencionFromSupabase(id);
+      await deleteRetencionFromSupabase(
+        id,
+        seq || targetRet?.secuencial,
+        targetRet?.claveAcceso,
+        config.codEstablecimiento || '001',
+        config.codPuntoEmision || '001'
+      );
       const filtered = retenciones.filter(r => r.id !== id);
       setRetenciones(filtered);
       localStorage.setItem('sri_retenciones_history', JSON.stringify(filtered));
-      setStatusMessage({ type: 'success', text: `Retención No. ${seq} eliminada correctamente.` });
+      setStatusMessage({ type: 'success', text: `Retención No. ${seq} y sus archivos asociados en Storage fueron eliminados correctamente.` });
     } catch {
       setStatusMessage({ type: 'error', text: 'Error al eliminar la retención en la base de datos.' });
     }

@@ -673,20 +673,52 @@ export default function App() {
     localStorage.setItem(cnKey, JSON.stringify(updatedNCs));
   };
 
-  const handleDeleteInvoice = (id: string) => {
+  const handleDeleteInvoice = (id: string, secuencial?: string, claveAcceso?: string) => {
+    const inv = invoices.find(i => i.id === id);
+    const targetSeq = secuencial || inv?.secuencial;
+    const targetClave = claveAcceso || inv?.claveAcceso;
     const filtered = invoices.filter(i => i.id !== id);
     setInvoices(filtered);
     const invoicesKey = getUserStorageKey(STORAGE_KEYS.INVOICES, currentUser?.correo);
     localStorage.setItem(invoicesKey, JSON.stringify(filtered));
-    deleteInvoiceFromSupabase(id);
+    deleteInvoiceFromSupabase(
+      id,
+      targetSeq,
+      targetClave,
+      config.codEstablecimiento || '001',
+      config.codPuntoEmision || '001'
+    );
+    if (currentUser && targetSeq) {
+      logActivity(
+        currentUser,
+        'Eliminación de Factura',
+        `Factura #${targetSeq} eliminada del sistema junto con sus archivos PDF y XMLs en Storage.`
+      );
+    }
   };
 
-  const handleDeleteCreditNote = (id: string) => {
+  const handleDeleteCreditNote = (id: string, secuencial?: string, claveAcceso?: string) => {
+    const nc = creditNotes.find(n => n.id === id);
+    const targetSeq = secuencial || nc?.secuencial;
+    const targetClave = claveAcceso || nc?.claveAcceso;
     const filtered = creditNotes.filter(n => n.id !== id);
     setCreditNotes(filtered);
     const cnKey = getUserStorageKey(STORAGE_KEYS.CREDIT_NOTES, currentUser?.correo);
     localStorage.setItem(cnKey, JSON.stringify(filtered));
-    deleteCreditNoteFromSupabase(id);
+    deleteCreditNoteFromSupabase(
+      id,
+      targetSeq,
+      targetClave,
+      config.codEstablecimiento || '001',
+      config.codPuntoEmision || '001'
+    );
+    if (currentUser && targetSeq) {
+      logActivity(
+        currentUser,
+        'Eliminación de Nota de Crédito',
+        `Nota de Crédito #${targetSeq} eliminada del sistema junto con sus archivos PDF y XMLs en Storage.`
+      );
+    }
   };
 
   const handleSelectCompany = async (emp: EmpresaTenant) => {

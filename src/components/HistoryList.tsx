@@ -30,7 +30,11 @@ import {
   Key,
   FileEdit,
   Layers,
-  Activity
+  Activity,
+  Copy,
+  Check,
+  X,
+  ExternalLink
 } from 'lucide-react';
 import { apiSignXml, apiSendSri, apiAuthorizeSri, apiSendInvoiceEmail } from '../lib/apiClient';
 
@@ -40,8 +44,8 @@ interface HistoryListProps {
   creditNotes: CreditNote[];
   onUpdateInvoice: (index: string, updated: Partial<Invoice>) => void;
   onUpdateCreditNote: (index: string, updated: Partial<CreditNote>) => void;
-  onDeleteInvoice: (id: string) => void;
-  onDeleteCreditNote: (id: string) => void;
+  onDeleteInvoice: (id: string, secuencial?: string, claveAcceso?: string) => void;
+  onDeleteCreditNote: (id: string, secuencial?: string, claveAcceso?: string) => void;
   onOpenRide: (doc: Invoice | CreditNote) => void;
 }
 
@@ -66,7 +70,15 @@ export default function HistoryList({
   // Loading states
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
-  const [selectedErrorDoc, setSelectedErrorDoc] = useState<Invoice | CreditNote | null>(null);
+  const [selectedDiagnosticDoc, setSelectedDiagnosticDoc] = useState<Invoice | CreditNote | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string, label: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedKey(label);
+    setTimeout(() => setCopiedKey(null), 2500);
+  };
 
   // Sorting state for History Grid
   const [sortField, setSortField] = useState<'secuencial' | 'fechaEmision' | 'cliente' | 'total' | 'estado' | 'tipo'>('fechaEmision');
@@ -179,7 +191,7 @@ export default function HistoryList({
   const handleProcessDocument = async (doc: Invoice | CreditNote) => {
     const isInvoice = !('facturaModificadaSecuencial' in doc);
     setProcessingId(doc.id);
-    setSelectedErrorDoc(null);
+    setSelectedDiagnosticDoc(null);
 
     try {
       // 1. Generate XML
@@ -346,38 +358,38 @@ export default function HistoryList({
 
   const handleDelete = async (doc: Invoice | CreditNote) => {
     const isInvoice = !('facturaModificadaSecuencial' in doc);
-    if (!confirm(`¿Está seguro de eliminar el comprobante ${isInvoice ? 'Factura' : 'Nota de Crédito'} #${doc.secuencial}? Esta acción borrará el registro de la base de datos y del historial.`)) {
+    if (!confirm(`¿Está seguro de eliminar el comprobante ${isInvoice ? 'Factura' : 'Nota de Crédito'} #${doc.secuencial}?\n\nEsta acción borrará el registro de la base de datos y eliminará automáticamente el PDF y los archivos XMLs generados en los buckets de almacenamiento.`)) {
       return;
     }
     if (isInvoice) {
-      onDeleteInvoice(doc.id);
+      onDeleteInvoice(doc.id, doc.secuencial, doc.claveAcceso);
     } else {
-      onDeleteCreditNote(doc.id);
+      onDeleteCreditNote(doc.id, doc.secuencial, doc.claveAcceso);
     }
     setSelectedIds(prev => prev.filter(id => id !== doc.id));
   };
 
   const handleDeleteSelected = () => {
     if (selectedIds.length === 0) return;
-    if (!confirm(`¿Está seguro de eliminar los ${selectedIds.length} comprobantes seleccionados? Esta acción es irreversible.`)) {
+    if (!confirm(`¿Está seguro de eliminar los ${selectedIds.length} comprobantes seleccionados?\n\nSe eliminarán de la base de datos junto con sus archivos PDF y XMLs asociados en los buckets de Storage.`)) {
       return;
     }
     let countInvoices = 0;
     let countNCs = 0;
     selectedIds.forEach(id => {
-      const isInv = invoices.some(i => i.id === id);
-      const isNc = creditNotes.some(n => n.id === id);
-      if (isInv) {
-        onDeleteInvoice(id);
+      const inv = invoices.find(i => i.id === id);
+      const nc = creditNotes.find(n => n.id === id);
+      if (inv) {
+        onDeleteInvoice(id, inv.secuencial, inv.claveAcceso);
         countInvoices++;
-      } else if (isNc) {
-        onDeleteCreditNote(id);
+      } else if (nc) {
+        onDeleteCreditNote(id, nc.secuencial, nc.claveAcceso);
         countNCs++;
       }
     });
 
     setSelectedIds([]);
-    alert(`Se eliminaron con éxito ${countInvoices + countNCs} comprobantes.`);
+    alert(`Se eliminaron con éxito ${countInvoices + countNCs} comprobantes y sus archivos PDF/XML asociados en los buckets.`);
   };
 
   // Get visible documents that are deletable (Borrador, Devuelto, No Autorizado)
@@ -387,116 +399,110 @@ export default function HistoryList({
 
   // Helper to render high-tech diagnostic / failure reason text and tags
   const renderDiagnosticColumn = (doc: Invoice | CreditNote) => {
+    const hasErrors = doc.estado === 'Devuelto' || 
+                      doc.estado === 'No Autorizado' || 
+                      (doc.mensajesSRI && doc.mensajesSRI.some(m => m.tipo === 'ERROR' || m.identificador === 'FIRMA_ERR' || m.identificador === 'TIMEOUT'));
+
+    // CASO 1: AUTORIZADO Y CORRECTO (VERDE)
     if (doc.estado === 'Autorizado') {
       return (
-        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 py-1">
-          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-          <div className="leading-snug">
-            <span className="font-bold text-[11px] block text-emerald-800 dark:text-emerald-300">
-              Autorizado y Válido SRI
-            </span>
-            {doc.numeroAutorizacion && (
-              <span className="text-[10px] text-gray-500 dark:text-zinc-400 font-mono block break-all" title={doc.numeroAutorizacion}>
-                Aut: {doc.numeroAutorizacion}
-              </span>
-            )}
-            {doc.fechaAutorizacion && (
-              <span className="text-[10px] text-gray-400 dark:text-zinc-500 font-mono block">
-                Fecha: {doc.fechaAutorizacion.replace('T', ' ').substring(0, 19)}
-              </span>
-            )}
+        <div className="flex items-center gap-2 py-1">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 font-bold text-[11px] shadow-2xs">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>Correcto SRI</span>
           </div>
+          <button
+            type="button"
+            onClick={() => setSelectedDiagnosticDoc(doc)}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-emerald-700 bg-white hover:bg-emerald-50 border border-emerald-300 dark:bg-zinc-800 dark:text-emerald-300 dark:border-emerald-800/80 dark:hover:bg-emerald-950/40 transition shadow-2xs cursor-pointer"
+            title="Ver detalle completo de la autorización SRI"
+          >
+            <Info className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+            <span>Ver detalle</span>
+          </button>
         </div>
       );
     }
 
-    if (doc.mensajesSRI && doc.mensajesSRI.length > 0) {
-      const firstMsg = doc.mensajesSRI[0];
-      const msgText = firstMsg.mensaje || firstMsg.informacionAdicional || 'Observación registrada por el SRI';
-      const isTimeout = msgText.toLowerCase().includes('timeout') || msgText.toLowerCase().includes('fuera de línea') || firstMsg.identificador === 'TIMEOUT';
-      const isSignature = msgText.toLowerCase().includes('firma') || firstMsg.identificador === 'FIRMA_ERR';
-      const isDevuelto = doc.estado === 'Devuelto';
-
+    // CASO 2: ERROR / RECHAZADO / OBSERVACIÓN (ROJO)
+    if (hasErrors || (doc.mensajesSRI && doc.mensajesSRI.length > 0)) {
       return (
-        <div className="py-1 space-y-1.5 min-w-[280px] max-w-[460px]">
-          <div className="flex items-start gap-2">
-            {isTimeout ? (
-              <Clock className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-            ) : isSignature ? (
-              <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-            ) : isDevuelto ? (
-              <XCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-            ) : (
-              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-            )}
-
-            <div className="leading-snug space-y-1 flex-1">
-              <div className="flex flex-wrap items-center gap-1.5">
-                {firstMsg.identificador && (
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-900/50 shrink-0">
-                    [{firstMsg.identificador}]
-                  </span>
-                )}
-                <span className="text-[11px] font-bold text-gray-900 dark:text-gray-100 break-words">
-                  {msgText}
-                </span>
-              </div>
-
-              {firstMsg.informacionAdicional && (
-                <p className="text-[11px] text-gray-600 dark:text-zinc-300 leading-snug break-words bg-gray-50/80 dark:bg-zinc-800/80 p-1.5 rounded-lg border border-gray-200/70 dark:border-zinc-700/60 font-sans">
-                  <strong className="text-gray-800 dark:text-zinc-200">Info:</strong> {firstMsg.informacionAdicional}
-                </p>
-              )}
-
-              <div className="flex items-center gap-2 pt-0.5">
-                {doc.mensajesSRI.length > 1 && (
-                  <span className="text-[10px] font-mono text-gray-500 dark:text-zinc-400 bg-gray-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
-                    +{doc.mensajesSRI.length - 1} aviso(s) más
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setSelectedErrorDoc(doc)}
-                  className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline cursor-pointer inline-flex items-center gap-1 bg-indigo-50/80 dark:bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-200/60 dark:border-indigo-800/50 transition"
-                >
-                  <Info className="w-3 h-3" /> Ver Diagnóstico Completo
-                </button>
-              </div>
-            </div>
+        <div className="flex items-center gap-2 py-1">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200/80 dark:border-rose-900/60 font-bold text-[11px] shadow-2xs">
+            <XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
+            <span>{doc.estado === 'Devuelto' ? 'Rechazado SRI' : (doc.estado === 'No Autorizado' ? 'No Autorizado' : 'Con Problema')}</span>
           </div>
+          <button
+            type="button"
+            onClick={() => setSelectedDiagnosticDoc(doc)}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-rose-700 bg-white hover:bg-rose-50 border border-rose-300 dark:bg-zinc-800 dark:text-rose-300 dark:border-rose-800/80 dark:hover:bg-rose-950/40 transition shadow-2xs cursor-pointer"
+            title="Ver diagnóstico completo del SRI y mensajes de error"
+          >
+            <Info className="w-3 h-3 text-rose-600 dark:text-rose-400" />
+            <span>Ver detalle</span>
+          </button>
         </div>
       );
     }
 
+    // CASO 3: EN PROCESO DE RECEPCIÓN (AZUL)
     if (doc.estado === 'Enviado') {
       return (
-        <div className="flex items-center gap-2 text-sky-700 dark:text-sky-400 py-1">
-          <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-500 shrink-0" />
-          <span className="text-[11px] font-medium leading-snug">
-            Recepción aceptada por el SRI. Pendiente de procesar autorización.
-          </span>
+        <div className="flex items-center gap-2 py-1">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/60 font-bold text-[11px] shadow-2xs">
+            <RefreshCw className="w-3 h-3 animate-spin text-sky-600 dark:text-sky-400 shrink-0" />
+            <span>En Proceso SRI</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedDiagnosticDoc(doc)}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-sky-700 bg-white hover:bg-sky-50 border border-sky-300 dark:bg-zinc-800 dark:text-sky-300 dark:border-sky-800/80 dark:hover:bg-sky-950/40 transition shadow-2xs cursor-pointer"
+            title="Ver estado de transmisión al SRI"
+          >
+            <Info className="w-3 h-3 text-sky-600 dark:text-sky-400" />
+            <span>Ver detalle</span>
+          </button>
         </div>
       );
     }
 
+    // CASO 4: FIRMADO ELECTRÓNICAMENTE (PÚRPURA)
     if (doc.estado === 'Firmado') {
       return (
-        <div className="flex items-center gap-2 text-purple-700 dark:text-purple-400 py-1">
-          <FileCheck2 className="w-3.5 h-3.5 text-purple-500 shrink-0" />
-          <span className="text-[11px] font-medium leading-snug">
-            Documento firmado con XAdES-BES. Listo para transmitir al SRI.
-          </span>
+        <div className="flex items-center gap-2 py-1">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/60 font-bold text-[11px] shadow-2xs">
+            <FileCheck2 className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+            <span>Firmado XAdES</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedDiagnosticDoc(doc)}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-purple-700 bg-white hover:bg-purple-50 border border-purple-300 dark:bg-zinc-800 dark:text-purple-300 dark:border-purple-800/80 dark:hover:bg-purple-950/40 transition shadow-2xs cursor-pointer"
+            title="Ver detalles de la firma digital"
+          >
+            <Info className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+            <span>Ver detalle</span>
+          </button>
         </div>
       );
     }
 
-    // Default Borrador
+    // CASO 5: BORRADOR (GRIS/NEUTRO)
     return (
-      <div className="flex items-center gap-2 text-gray-500 dark:text-zinc-400 py-1">
-        <FileText className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-        <span className="text-[11px] font-normal leading-snug">
-          Borrador preparado. Presione "Firmar y Enviar" para emitir al SRI.
-        </span>
+      <div className="flex items-center gap-2 py-1">
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300 border border-slate-200/80 dark:border-zinc-700 font-bold text-[11px] shadow-2xs">
+          <FileText className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+          <span>Borrador</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setSelectedDiagnosticDoc(doc)}
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700 dark:hover:bg-zinc-750 transition shadow-2xs cursor-pointer"
+          title="Ver información del comprobante"
+        >
+          <Info className="w-3 h-3 text-slate-500" />
+          <span>Ver detalle</span>
+        </button>
       </div>
     );
   };
@@ -656,40 +662,323 @@ export default function HistoryList({
 
       </div>
 
-      {/* DETALLE SRI ERROR DESCRIPCIÓN MODAL / BANNER */}
-      {selectedErrorDoc && (
-        <div className="bg-rose-50 text-rose-950 p-5 rounded-2xl border border-rose-200 space-y-2 dark:bg-rose-950/30 dark:border-rose-900/40 dark:text-rose-200 animate-fade-in shadow-sm">
-          <div className="flex justify-between items-start">
-            <h4 className="font-bold flex items-center gap-2 text-sm text-rose-800 dark:text-rose-300">
-              <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
-              Detalle de Diagnóstico y Observaciones SRI (Comprobante #{selectedErrorDoc.secuencial})
-            </h4>
-            <button
-              onClick={() => setSelectedErrorDoc(null)}
-              className="text-xs font-bold text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-200 cursor-pointer bg-white/70 dark:bg-zinc-800 px-3 py-1 rounded-lg border border-rose-200 dark:border-rose-800"
-            >
-              Cerrar Diagnóstico
-            </button>
-          </div>
-          <p className="text-xs text-rose-800/80 dark:text-rose-300/80 leading-normal">
-            El validador de Facturación Electrónica del SRI o el motor SOAP reportó los siguientes detalles:
-          </p>
-          <div className="space-y-2 font-mono text-xs pt-1">
-            {selectedErrorDoc.mensajesSRI.map((msg, index) => (
-              <div key={index} className="bg-white dark:bg-zinc-900 p-3.5 rounded-xl border border-rose-200/70 dark:border-rose-900/30 space-y-1 shadow-2xs">
-                <div className="font-bold text-rose-800 dark:text-rose-300 flex justify-between items-center gap-2">
-                  <span>[{msg.identificador || 'N/A'}] - {msg.mensaje}</span>
-                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 bg-rose-100 dark:bg-rose-950/60 rounded text-rose-900 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0">
-                    {msg.tipo || 'OBSERVACIÓN'}
-                  </span>
+      {/* MODAL DETALLE DE DIAGNÓSTICO / AUTORIZACIÓN SRI */}
+      {selectedDiagnosticDoc && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+          <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700/80 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden my-6">
+            
+            {/* MODAL HEADER */}
+            <div className={`p-5 flex items-center justify-between border-b ${
+              selectedDiagnosticDoc.estado === 'Autorizado'
+                ? 'bg-emerald-50/70 border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900/50'
+                : selectedDiagnosticDoc.estado === 'Devuelto' || selectedDiagnosticDoc.estado === 'No Autorizado' || (selectedDiagnosticDoc.mensajesSRI && selectedDiagnosticDoc.mensajesSRI.some(m => m.tipo === 'ERROR'))
+                ? 'bg-rose-50/70 border-rose-100 dark:bg-rose-950/30 dark:border-rose-900/50'
+                : 'bg-gray-50 border-gray-100 dark:bg-zinc-850 dark:border-zinc-800'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-xl ${
+                  selectedDiagnosticDoc.estado === 'Autorizado'
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300'
+                    : selectedDiagnosticDoc.estado === 'Devuelto' || selectedDiagnosticDoc.estado === 'No Autorizado' || (selectedDiagnosticDoc.mensajesSRI && selectedDiagnosticDoc.mensajesSRI.some(m => m.tipo === 'ERROR'))
+                    ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300'
+                    : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300'
+                }`}>
+                  {selectedDiagnosticDoc.estado === 'Autorizado' ? (
+                    <CheckCircle2 className="w-6 h-6" />
+                  ) : selectedDiagnosticDoc.estado === 'Devuelto' || selectedDiagnosticDoc.estado === 'No Autorizado' || (selectedDiagnosticDoc.mensajesSRI && selectedDiagnosticDoc.mensajesSRI.some(m => m.tipo === 'ERROR')) ? (
+                    <XCircle className="w-6 h-6" />
+                  ) : (
+                    <Info className="w-6 h-6" />
+                  )}
                 </div>
-                {msg.informacionAdicional && (
-                  <p className="text-[11px] text-gray-600 dark:text-zinc-400 leading-normal font-sans pt-1">
-                    <strong>Información Adicional:</strong> {msg.informacionAdicional}
+                <div>
+                  <h3 className="font-bold text-base text-gray-900 dark:text-gray-100">
+                    {selectedDiagnosticDoc.estado === 'Autorizado'
+                      ? 'Detalle de Autorización SRI'
+                      : selectedDiagnosticDoc.estado === 'Devuelto' || selectedDiagnosticDoc.estado === 'No Autorizado'
+                      ? 'Diagnóstico y Observaciones SRI'
+                      : 'Información del Comprobante'}
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-zinc-400 font-mono">
+                    {('facturaModificadaSecuencial' in selectedDiagnosticDoc) ? 'Nota de Crédito' : 'Factura'} #{selectedDiagnosticDoc.secuencial} • Total: ${selectedDiagnosticDoc.resumenImpuestos.total.toFixed(2)}
                   </p>
-                )}
+                </div>
               </div>
-            ))}
+              <button
+                type="button"
+                onClick={() => setSelectedDiagnosticDoc(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+                title="Cerrar modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* MODAL BODY */}
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              
+              {/* CASO: AUTORIZADO */}
+              {selectedDiagnosticDoc.estado === 'Autorizado' && (
+                <div className="space-y-4">
+                  {/* Banner de éxito */}
+                  <div className="p-4 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-bold text-sm text-emerald-900 dark:text-emerald-200">
+                        Comprobante Autorizado y Válido ante el SRI
+                      </h4>
+                      <p className="text-xs text-emerald-700 dark:text-emerald-300/90 mt-0.5">
+                        El documento tributario electrónico fue recibido, validado y autorizado formalmente con validez tributaria por el Servicio de Rentas Internas del Ecuador.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Tarjetas de datos oficiales */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    
+                    {/* Número de Autorización */}
+                    <div className="bg-gray-50 dark:bg-zinc-800/60 p-3.5 rounded-xl border border-gray-200/80 dark:border-zinc-700/80 space-y-1 md:col-span-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                          Número de Autorización SRI
+                        </span>
+                        {selectedDiagnosticDoc.numeroAutorizacion && (
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(selectedDiagnosticDoc.numeroAutorizacion || '', 'auth')}
+                            className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                          >
+                            {copiedKey === 'auth' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                            <span>{copiedKey === 'auth' ? '¡Copiado!' : 'Copiar'}</span>
+                          </button>
+                        )}
+                      </div>
+                      <p className="font-mono text-xs font-bold text-gray-900 dark:text-zinc-100 break-all select-all">
+                        {selectedDiagnosticDoc.numeroAutorizacion || selectedDiagnosticDoc.claveAcceso}
+                      </p>
+                    </div>
+
+                    {/* Fecha de Autorización */}
+                    <div className="bg-gray-50 dark:bg-zinc-800/60 p-3.5 rounded-xl border border-gray-200/80 dark:border-zinc-700/80 space-y-1">
+                      <span className="text-[11px] font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                        Fecha y Hora de Autorización
+                      </span>
+                      <p className="font-mono text-xs font-semibold text-gray-900 dark:text-zinc-100">
+                        {selectedDiagnosticDoc.fechaAutorizacion 
+                          ? selectedDiagnosticDoc.fechaAutorizacion.replace('T', ' ').substring(0, 19)
+                          : 'Registrada'}
+                      </p>
+                    </div>
+
+                    {/* Ambiente SRI */}
+                    <div className="bg-gray-50 dark:bg-zinc-800/60 p-3.5 rounded-xl border border-gray-200/80 dark:border-zinc-700/80 space-y-1">
+                      <span className="text-[11px] font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                        Ambiente de Emisión
+                      </span>
+                      <p className="text-xs font-bold text-gray-900 dark:text-zinc-100">
+                        {config.isDemoMode ? 'SIMULADOR SRI' : (config.ambiente === '1' ? '1 - PRUEBAS (CELCER)' : '2 - PRODUCCIÓN')}
+                      </p>
+                    </div>
+
+                    {/* Clave de Acceso SRI */}
+                    <div className="bg-gray-50 dark:bg-zinc-800/60 p-3.5 rounded-xl border border-gray-200/80 dark:border-zinc-700/80 space-y-1 md:col-span-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                          Clave de Acceso SRI (49 Dígitos)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(selectedDiagnosticDoc.claveAcceso, 'clave')}
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                        >
+                          {copiedKey === 'clave' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                          <span>{copiedKey === 'clave' ? '¡Copiada!' : 'Copiar'}</span>
+                        </button>
+                      </div>
+                      <p className="font-mono text-xs text-gray-800 dark:text-zinc-200 break-all select-all">
+                        {selectedDiagnosticDoc.claveAcceso}
+                      </p>
+                    </div>
+
+                    {/* Cliente / Receptor */}
+                    <div className="bg-gray-50 dark:bg-zinc-800/60 p-3.5 rounded-xl border border-gray-200/80 dark:border-zinc-700/80 space-y-1 md:col-span-2">
+                      <span className="text-[11px] font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                        Cliente Receptor
+                      </span>
+                      <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+                        {selectedDiagnosticDoc.cliente.nombre} • <span className="font-mono">{selectedDiagnosticDoc.cliente.identificacion}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Mensajes adicionales informativos si existen */}
+                  {selectedDiagnosticDoc.mensajesSRI && selectedDiagnosticDoc.mensajesSRI.length > 0 && (
+                    <div className="space-y-2 pt-2">
+                      <h5 className="text-xs font-bold text-gray-700 dark:text-zinc-300">
+                        Mensajes adicionales del Web Service SRI:
+                      </h5>
+                      {selectedDiagnosticDoc.mensajesSRI.map((msg, index) => (
+                        <div key={index} className="p-3 bg-gray-50 dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 text-xs font-mono space-y-1">
+                          <div className="flex justify-between items-center text-gray-800 dark:text-zinc-200 font-bold">
+                            <span>[{msg.identificador || 'INFO'}] - {msg.mensaje}</span>
+                            <span className="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 rounded font-sans">
+                              {msg.tipo || 'INFORMATIVO'}
+                            </span>
+                          </div>
+                          {msg.informacionAdicional && (
+                            <p className="text-[11px] font-sans text-gray-600 dark:text-zinc-400 pt-0.5">
+                              <strong>Info:</strong> {msg.informacionAdicional}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* CASO: ERRORES / DEVUELTO / NO AUTORIZADO */}
+              {(selectedDiagnosticDoc.estado === 'Devuelto' || selectedDiagnosticDoc.estado === 'No Autorizado' || (selectedDiagnosticDoc.mensajesSRI && selectedDiagnosticDoc.mensajesSRI.length > 0 && selectedDiagnosticDoc.estado !== 'Autorizado')) && (
+                <div className="space-y-4">
+                  {/* Banner de error */}
+                  <div className="p-4 rounded-xl bg-rose-50/80 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-900/60 flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-bold text-sm text-rose-900 dark:text-rose-200">
+                        Observaciones / Rechazo del SRI o Proceso de Firma
+                      </h4>
+                      <p className="text-xs text-rose-700 dark:text-rose-300/90 mt-0.5">
+                        El proceso de validación o transmisión electrónica reportó las siguientes observaciones que impidieron la autorización del comprobante:
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Listado de mensajes de error */}
+                  <div className="space-y-2.5">
+                    {selectedDiagnosticDoc.mensajesSRI && selectedDiagnosticDoc.mensajesSRI.length > 0 ? (
+                      selectedDiagnosticDoc.mensajesSRI.map((msg, index) => (
+                        <div key={index} className="bg-white dark:bg-zinc-800/80 p-4 rounded-xl border border-rose-200/80 dark:border-rose-900/40 space-y-1.5 shadow-2xs">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60">
+                                [{msg.identificador || 'N/A'}]
+                              </span>
+                              <span className="font-bold text-xs text-rose-900 dark:text-rose-200">
+                                {msg.mensaje}
+                              </span>
+                            </div>
+                            <span className="text-[10px] uppercase font-bold px-2 py-0.5 bg-rose-100 dark:bg-rose-950 rounded text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0">
+                              {msg.tipo || 'ERROR'}
+                            </span>
+                          </div>
+                          {msg.informacionAdicional && (
+                            <p className="text-xs text-gray-700 dark:text-zinc-300 leading-relaxed font-sans bg-gray-50 dark:bg-zinc-900/60 p-2.5 rounded-lg border border-gray-200/70 dark:border-zinc-750">
+                              <strong className="text-gray-900 dark:text-zinc-100">Información Adicional:</strong> {msg.informacionAdicional}
+                            </p>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="bg-gray-50 dark:bg-zinc-800 p-4 rounded-xl text-center text-xs text-gray-500">
+                        No se registraron mensajes detallados de error adicionales.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Clave de Acceso para rastreo */}
+                  <div className="bg-gray-50 dark:bg-zinc-800/60 p-3.5 rounded-xl border border-gray-200/80 dark:border-zinc-700/80 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                        Clave de Acceso Asociada (49 Dígitos)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(selectedDiagnosticDoc.claveAcceso, 'clave')}
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                      >
+                        {copiedKey === 'clave' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedKey === 'clave' ? '¡Copiada!' : 'Copiar'}</span>
+                      </button>
+                    </div>
+                    <p className="font-mono text-xs text-gray-800 dark:text-zinc-200 break-all select-all">
+                      {selectedDiagnosticDoc.claveAcceso}
+                    </p>
+                  </div>
+
+                  {/* Guía rápida de solución */}
+                  <div className="p-3.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/50 text-xs text-amber-900 dark:text-amber-200 space-y-1">
+                    <span className="font-bold block">💡 Recomendaciones de Solución:</span>
+                    <ul className="list-disc list-inside space-y-1 text-amber-800/90 dark:text-amber-300/90">
+                      <li>Si el error es <strong>[43] CLAVE EN PROCESAMIENTO</strong>: El SRI está ocupado; espere unos segundos y vuelva a presionar "Firmar y Enviar".</li>
+                      <li>Si el error es <strong>[45] SECUENCIAL YA REGISTRADO</strong>: Este secuencial ya fue emitido previamente ante el SRI.</li>
+                      <li>Si el error es de <strong>Firma Electrónica</strong>: Verifique en la pestaña "Configuración Emisor" que el certificado .p12 y la contraseña sean correctos.</li>
+                      <li>Si el comprobante no es válido, puede eliminarlo con el botón de papelera y generar uno nuevo.</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {/* CASO: BORRADOR / FIRMADO / ENVIADO */}
+              {selectedDiagnosticDoc.estado !== 'Autorizado' && selectedDiagnosticDoc.estado !== 'Devuelto' && selectedDiagnosticDoc.estado !== 'No Autorizado' && (!selectedDiagnosticDoc.mensajesSRI || selectedDiagnosticDoc.mensajesSRI.length === 0) && (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 flex items-start gap-3">
+                    <Info className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-bold text-sm text-gray-900 dark:text-gray-100">
+                        Estado del Comprobante: {selectedDiagnosticDoc.estado}
+                      </h4>
+                      <p className="text-xs text-gray-600 dark:text-zinc-400 mt-0.5">
+                        {selectedDiagnosticDoc.estado === 'Enviado'
+                          ? 'El comprobante fue transmitido con éxito al SRI y se encuentra en cola de autorización.'
+                          : selectedDiagnosticDoc.estado === 'Firmado'
+                          ? 'El XML está firmado digitalmente con estándar XAdES-BES y listo para transmitir.'
+                          : 'El comprobante se encuentra en estado de borrador local listo para ser emitido.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 dark:bg-zinc-800/60 p-3.5 rounded-xl border border-gray-200/80 dark:border-zinc-700/80 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                        Clave de Acceso SRI
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(selectedDiagnosticDoc.claveAcceso, 'clave')}
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                      >
+                        {copiedKey === 'clave' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedKey === 'clave' ? '¡Copiada!' : 'Copiar'}</span>
+                      </button>
+                    </div>
+                    <p className="font-mono text-xs text-gray-800 dark:text-zinc-200 break-all select-all">
+                      {selectedDiagnosticDoc.claveAcceso}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* MODAL FOOTER */}
+            <div className="p-4 bg-gray-50 dark:bg-zinc-850 border-t border-gray-100 dark:border-zinc-800 flex justify-between items-center gap-3">
+              <button
+                type="button"
+                onClick={() => onOpenRide(selectedDiagnosticDoc)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 transition cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Ver RIDE PDF</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedDiagnosticDoc(null)}
+                className="px-5 py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-gray-100 dark:hover:bg-zinc-700 border border-gray-200 dark:border-zinc-700 transition cursor-pointer shadow-2xs"
+              >
+                Cerrar
+              </button>
+            </div>
+
           </div>
         </div>
       )}
@@ -884,8 +1173,8 @@ export default function HistoryList({
                     )}
                   </div>
                 </th>
-                {/* SOLICITUD 1: NUEVA COLUMNA DE DIAGNÓSTICO / MENSAJE DE PROCESAMIENTO */}
-                <th className="px-4 py-3.5 text-left min-w-[300px] max-w-[480px]">
+                {/* COLUMNA DE DIAGNÓSTICO / ESTADO SRI */}
+                <th className="px-4 py-3.5 text-left min-w-[220px]">
                   <span>Diagnóstico / Mensaje SRI</span>
                 </th>
                 <th className="px-4 py-3.5 text-right">Acciones de Emisor</th>
@@ -1098,7 +1387,7 @@ export default function HistoryList({
                             type="button"
                             onClick={() => handleDelete(doc)}
                             className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl cursor-pointer transition"
-                            title="Eliminar este comprobante y sus detalles"
+                            title="Eliminar este comprobante y sus archivos PDF/XML en Storage"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>

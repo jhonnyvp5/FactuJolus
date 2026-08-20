@@ -1153,17 +1153,44 @@ export async function saveInvoiceToSupabase(invoice: Invoice, userEmail?: string
   return res.success;
 }
 
-export async function deleteInvoiceFromSupabase(id: string): Promise<boolean> {
+export async function deleteInvoiceFromSupabase(
+  id: string,
+  secuencial?: string,
+  claveAcceso?: string,
+  estab: string = '001',
+  ptoEmi: string = '001'
+): Promise<boolean> {
   const supabase = getSupabase();
   if (!supabase) return false;
 
-  // First delete details from factura_detalles table to ensure clean cascade/deletion
+  // 1. Retrieve sequential and clave_acceso if not passed
+  let targetSeq = secuencial;
+  let targetClave = claveAcceso;
+  try {
+    const { data: invRow } = await supabase.from('facturas').select('secuencial, clave_acceso').eq('id', id).maybeSingle();
+    if (invRow) {
+      if (!targetSeq && invRow.secuencial) targetSeq = invRow.secuencial;
+      if (!targetClave && invRow.clave_acceso) targetClave = invRow.clave_acceso;
+    }
+  } catch (e) {
+    console.warn('Aviso buscando metadatos de factura antes de eliminar:', e);
+  }
+
+  // 2. Automatically delete generated PDF and XMLs from all Supabase Storage buckets
+  try {
+    await deleteInvoiceFilesFromStorage(targetSeq, targetClave, estab, ptoEmi);
+  } catch (storageErr) {
+    console.warn('Aviso eliminando archivos de Supabase Storage para factura:', storageErr);
+  }
+
+  // 3. Delete details from factura_detalles table to ensure clean cascade
   try {
     await supabase.from('factura_detalles').delete().eq('factura_id', id);
   } catch (e) {
     console.warn('Aviso borrando factura_detalles en Supabase:', e);
   }
 
+  // 4. Delete invoice record from facturas table
   const { error } = await supabase.from('facturas').delete().eq('id', id);
   return !error;
 }
@@ -1371,9 +1398,41 @@ export async function saveCreditNoteToSupabase(creditNote: CreditNote, userEmail
   return res.success;
 }
 
-export async function deleteCreditNoteFromSupabase(id: string): Promise<boolean> {
+export async function deleteCreditNoteFromSupabase(
+  id: string,
+  secuencial?: string,
+  claveAcceso?: string,
+  estab: string = '001',
+  ptoEmi: string = '001'
+): Promise<boolean> {
   const supabase = getSupabase();
   if (!supabase) return false;
+
+  let targetSeq = secuencial;
+  let targetClave = claveAcceso;
+  try {
+    const { data: ncRow } = await supabase.from('notas_credito').select('secuencial, clave_acceso').eq('id', id).maybeSingle();
+    if (ncRow) {
+      if (!targetSeq && ncRow.secuencial) targetSeq = ncRow.secuencial;
+      if (!targetClave && ncRow.clave_acceso) targetClave = ncRow.clave_acceso;
+    }
+  } catch (e) {
+    console.warn('Aviso buscando metadatos de nota de crédito antes de eliminar:', e);
+  }
+
+  // Automatically delete generated PDF and XMLs from storage buckets
+  try {
+    await deleteCreditNoteFilesFromStorage(targetSeq, targetClave, estab, ptoEmi);
+  } catch (storageErr) {
+    console.warn('Aviso eliminando archivos de Supabase Storage para nota de crédito:', storageErr);
+  }
+
+  try {
+    await supabase.from('nota_credito_detalles').delete().eq('nota_credito_id', id);
+  } catch (e) {
+    console.warn('Aviso borrando nota_credito_detalles en Supabase:', e);
+  }
+
   const { error } = await supabase.from('notas_credito').delete().eq('id', id);
   return !error;
 }
@@ -1489,9 +1548,34 @@ export async function saveRetencionToSupabase(ret: Retention, userEmail?: string
   return res;
 }
 
-export async function deleteRetencionFromSupabase(id: string): Promise<boolean> {
+export async function deleteRetencionFromSupabase(
+  id: string,
+  secuencial?: string,
+  claveAcceso?: string,
+  estab: string = '001',
+  ptoEmi: string = '001'
+): Promise<boolean> {
   const supabase = getSupabase();
   if (!supabase) return false;
+
+  let targetSeq = secuencial;
+  let targetClave = claveAcceso;
+  try {
+    const { data: retRow } = await supabase.from('retenciones').select('secuencial, clave_acceso').eq('id', id).maybeSingle();
+    if (retRow) {
+      if (!targetSeq && retRow.secuencial) targetSeq = retRow.secuencial;
+      if (!targetClave && retRow.clave_acceso) targetClave = retRow.clave_acceso;
+    }
+  } catch (e) {
+    console.warn('Aviso buscando metadatos de retención antes de eliminar:', e);
+  }
+
+  // Automatically delete generated PDF and XMLs from storage buckets
+  try {
+    await deleteRetentionFilesFromStorage(targetSeq, targetClave, estab, ptoEmi);
+  } catch (storageErr) {
+    console.warn('Aviso eliminando archivos de Supabase Storage para retención:', storageErr);
+  }
 
   try {
     await supabase.from('retencion_detalles').delete().eq('retencion_id', id);
@@ -2247,4 +2331,255 @@ export async function fetchSupabaseStorageFiles(bucketName: string): Promise<{ f
   } catch (err: any) {
     return { files: [], error: err.message || 'Error listando archivos del bucket.' };
   }
+}
+
+// =========================================================================
+// AUTOMATIC STORAGE DELETION (PDF & XMLs IN BUCKETS)
+// =========================================================================
+
+export async function deleteMatchingFilesFromBucket(
+  bucketName: string,
+  searchTerms: string[],
+  directPaths: string[] = []
+): Promise<number> {
+  const supabase = getSupabase();
+  if (!supabase) return 0;
+
+  const validTerms = searchTerms
+    .filter(t => t && String(t).trim().length >= 2)
+    .map(t => String(t).trim().toLowerCase());
+
+  const deletedSet = new Set<string>();
+
+  try {
+    // 1. Direct elimination of standard known paths
+    if (directPaths.length > 0) {
+      const validDirect = directPaths.filter(p => p && p.trim().length > 0);
+      if (validDirect.length > 0) {
+        const { data: directRemoved } = await supabase.storage.from(bucketName).remove(validDirect);
+        if (directRemoved && Array.isArray(directRemoved)) {
+          directRemoved.forEach((f: any) => f?.name && deletedSet.add(f.name));
+        }
+      }
+    }
+
+    // 2. Scan bucket to find any other files generated with matching serial or access key
+    if (validTerms.length > 0) {
+      const { data: fileList, error: listErr } = await supabase.storage.from(bucketName).list('', {
+        limit: 300,
+        sortBy: { column: 'created_at', order: 'desc' }
+      });
+
+      if (!listErr && fileList && Array.isArray(fileList) && fileList.length > 0) {
+        const matchingFiles = fileList
+          .filter(file => {
+            if (!file?.name) return false;
+            const nameLower = file.name.toLowerCase();
+            return validTerms.some(term => nameLower.includes(term));
+          })
+          .map(file => file.name);
+
+        if (matchingFiles.length > 0) {
+          const { data: searchRemoved } = await supabase.storage.from(bucketName).remove(matchingFiles);
+          if (searchRemoved && Array.isArray(searchRemoved)) {
+            searchRemoved.forEach((f: any) => f?.name && deletedSet.add(f.name));
+          }
+        }
+      }
+    }
+
+    if (deletedSet.size > 0) {
+      console.log(`[Supabase Storage] ✅ Eliminados ${deletedSet.size} archivo(s) del bucket "${bucketName}":`, Array.from(deletedSet));
+    }
+    return deletedSet.size;
+  } catch (err) {
+    console.warn(`[Supabase Storage] Aviso al eliminar archivos en el bucket "${bucketName}":`, err);
+    return deletedSet.size;
+  }
+}
+
+/**
+ * Elimina automáticamente el PDF y los XMLs (firmados y sin firmar) de los buckets de Facturas en Supabase Storage
+ */
+export async function deleteInvoiceFilesFromStorage(
+  secuencial?: string,
+  claveAcceso?: string,
+  estab: string = '001',
+  ptoEmi: string = '001'
+): Promise<{ pdfCount: number; xmlSinFirmarCount: number; xmlFirmadosCount: number }> {
+  const cleanEstab = String(estab || '001').padStart(3, '0');
+  const cleanPtoEmi = String(ptoEmi || '001').padStart(3, '0');
+  const cleanSeq = secuencial ? String(secuencial).padStart(9, '0') : '';
+  const seqNum = secuencial ? String(parseInt(secuencial, 10)) : '';
+
+  const searchTerms = [
+    cleanSeq,
+    seqNum,
+    claveAcceso || '',
+    `${cleanEstab}-${cleanPtoEmi}-${cleanSeq}`
+  ].filter(t => Boolean(t && t.length >= 2));
+
+  const directPdfs = cleanSeq ? [
+    `FAC ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.pdf`,
+    `FAC_${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.pdf`,
+    `FACTURA_${cleanSeq}.pdf`,
+    `FAC_${cleanSeq}.pdf`,
+    `${cleanSeq}.pdf`,
+    claveAcceso ? `${claveAcceso}.pdf` : ''
+  ].filter(Boolean) : [];
+
+  const directXmlsSinFirmar = cleanSeq ? [
+    `FAC ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.xml`,
+    `FAC_${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.xml`,
+    `FACTURA_${cleanSeq}.xml`,
+    `FAC_${cleanSeq}.xml`,
+    `${cleanSeq}.xml`,
+    claveAcceso ? `${claveAcceso}.xml` : '',
+    `SRI_COMPROBANTE_${cleanSeq}.xml`,
+    secuencial ? `SRI_COMPROBANTE_${secuencial}.xml` : ''
+  ].filter(Boolean) : [];
+
+  const directXmlsFirmados = cleanSeq ? [
+    `FAC ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}_firmado.xml`,
+    `FAC_${cleanEstab}-${cleanPtoEmi}-${cleanSeq}_firmado.xml`,
+    `FACTURA_${cleanSeq}_firmado.xml`,
+    `FAC_${cleanSeq}_firmado.xml`,
+    `${cleanSeq}_firmado.xml`,
+    claveAcceso ? `${claveAcceso}_firmado.xml` : '',
+    claveAcceso ? `${claveAcceso}.xml` : '',
+    `SRI_COMPROBANTE_${cleanSeq}.xml`,
+    secuencial ? `SRI_COMPROBANTE_${secuencial}.xml` : ''
+  ].filter(Boolean) : [];
+
+  const [pdfCount, xmlSinFirmarCount, xmlFirmadosCount] = await Promise.all([
+    deleteMatchingFilesFromBucket(SUPABASE_BUCKETS.FACTURAS_PDF, searchTerms, directPdfs),
+    deleteMatchingFilesFromBucket(SUPABASE_BUCKETS.FACTURAS_XML_SIN_FIRMAR, searchTerms, directXmlsSinFirmar),
+    deleteMatchingFilesFromBucket(SUPABASE_BUCKETS.FACTURAS_XML_FIRMADOS, searchTerms, directXmlsFirmados)
+  ]);
+
+  return { pdfCount, xmlSinFirmarCount, xmlFirmadosCount };
+}
+
+/**
+ * Elimina automáticamente el PDF y los XMLs (firmados y sin firmar) de los buckets de Notas de Crédito en Supabase Storage
+ */
+export async function deleteCreditNoteFilesFromStorage(
+  secuencial?: string,
+  claveAcceso?: string,
+  estab: string = '001',
+  ptoEmi: string = '001'
+): Promise<{ pdfCount: number; xmlSinFirmarCount: number; xmlFirmadosCount: number }> {
+  const cleanEstab = String(estab || '001').padStart(3, '0');
+  const cleanPtoEmi = String(ptoEmi || '001').padStart(3, '0');
+  const cleanSeq = secuencial ? String(secuencial).padStart(9, '0') : '';
+  const seqNum = secuencial ? String(parseInt(secuencial, 10)) : '';
+
+  const searchTerms = [
+    cleanSeq,
+    seqNum,
+    claveAcceso || '',
+    `${cleanEstab}-${cleanPtoEmi}-${cleanSeq}`
+  ].filter(t => Boolean(t && t.length >= 2));
+
+  const directPdfs = cleanSeq ? [
+    `NCT ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.pdf`,
+    `NCT_${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.pdf`,
+    `NOTA_CREDITO_${cleanSeq}.pdf`,
+    `NCT_${cleanSeq}.pdf`,
+    `${cleanSeq}.pdf`,
+    claveAcceso ? `${claveAcceso}.pdf` : ''
+  ].filter(Boolean) : [];
+
+  const directXmlsSinFirmar = cleanSeq ? [
+    `NCT ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.xml`,
+    `NCT_${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.xml`,
+    `NOTA_CREDITO_${cleanSeq}.xml`,
+    `NCT_${cleanSeq}.xml`,
+    `${cleanSeq}.xml`,
+    claveAcceso ? `${claveAcceso}.xml` : '',
+    `SRI_COMPROBANTE_${cleanSeq}.xml`,
+    secuencial ? `SRI_COMPROBANTE_${secuencial}.xml` : ''
+  ].filter(Boolean) : [];
+
+  const directXmlsFirmados = cleanSeq ? [
+    `NCT ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}_firmado.xml`,
+    `NCT_${cleanEstab}-${cleanPtoEmi}-${cleanSeq}_firmado.xml`,
+    `NOTA_CREDITO_${cleanSeq}_firmado.xml`,
+    `NCT_${cleanSeq}_firmado.xml`,
+    `${cleanSeq}_firmado.xml`,
+    claveAcceso ? `${claveAcceso}_firmado.xml` : '',
+    claveAcceso ? `${claveAcceso}.xml` : '',
+    `SRI_COMPROBANTE_${cleanSeq}.xml`,
+    secuencial ? `SRI_COMPROBANTE_${secuencial}.xml` : ''
+  ].filter(Boolean) : [];
+
+  const [pdfCount, xmlSinFirmarCount, xmlFirmadosCount] = await Promise.all([
+    deleteMatchingFilesFromBucket(SUPABASE_BUCKETS.NOTAS_CREDITO_PDF, searchTerms, directPdfs),
+    deleteMatchingFilesFromBucket(SUPABASE_BUCKETS.NOTAS_CREDITO_XML_SIN_FIRMAR, searchTerms, directXmlsSinFirmar),
+    deleteMatchingFilesFromBucket(SUPABASE_BUCKETS.NOTAS_CREDITO_XML_FIRMADOS, searchTerms, directXmlsFirmados)
+  ]);
+
+  return { pdfCount, xmlSinFirmarCount, xmlFirmadosCount };
+}
+
+/**
+ * Elimina automáticamente el PDF y los XMLs (firmados y sin firmar) de los buckets de Retenciones en Supabase Storage
+ */
+export async function deleteRetentionFilesFromStorage(
+  secuencial?: string,
+  claveAcceso?: string,
+  estab: string = '001',
+  ptoEmi: string = '001'
+): Promise<{ pdfCount: number; xmlSinFirmarCount: number; xmlFirmadosCount: number }> {
+  const cleanEstab = String(estab || '001').padStart(3, '0');
+  const cleanPtoEmi = String(ptoEmi || '001').padStart(3, '0');
+  const cleanSeq = secuencial ? String(secuencial).padStart(9, '0') : '';
+  const seqNum = secuencial ? String(parseInt(secuencial, 10)) : '';
+
+  const searchTerms = [
+    cleanSeq,
+    seqNum,
+    claveAcceso || '',
+    `${cleanEstab}-${cleanPtoEmi}-${cleanSeq}`
+  ].filter(t => Boolean(t && t.length >= 2));
+
+  const directPdfs = cleanSeq ? [
+    `RET ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.pdf`,
+    `RET_${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.pdf`,
+    `RETENCION_${cleanSeq}.pdf`,
+    `RET_${cleanSeq}.pdf`,
+    `${cleanSeq}.pdf`,
+    claveAcceso ? `${claveAcceso}.pdf` : ''
+  ].filter(Boolean) : [];
+
+  const directXmlsSinFirmar = cleanSeq ? [
+    `RET ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.xml`,
+    `RET_${cleanEstab}-${cleanPtoEmi}-${cleanSeq}.xml`,
+    `RETENCION_${cleanSeq}.xml`,
+    `RET_${cleanSeq}.xml`,
+    `${cleanSeq}.xml`,
+    claveAcceso ? `${claveAcceso}.xml` : '',
+    `SRI_COMPROBANTE_${cleanSeq}.xml`,
+    secuencial ? `SRI_COMPROBANTE_${secuencial}.xml` : ''
+  ].filter(Boolean) : [];
+
+  const directXmlsFirmados = cleanSeq ? [
+    `RET ${cleanEstab}-${cleanPtoEmi}-${cleanSeq}_firmado.xml`,
+    `RET_${cleanEstab}-${cleanPtoEmi}-${cleanSeq}_firmado.xml`,
+    `RETENCION_${cleanSeq}_firmado.xml`,
+    `RET_${cleanSeq}_firmado.xml`,
+    `${cleanSeq}_firmado.xml`,
+    claveAcceso ? `${claveAcceso}_firmado.xml` : '',
+    claveAcceso ? `${claveAcceso}.xml` : '',
+    `SRI_COMPROBANTE_${cleanSeq}.xml`,
+    secuencial ? `SRI_COMPROBANTE_${secuencial}.xml` : ''
+  ].filter(Boolean) : [];
+
+  const [pdfCount, xmlSinFirmarCount, xmlFirmadosCount] = await Promise.all([
+    deleteMatchingFilesFromBucket(SUPABASE_BUCKETS.RETENCIONES_PDF, searchTerms, directPdfs),
+    deleteMatchingFilesFromBucket(SUPABASE_BUCKETS.RETENCIONES_XML_SIN_FIRMAR, searchTerms, directXmlsSinFirmar),
+    deleteMatchingFilesFromBucket(SUPABASE_BUCKETS.RETENCIONES_XML_FIRMADOS, searchTerms, directXmlsFirmados)
+  ]);
+
+  return { pdfCount, xmlSinFirmarCount, xmlFirmadosCount };
 }
