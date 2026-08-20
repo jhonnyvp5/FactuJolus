@@ -691,14 +691,13 @@ export async function fetchClientsFromSupabase(userEmail?: string, userRole?: st
 
   if (error || !data) return null;
 
-  const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
-  const filtered = !isSuperAdmin
-    ? data.filter(item => {
-        if (empresaRuc) return item.empresa_ruc === empresaRuc;
-        if (userEmail) return item.usuario_correo === userEmail;
-        return false;
-      })
-    : data;
+  // Filter strictly by the current user's company / tenant / emitter user (identically for SUPERADMIN and inquilinos)
+  const filtered = data.filter(item => {
+    if (empresaRuc && item.empresa_ruc === empresaRuc) return true;
+    if (userEmail && item.usuario_correo && item.usuario_correo.toLowerCase() === userEmail.toLowerCase()) return true;
+    if (!empresaRuc && !userEmail) return true;
+    return false;
+  });
 
   return filtered.map(item => ({
     id: item.id || `cli-${Date.now()}`,
@@ -761,14 +760,13 @@ export async function fetchProductsFromSupabase(userEmail?: string, userRole?: s
 
   if (error || !data) return null;
 
-  const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
-  const filtered = !isSuperAdmin
-    ? data.filter(item => {
-        if (empresaRuc) return item.empresa_ruc === empresaRuc;
-        if (userEmail) return item.usuario_correo === userEmail;
-        return false;
-      })
-    : data;
+  // Filter strictly by the current user's company / tenant / emitter user (same operation for SUPERADMIN and tenants)
+  const filtered = data.filter(item => {
+    if (empresaRuc && item.empresa_ruc === empresaRuc) return true;
+    if (userEmail && item.usuario_correo && item.usuario_correo.toLowerCase() === userEmail.toLowerCase()) return true;
+    if (!empresaRuc && !userEmail) return true;
+    return false;
+  });
 
   return filtered.map(item => ({
     id: item.id || `prod-${Date.now()}`,
@@ -1055,14 +1053,13 @@ export async function fetchInvoicesFromSupabase(userEmail?: string, userRole?: s
 
   if (error || !data) return null;
 
-  const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
-  const filtered = !isSuperAdmin
-    ? data.filter(item => {
-        if (empresaRuc) return item.empresa_ruc === empresaRuc;
-        if (userEmail) return item.usuario_correo === userEmail;
-        return false;
-      })
-    : data;
+  // Filter strictly by the current user's company / tenant / emitter user (same operation for SUPERADMIN and tenants)
+  const filtered = data.filter(item => {
+    if (empresaRuc && item.empresa_ruc === empresaRuc) return true;
+    if (userEmail && item.usuario_correo && item.usuario_correo.toLowerCase() === userEmail.toLowerCase()) return true;
+    if (!empresaRuc && !userEmail) return true;
+    return false;
+  });
 
   return filtered.map(item => ({
     id: item.id,
@@ -1206,14 +1203,13 @@ export async function fetchProformasFromSupabase(userEmail?: string, userRole?: 
     const { data, error } = await supabase.from('proformas').select('*').order('created_at', { ascending: false });
     if (error || !data) return null;
 
-    const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
-    const filtered = !isSuperAdmin
-      ? data.filter(item => {
-          if (empresaRuc) return item.empresa_ruc === empresaRuc;
-          if (userEmail) return item.usuario_correo === userEmail;
-          return false;
-        })
-      : data;
+    // Filter strictly by the current user's company / tenant / emitter user
+    const filtered = data.filter(item => {
+      if (empresaRuc && (item.empresa_ruc === empresaRuc || item.empresa_datos?.ruc === empresaRuc)) return true;
+      if (userEmail && item.usuario_correo && item.usuario_correo.toLowerCase() === userEmail.toLowerCase()) return true;
+      if (!empresaRuc && !userEmail) return true;
+      return false;
+    });
 
     return filtered.map(item => ({
       id: item.id,
@@ -1303,14 +1299,13 @@ export async function fetchCreditNotesFromSupabase(userEmail?: string, userRole?
     const { data, error } = await supabase.from('notas_credito').select('*').order('created_at', { ascending: false });
     if (error || !data) return null;
 
-    const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
-    const filtered = !isSuperAdmin
-      ? data.filter(item => {
-          if (empresaRuc) return item.empresa_ruc === empresaRuc;
-          if (userEmail) return item.usuario_correo === userEmail;
-          return false;
-        })
-      : data;
+    // Filter strictly by the current user's company / tenant / emitter user (same operation for SUPERADMIN and tenants)
+    const filtered = data.filter(item => {
+      if (empresaRuc && item.empresa_ruc === empresaRuc) return true;
+      if (userEmail && item.usuario_correo && item.usuario_correo.toLowerCase() === userEmail.toLowerCase()) return true;
+      if (!empresaRuc && !userEmail) return true;
+      return false;
+    });
 
     return filtered.map(item => ({
       id: item.id,
@@ -1448,14 +1443,13 @@ export async function fetchRetencionesFromSupabase(userEmail?: string, userRole?
     const { data, error } = await supabase.from('retenciones').select('*').order('created_at', { ascending: false });
     if (error || !data) return null;
 
-    const isSuperAdmin = userRole?.toUpperCase() === 'SUPERADMIN';
-    const filtered = !isSuperAdmin
-      ? data.filter(item => {
-          if (empresaRuc) return item.empresa_ruc === empresaRuc;
-          if (userEmail) return item.usuario_correo === userEmail;
-          return false;
-        })
-      : data;
+    // Filter strictly by the current user's company / tenant / emitter user (same operation for SUPERADMIN and tenants)
+    const filtered = data.filter(item => {
+      if (empresaRuc && item.empresa_ruc === empresaRuc) return true;
+      if (userEmail && item.usuario_correo && item.usuario_correo.toLowerCase() === userEmail.toLowerCase()) return true;
+      if (!empresaRuc && !userEmail) return true;
+      return false;
+    });
 
     return filtered.map(item => ({
       id: item.id,
