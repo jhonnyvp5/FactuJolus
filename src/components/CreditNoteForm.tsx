@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { EmitterConfig, CreditNote, Invoice, Client, Product, CreditNoteDetail, AdicionalInfo, PortalUser } from '../types';
 import { generateClaveAcceso, formatSequential, IVA_TARIFAS, IDENTIFICACIONES } from '../sri/utils';
 import { Plus, Trash2, ArrowLeftRight, HelpCircle, FileText, Sparkles } from 'lucide-react';
+import { modalAlert } from '../context/ModalAlertContext';
 
 interface CreditNoteFormProps {
   config: EmitterConfig;
@@ -250,22 +251,22 @@ export default function CreditNoteForm({
     e.preventDefault();
 
     if (!buyerIdent || !buyerName) {
-      alert('Por favor complete datos del cliente.');
+      modalAlert.warning('Datos Incompletos', 'Por favor complete datos del cliente.');
       return;
     }
 
     if (!targetFacturaSec) {
-      alert('Debe especificar el número secuencial de la factura modificada.');
+      modalAlert.warning('Factura Requerida', 'Debe especificar el número secuencial de la factura modificada.');
       return;
     }
 
     if (!details || details.length === 0) {
-      alert('Debe agregar al menos un ítem o producto a la Nota de Crédito.');
+      modalAlert.warning('Detalle Requerido', 'Debe agregar al menos un ítem o producto a la Nota de Crédito.');
       return;
     }
 
     if (details.some(d => !d.producto.nombre || !d.producto.nombre.trim() || d.producto.precio <= 0)) {
-      alert('Por favor, revise que todos los productos agregados tengan un nombre válido y precio mayor a 0.');
+      modalAlert.warning('Productos Inválidos', 'Por favor, revise que todos los productos agregados tengan un nombre válido y precio mayor a 0.');
       return;
     }
 
@@ -315,7 +316,7 @@ export default function CreditNoteForm({
 
     onAddCreditNote(newCreditNote);
     onNavigateToHistory();
-    alert(`¡Nota de Crédito #${secuencialVal} creada con éxito!`);
+    modalAlert.success('Nota de Crédito Creada', `¡Nota de Crédito #${secuencialVal} creada con éxito!`);
   };
 
   return (

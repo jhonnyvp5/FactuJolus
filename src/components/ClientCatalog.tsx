@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Client, TipoIdentificacion, PortalUser } from '../types';
 import { Trash2, UserPlus, Users, Search, Sparkles, AlertCircle, Phone, Mail, MapPin, CreditCard, Database, Check, Copy, AlertTriangle, Edit3, Save, X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { saveClientToSupabase, deleteClientFromSupabase, SUPABASE_SQL_SCRIPT, testSupabaseConnection } from '../lib/supabase';
+import { modalAlert } from '../context/ModalAlertContext';
 
 interface ClientCatalogProps {
   clients: Client[];
@@ -506,7 +507,19 @@ export default function ClientCatalog({
                           </button>
                           <button
                             type="button"
-                            onClick={() => onDeleteClient(client.id)}
+                            onClick={() => {
+                              modalAlert.confirm(
+                                '¿Eliminar cliente?',
+                                `¿Está seguro de eliminar al cliente "${client.nombre}" (${client.identificacion})?`,
+                                () => {
+                                  onDeleteClient(client.id);
+                                  modalAlert.success('Cliente Eliminado', `El cliente ${client.nombre} ha sido eliminado.`);
+                                },
+                                true,
+                                'Eliminar Cliente',
+                                'Cancelar'
+                              );
+                            }}
                             className="p-2 bg-red-50 hover:bg-red-100 text-red-650 dark:bg-red-950/20 dark:hover:bg-red-950/40 rounded-lg transition shrink-0 cursor-pointer"
                             title="Eliminar cliente"
                           >

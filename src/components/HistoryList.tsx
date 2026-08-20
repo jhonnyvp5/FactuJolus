@@ -37,6 +37,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { apiSignXml, apiSendSri, apiAuthorizeSri, apiSendInvoiceEmail } from '../lib/apiClient';
+import { modalAlert } from '../context/ModalAlertContext';
 
 interface HistoryListProps {
   config: EmitterConfig;
@@ -98,12 +99,15 @@ export default function HistoryList({
       setSendingEmailId(doc.id);
       const data = await apiSendInvoiceEmail(doc, config);
       if (data.status === 'success') {
-        alert(`✅ Correo de Notificación de Documento Electrónico procesado exitosamente para ${doc.cliente.correo || 'cliente'}.\n\nIncluye los adjuntos XML y PDF RIDE.`);
+        modalAlert.success(
+          '¡Correo Notificado con Éxito!',
+          `Correo de Notificación de Documento Electrónico procesado exitosamente para ${doc.cliente.correo || 'cliente'}.\nIncluye los adjuntos XML y PDF RIDE.`
+        );
       } else {
-        alert(`⚠️ Inconveniente enviando correo: ${data.message}`);
+        modalAlert.warning('Aviso de Envío', `Inconveniente enviando correo: ${data.message}`);
       }
     } catch (err: any) {
-      alert(`Error al despachar el correo: ${err.message || String(err)}`);
+      modalAlert.error('Error al Enviar Correo', `Error al despachar el correo: ${err.message || String(err)}`);
     } finally {
       setSendingEmailId(null);
     }
@@ -254,7 +258,7 @@ export default function HistoryList({
         } else {
           onUpdateCreditNote(doc.id, { estado: 'Devuelto', mensajesSRI: recepcion.mensajes });
         }
-        alert(`❌ Comprobante RECHAZADO (DEVUELTO) por el SRI. Revise la columna de Diagnóstico.`);
+        modalAlert.error('Comprobante Rechazado (Devuelto) por el SRI', 'Comprobante rechazado por el SRI. Revise los motivos en la columna de Diagnóstico.');
         return;
       }
 
@@ -268,7 +272,7 @@ export default function HistoryList({
         } else {
           onUpdateCreditNote(doc.id, { estado: 'Borrador', mensajesSRI: fallbackMsg });
         }
-        alert('⚠️ El SRI se encuentra fuera de línea o hubo un timeout. Comprobante guardado en borrador para reintento.');
+        modalAlert.warning('SRI Fuera de Línea', 'El SRI se encuentra fuera de línea o hubo un timeout. Comprobante guardado en borrador para reintento.');
         return;
       }
 
@@ -316,14 +320,17 @@ export default function HistoryList({
             mensajesSRI: autorizacion.mensajes || []
           });
         }
-        alert(`✅ ¡Comprobante ${isInvoice ? 'Factura' : 'Nota de Crédito'} #${doc.secuencial} AUTORIZADO con éxito por el SRI!\n${isInvoice ? '📧 Notificación enviada a: ' + doc.cliente.correo : ''}`);
+        modalAlert.success(
+          '¡Comprobante Autorizado por el SRI!',
+          `¡Comprobante ${isInvoice ? 'Factura' : 'Nota de Crédito'} #${doc.secuencial} AUTORIZADO con éxito por el SRI!\n${isInvoice ? 'Correo enviado a: ' + doc.cliente.correo : ''}`
+        );
       } else {
         if (isInvoice) {
           onUpdateInvoice(doc.id, { estado: 'No Autorizado', mensajesSRI: autorizacion.mensajes });
         } else {
           onUpdateCreditNote(doc.id, { estado: 'No Autorizado', mensajesSRI: autorizacion.mensajes });
         }
-        alert(`❌ Comprobante No Autorizado por el SRI. Revise los motivos en la columna de Diagnóstico.`);
+        modalAlert.error('Comprobante No Autorizado', 'Comprobante no autorizado por el SRI. Revise los motivos en la columna de Diagnóstico.');
       }
 
     } catch (err: any) {
@@ -334,7 +341,7 @@ export default function HistoryList({
       } else {
         onUpdateCreditNote(doc.id, { mensajesSRI: errObj });
       }
-      alert(`Ocurrió un inconveniente: ${errorMsg}`);
+      modalAlert.error('Error Procesando Trámite', `Ocurrió un inconveniente: ${errorMsg}`);
     } finally {
       setProcessingId(null);
     }
@@ -343,7 +350,7 @@ export default function HistoryList({
   const downloadRawXml = (doc: Invoice | CreditNote) => {
     const rawXml = doc.xmlFirmado || doc.xml;
     if (!rawXml) {
-      alert('Debe procesar la firma del documento antes para generar el XML definitivo.');
+      modalAlert.warning('XML No Disponible', 'Debe procesar la firma del documento antes para generar el XML definitivo.');
       return;
     }
     const blob = new Blob([rawXml], { type: 'text/xml' });
@@ -358,38 +365,50 @@ export default function HistoryList({
 
   const handleDelete = async (doc: Invoice | CreditNote) => {
     const isInvoice = !('facturaModificadaSecuencial' in doc);
-    if (!confirm(`¿Está seguro de eliminar el comprobante ${isInvoice ? 'Factura' : 'Nota de Crédito'} #${doc.secuencial}?\n\nEsta acción borrará el registro de la base de datos y eliminará automáticamente el PDF y los archivos XMLs generados en los buckets de almacenamiento.`)) {
-      return;
-    }
-    if (isInvoice) {
-      onDeleteInvoice(doc.id, doc.secuencial, doc.claveAcceso);
-    } else {
-      onDeleteCreditNote(doc.id, doc.secuencial, doc.claveAcceso);
-    }
-    setSelectedIds(prev => prev.filter(id => id !== doc.id));
+    modalAlert.confirm(
+      '¿Eliminar comprobante?',
+      `¿Está seguro de eliminar el comprobante ${isInvoice ? 'Factura' : 'Nota de Crédito'} #${doc.secuencial}?\nEsta acción borrará el registro de la base de datos y eliminará automáticamente el PDF y los archivos XMLs generados en los buckets de almacenamiento.`,
+      () => {
+        if (isInvoice) {
+          onDeleteInvoice(doc.id, doc.secuencial, doc.claveAcceso);
+        } else {
+          onDeleteCreditNote(doc.id, doc.secuencial, doc.claveAcceso);
+        }
+        setSelectedIds(prev => prev.filter(id => id !== doc.id));
+      },
+      true,
+      'Eliminar Comprobante',
+      'Cancelar'
+    );
   };
 
   const handleDeleteSelected = () => {
     if (selectedIds.length === 0) return;
-    if (!confirm(`¿Está seguro de eliminar los ${selectedIds.length} comprobantes seleccionados?\n\nSe eliminarán de la base de datos junto con sus archivos PDF y XMLs asociados en los buckets de Storage.`)) {
-      return;
-    }
-    let countInvoices = 0;
-    let countNCs = 0;
-    selectedIds.forEach(id => {
-      const inv = invoices.find(i => i.id === id);
-      const nc = creditNotes.find(n => n.id === id);
-      if (inv) {
-        onDeleteInvoice(id, inv.secuencial, inv.claveAcceso);
-        countInvoices++;
-      } else if (nc) {
-        onDeleteCreditNote(id, nc.secuencial, nc.claveAcceso);
-        countNCs++;
-      }
-    });
+    modalAlert.confirm(
+      '¿Eliminar comprobantes seleccionados?',
+      `¿Está seguro de eliminar los ${selectedIds.length} comprobantes seleccionados?\nSe eliminarán de la base de datos junto con sus archivos PDF y XMLs asociados en los buckets de Storage.`,
+      () => {
+        let countInvoices = 0;
+        let countNCs = 0;
+        selectedIds.forEach(id => {
+          const inv = invoices.find(i => i.id === id);
+          const nc = creditNotes.find(n => n.id === id);
+          if (inv) {
+            onDeleteInvoice(id, inv.secuencial, inv.claveAcceso);
+            countInvoices++;
+          } else if (nc) {
+            onDeleteCreditNote(id, nc.secuencial, nc.claveAcceso);
+            countNCs++;
+          }
+        });
 
-    setSelectedIds([]);
-    alert(`Se eliminaron con éxito ${countInvoices + countNCs} comprobantes y sus archivos PDF/XML asociados en los buckets.`);
+        setSelectedIds([]);
+        modalAlert.success('Comprobantes Eliminados', `Se eliminaron con éxito ${countInvoices + countNCs} comprobantes y sus archivos asociados en los buckets.`);
+      },
+      true,
+      `Eliminar ${selectedIds.length} Comprobantes`,
+      'Cancelar'
+    );
   };
 
   // Get visible documents that are deletable (Borrador, Devuelto, No Autorizado)

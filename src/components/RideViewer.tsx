@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Invoice, CreditNote, EmitterConfig } from '../types';
 import { Printer, Download, X, CheckSquare, Palette, Check, FileText, History, Plus, ArrowLeftRight, Package, User, Settings, Info, CreditCard } from 'lucide-react';
+import { modalAlert } from '../context/ModalAlertContext';
 
 interface RideViewerProps {
   document: Invoice | CreditNote;
@@ -95,7 +96,7 @@ export default function RideViewer({ document, config, onClose }: RideViewerProp
   const downloadXml = () => {
     const xmlContent = document.xmlFirmado || document.xml || '';
     if (!xmlContent) {
-      alert('El comprobante XML no está firmado o autorizado aún.');
+      modalAlert.warning('XML No Disponible', 'El comprobante XML no está firmado o autorizado aún.');
       return;
     }
     const blob = new Blob([xmlContent], { type: 'text/xml' });

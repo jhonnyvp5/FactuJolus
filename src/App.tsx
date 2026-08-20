@@ -15,6 +15,7 @@ import TenantManagement from './components/TenantManagement';
 import { SupabaseExplorer } from './components/SupabaseExplorer';
 import RetentionManager from './components/RetentionManager';
 import { logActivity } from './lib/activityLogger';
+import { modalAlert } from './context/ModalAlertContext';
 import { 
   fetchClientsFromSupabase, saveClientToSupabase, deleteClientFromSupabase,
   fetchProductsFromSupabase, saveProductToSupabase, deleteProductFromSupabase,
@@ -532,16 +533,16 @@ export default function App() {
     // 1. Check Company Plan & Status Limit
     if (currentEmpresa) {
       if (currentEmpresa.estado === 'SUSPENDIDO') {
-        alert(`❌ Emisión Bloqueada: La empresa "${currentEmpresa.razonSocial}" está SUSPENDIDA.\n\nPor favor contacte al SUPERADMIN para restablecer el servicio.`);
+        modalAlert.error('Emisión Bloqueada', `La empresa "${currentEmpresa.razonSocial}" está SUSPENDIDA.\nPor favor contacte al SUPERADMIN para restablecer el servicio.`);
         return;
       }
       if (new Date(currentEmpresa.fechaExpiracion) < new Date()) {
-        alert(`❌ Emisión Bloqueada: El plan de la empresa "${currentEmpresa.razonSocial}" expiró el ${currentEmpresa.fechaExpiracion}.\n\nContacte al SUPERADMIN para renovar el plan.`);
+        modalAlert.error('Plan Expirado', `El plan de la empresa "${currentEmpresa.razonSocial}" expiró el ${currentEmpresa.fechaExpiracion}.\nContacte al SUPERADMIN para renovar el plan.`);
         return;
       }
       const totalDocuments = invoices.length + creditNotes.length;
       if (currentEmpresa.limiteComprobantes && totalDocuments >= currentEmpresa.limiteComprobantes) {
-        alert(`❌ Límite de Plan Alcanzado: Ha emitido ${totalDocuments} de ${currentEmpresa.limiteComprobantes} comprobantes permitidos para "${currentEmpresa.razonSocial}".\n\nContacte al SUPERADMIN para ampliar el cupo.`);
+        modalAlert.warning('Límite de Plan Alcanzado', `Ha emitido ${totalDocuments} de ${currentEmpresa.limiteComprobantes} comprobantes permitidos para "${currentEmpresa.razonSocial}".\nContacte al SUPERADMIN para ampliar el cupo.`);
         return;
       }
     }
@@ -612,16 +613,16 @@ export default function App() {
     // 1. Check Company Plan & Status Limit
     if (currentEmpresa) {
       if (currentEmpresa.estado === 'SUSPENDIDO') {
-        alert(`❌ Emisión Bloqueada: La empresa "${currentEmpresa.razonSocial}" está SUSPENDIDA.\n\nPor favor contacte al SUPERADMIN para restablecer el servicio.`);
+        modalAlert.error('Emisión Bloqueada', `La empresa "${currentEmpresa.razonSocial}" está SUSPENDIDA.\nPor favor contacte al SUPERADMIN para restablecer el servicio.`);
         return;
       }
       if (new Date(currentEmpresa.fechaExpiracion) < new Date()) {
-        alert(`❌ Emisión Bloqueada: El plan de la empresa "${currentEmpresa.razonSocial}" expiró el ${currentEmpresa.fechaExpiracion}.\n\nContacte al SUPERADMIN para renovar el plan.`);
+        modalAlert.error('Plan Expirado', `El plan de la empresa "${currentEmpresa.razonSocial}" expiró el ${currentEmpresa.fechaExpiracion}.\nContacte al SUPERADMIN para renovar el plan.`);
         return;
       }
       const totalDocuments = invoices.length + creditNotes.length;
       if (currentEmpresa.limiteComprobantes && totalDocuments >= currentEmpresa.limiteComprobantes) {
-        alert(`❌ Límite de Plan Alcanzado: Ha emitido ${totalDocuments} de ${currentEmpresa.limiteComprobantes} comprobantes permitidos para "${currentEmpresa.razonSocial}".\n\nContacte al SUPERADMIN para ampliar el cupo.`);
+        modalAlert.warning('Límite de Plan Alcanzado', `Ha emitido ${totalDocuments} de ${currentEmpresa.limiteComprobantes} comprobantes permitidos para "${currentEmpresa.razonSocial}".\nContacte al SUPERADMIN para ampliar el cupo.`);
         return;
       }
     }

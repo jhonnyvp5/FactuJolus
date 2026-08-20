@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { EmitterConfig, Client, Product, Proforma, ProformaDetail } from '../types';
 import { Plus, Trash2, Printer, CheckCircle, FileText, Download, Eye, RotateCcw, Copy, Pencil, X, Mail, Phone, MapPin, Palette, Layout, Award, Briefcase } from 'lucide-react';
 import { fetchProformasFromSupabase, saveProformaToSupabase, deleteProformaFromSupabase } from '../lib/supabase';
+import { modalAlert } from '../context/ModalAlertContext';
 
 interface ProformaFormProps {
   config: EmitterConfig;
@@ -326,7 +327,7 @@ export default function ProformaForm({
   const handleSaveProforma = (e: React.FormEvent) => {
     e.preventDefault();
     if (!buyerName.trim()) {
-      alert('Por favor ingrese el nombre del cliente');
+      modalAlert.warning('Datos Incompletos', 'Por favor ingrese el nombre del cliente');
       return;
     }
 
@@ -461,11 +462,20 @@ export default function ProformaForm({
 
   const handleDeleteProforma = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm('¿Está seguro de que desea eliminar esta proforma?')) return;
-    const filtered = proformas.filter(p => p.id !== id);
-    setProformas(filtered);
-    localStorage.setItem(getUserStorageKey('sri_proformas'), JSON.stringify(filtered));
-    deleteProformaFromSupabase(id);
+    modalAlert.confirm(
+      '¿Eliminar proforma?',
+      '¿Está seguro de que desea eliminar esta proforma?',
+      () => {
+        const filtered = proformas.filter(p => p.id !== id);
+        setProformas(filtered);
+        localStorage.setItem(getUserStorageKey('sri_proformas'), JSON.stringify(filtered));
+        deleteProformaFromSupabase(id);
+        modalAlert.success('Proforma Eliminada', 'La proforma ha sido eliminada con éxito.');
+      },
+      true,
+      'Eliminar Proforma',
+      'Cancelar'
+    );
   };
 
   const handleEditProforma = (proforma: Proforma, e: React.MouseEvent) => {
@@ -1153,10 +1163,18 @@ export default function ProformaForm({
             {proformas.length > 0 && (
               <button
                 onClick={() => {
-                  if (window.confirm('¿Desea limpiar el historial completo de proformas?')) {
-                    setProformas([]);
-                    localStorage.removeItem(getUserStorageKey('sri_proformas'));
-                  }
+                  modalAlert.confirm(
+                    '¿Limpiar historial?',
+                    '¿Desea limpiar el historial completo de proformas?',
+                    () => {
+                      setProformas([]);
+                      localStorage.removeItem(getUserStorageKey('sri_proformas'));
+                      modalAlert.success('Historial Limpiado', 'Se ha vaciado el historial local de proformas.');
+                    },
+                    true,
+                    'Limpiar Historial',
+                    'Cancelar'
+                  );
                 }}
                 className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-655 text-[10px] uppercase font-bold rounded-lg border border-red-200 transition cursor-pointer"
               >

@@ -16,6 +16,7 @@ import {
   testSupabaseConnection,
   SUPABASE_SQL_SCRIPT
 } from '../lib/supabase';
+import { modalAlert } from '../context/ModalAlertContext';
 
 type TabType = 
   | 'empresas_inquilinos'
@@ -136,23 +137,30 @@ export const SupabaseExplorer: React.FC = () => {
   const handleDeleteRow = async (row: any) => {
     const { key, value } = getPrimaryKeyField(activeTab, row);
     if (value === undefined || value === null) {
-      alert(`No se pudo identificar una clave primaria válida para eliminar en "${activeTab}".`);
+      modalAlert.warning('Clave no identificada', `No se pudo identificar una clave primaria válida para eliminar en "${activeTab}".`);
       return;
     }
 
-    if (!window.confirm(`¿Está seguro de eliminar el registro de '${activeTab}' donde ${key} = "${value}"?`)) {
-      return;
-    }
-
-    setLoading(true);
-    const res = await deleteRowFromSupabaseTable(activeTab, key, value);
-    if (res.success) {
-      showNotification(`¡Registro eliminado con éxito de la tabla "${activeTab}"!`);
-      await loadData();
-    } else {
-      setError(`Error al eliminar registro en "${activeTab}": ${res.error}`);
-      setLoading(false);
-    }
+    modalAlert.confirm(
+      '¿Eliminar registro?',
+      `¿Está seguro de eliminar el registro de '${activeTab}' donde ${key} = "${value}"?`,
+      async () => {
+        setLoading(true);
+        const res = await deleteRowFromSupabaseTable(activeTab, key, value);
+        if (res.success) {
+          showNotification(`¡Registro eliminado con éxito de la tabla "${activeTab}"!`);
+          modalAlert.success('Registro Eliminado', `Registro eliminado con éxito de "${activeTab}".`);
+          await loadData();
+        } else {
+          setError(`Error al eliminar registro en "${activeTab}": ${res.error}`);
+          modalAlert.error('Error al Eliminar', `Error al eliminar registro en "${activeTab}": ${res.error}`);
+          setLoading(false);
+        }
+      },
+      true,
+      'Eliminar Registro',
+      'Cancelar'
+    );
   };
 
   const handleOpenEdit = (row: any) => {

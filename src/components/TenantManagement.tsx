@@ -19,6 +19,7 @@ import {
   fetchEmitterConfigFromSupabase
 } from '../lib/supabase';
 import { logActivity } from '../lib/activityLogger';
+import { modalAlert } from '../context/ModalAlertContext';
 
 interface TenantManagementProps {
   currentUser: PortalUser;
@@ -194,21 +195,27 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
   };
 
   const handleDelete = async (emp: EmpresaTenant) => {
-    if (!confirm(`¿Está seguro de eliminar la empresa "${emp.razonSocial}" (RUC: ${emp.ruc})? Esto eliminará la configuración del inquilino.`)) {
-      return;
-    }
-
-    const ok = await deleteEmpresaFromSupabase(emp.id, emp.ruc);
-    if (ok) {
-      logActivity(
-        currentUser,
-        'Eliminación de Empresa/Inquilino',
-        `Empresa eliminada: ${emp.razonSocial} (RUC: ${emp.ruc})`
-      );
-      await loadData();
-    } else {
-      alert('Error al eliminar la empresa de Supabase.');
-    }
+    modalAlert.confirm(
+      '¿Eliminar empresa inquilina?',
+      `¿Está seguro de eliminar la empresa "${emp.razonSocial}" (RUC: ${emp.ruc})?\nEsto eliminará la configuración del inquilino.`,
+      async () => {
+        const ok = await deleteEmpresaFromSupabase(emp.id, emp.ruc);
+        if (ok) {
+          logActivity(
+            currentUser,
+            'Eliminación de Empresa/Inquilino',
+            `Empresa eliminada: ${emp.razonSocial} (RUC: ${emp.ruc})`
+          );
+          await loadData();
+          modalAlert.success('Empresa Eliminada', `La empresa "${emp.razonSocial}" ha sido eliminada.`);
+        } else {
+          modalAlert.error('Error al Eliminar', 'Error al eliminar la empresa de Supabase.');
+        }
+      },
+      true,
+      'Eliminar Empresa',
+      'Cancelar'
+    );
   };
 
   const [sortField, setSortField] = useState<'razonSocial' | 'ruc' | 'estado' | 'fechaExpiracion' | 'comprobantes'>('razonSocial');

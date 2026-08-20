@@ -4,6 +4,7 @@ import { validateRuc, REGIMENES } from '../sri/utils';
 import { apiCheckSignature, apiTestSmtp } from '../lib/apiClient';
 import { CheckCircle2, AlertCircle, Key, FileCode, Shield, RefreshCw, Trash2, Sparkles, Lock, Edit3, Mail, Send } from 'lucide-react';
 import { saveEmitterConfigToSupabase } from '../lib/supabase';
+import { modalAlert } from '../context/ModalAlertContext';
 
 interface SettingsFormProps {
   config: EmitterConfig;
@@ -167,7 +168,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
 
   const handleTestSmtp = async () => {
     if (!smtpHost || !smtpUser || !smtpPass) {
-      alert('Por favor complete primero los campos de Servidor SMTP, Usuario y Contraseña.');
+      modalAlert.warning('Campos Incompletos', 'Por favor complete primero los campos de Servidor SMTP, Usuario y Contraseña.');
       return;
     }
     const testRecipient = prompt('Ingrese la dirección de correo a la que desea enviar el correo de prueba:', correo || smtpUser || 'cliente@ejemplo.com');
@@ -186,8 +187,14 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
         recipient: testRecipient
       });
       setSmtpTestResult(res);
+      if (res.status === 'success') {
+        modalAlert.success('Servidor SMTP Conectado', res.message || 'El correo de prueba ha sido entregado exitosamente.');
+      } else {
+        modalAlert.error('Fallo de Envío SMTP', res.message || 'No se pudo despachar el correo de prueba.');
+      }
     } catch (err: any) {
       setSmtpTestResult({ status: 'error', message: err.message || String(err) });
+      modalAlert.error('Error SMTP', err.message || String(err));
     } finally {
       setIsTestingSmtp(false);
     }
@@ -197,7 +204,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
     e.preventDefault();
 
     if (ruc && !validateRuc(ruc)) {
-      alert('¡El número de RUC no parece válido para el algoritmo oficial de Ecuador!');
+      modalAlert.warning('Validación de RUC', '¡El número de RUC no parece válido para el algoritmo oficial de Ecuador!');
     }
 
     setIsSaving(true);

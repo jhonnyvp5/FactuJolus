@@ -3,6 +3,7 @@ import { Product, TipoIva, PortalUser } from '../types';
 import { IVA_TARIFAS } from '../sri/utils';
 import { Trash2, Sparkles, Plus, PackageCheck, Receipt, Edit3, Save, X, FileSpreadsheet, Download, Upload, AlertCircle, CheckCircle2, FileText, AlertTriangle, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { saveProductToSupabase, saveBulkProductsToSupabase } from '../lib/supabase';
+import { modalAlert } from '../context/ModalAlertContext';
 import * as XLSX from 'xlsx';
 
 interface ProductCatalogProps {
@@ -786,7 +787,19 @@ export default function ProductCatalog({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => onDeleteProduct(item.id)}
+                                onClick={() => {
+                                  modalAlert.confirm(
+                                    '¿Eliminar producto?',
+                                    `¿Está seguro de eliminar "${item.nombre}" (${item.codigo}) del catálogo?`,
+                                    () => {
+                                      onDeleteProduct(item.id);
+                                      modalAlert.success('Producto Eliminado', `El producto ${item.nombre} ha sido eliminado.`);
+                                    },
+                                    true,
+                                    'Eliminar Producto',
+                                    'Cancelar'
+                                  );
+                                }}
                                 className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg cursor-pointer transition"
                                 title="Eliminar producto de catálogo"
                               >

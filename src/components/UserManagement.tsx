@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Users, UserPlus, Trash2, Key, Check, ShieldCheck, Mail, Clipboard, AlertCircle, FileText, History, RefreshCw, User, Lock, Unlock, Settings, Package, ArrowLeftRight, Plus, GripVertical, ArrowRight, ArrowLeft, Sliders, CheckSquare, Building2, Search, Filter } from 'lucide-react';
 import { PortalUser, Invitation, UserRole, ActivityLog, EmpresaTenant } from '../types';
 import { getLogs, logActivity } from '../lib/activityLogger';
+import { modalAlert } from '../context/ModalAlertContext';
 import { 
   fetchUsersFromSupabase, upsertUserInSupabase, deleteUserFromSupabase,
   fetchInvitationsFromSupabase, saveInvitationToSupabase, deleteInvitationFromSupabase,
@@ -282,79 +283,91 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
 
   const handleDeleteUser = async (userId: string, email: string) => {
     if (userId === currentUser.id || email.toLowerCase() === currentUser.correo.toLowerCase()) {
-      alert('No puedes eliminar tu propia sesión activa.');
+      modalAlert.warning('Acción no permitida', 'No puedes eliminar tu propia sesión activa.');
       return;
     }
 
     const targetUser = users.find(u => u.id === userId || u.correo.toLowerCase() === email.toLowerCase());
     if (targetUser?.role === 'SUPERADMIN' && currentUser?.role !== 'SUPERADMIN') {
-      alert('No tienes permisos suficientes para eliminar a un usuario con rol SUPERADMIN.');
+      modalAlert.error('Permiso Insuficiente', 'No tienes permisos suficientes para eliminar a un usuario con rol SUPERADMIN.');
       return;
     }
 
-    if (!confirm(`¿Está seguro de eliminar el acceso del usuario "${email}"? El operador ya no podrá iniciar sesión y desaparecerá de la lista.`)) {
-      return;
-    }
+    modalAlert.confirm(
+      '¿Eliminar usuario?',
+      `¿Está seguro de eliminar el acceso del usuario "${email}"? El operador ya no podrá iniciar sesión y desaparecerá de la lista.`,
+      async () => {
+        const cleanEmail = email.trim().toLowerCase();
+        const updatedUsers = users.filter(u => u.id !== userId && u.correo.toLowerCase() !== cleanEmail);
+        setUsers(updatedUsers);
+        localStorage.setItem('sri_portal_users', JSON.stringify(updatedUsers));
 
-    const cleanEmail = email.trim().toLowerCase();
-    const updatedUsers = users.filter(u => u.id !== userId && u.correo.toLowerCase() !== cleanEmail);
-    setUsers(updatedUsers);
-    localStorage.setItem('sri_portal_users', JSON.stringify(updatedUsers));
+        // Also remove from invitations list
+        const updatedInvites = invitations.filter(inv => inv.correo.toLowerCase() !== cleanEmail);
+        setInvitations(updatedInvites);
+        localStorage.setItem('sri_portal_invitations', JSON.stringify(updatedInvites));
 
-    // Also remove from invitations list
-    const updatedInvites = invitations.filter(inv => inv.correo.toLowerCase() !== cleanEmail);
-    setInvitations(updatedInvites);
-    localStorage.setItem('sri_portal_invitations', JSON.stringify(updatedInvites));
+        await Promise.all([
+          deleteUserFromSupabase(userId, cleanEmail),
+          deleteInvitationByEmailFromSupabase(cleanEmail)
+        ]);
 
-    await Promise.all([
-      deleteUserFromSupabase(userId, cleanEmail),
-      deleteInvitationByEmailFromSupabase(cleanEmail)
-    ]);
-
-    // Log deletion
-    logActivity(currentUser, 'Eliminación de Usuario', `Eliminado acceso permanente de operador: ${email}`);
-    refreshActivityLogs();
+        // Log deletion
+        logActivity(currentUser, 'Eliminación de Usuario', `Eliminado acceso permanente de operador: ${email}`);
+        refreshActivityLogs();
+        modalAlert.success('Usuario Eliminado', `El usuario ${email} ha sido eliminado correctamente.`);
+      },
+      true,
+      'Eliminar Usuario',
+      'Cancelar'
+    );
   };
 
   const handleDeleteInvitation = async (inviteId: string) => {
     const inviteToDelete = invitations.find(inv => inv.id === inviteId);
     if (!inviteToDelete) return;
 
-    if (!confirm(`¿Está seguro de eliminar la invitación de "${inviteToDelete.correo}"? Ya no aparecerá en la ventana ni podrá acceder.`)) {
-      return;
-    }
+    modalAlert.confirm(
+      '¿Eliminar invitación?',
+      `¿Está seguro de eliminar la invitación de "${inviteToDelete.correo}"? Ya no aparecerá en la ventana ni podrá acceder.`,
+      async () => {
+        const cleanEmail = inviteToDelete.correo.trim().toLowerCase();
+        
+        // 1. Remove from invitations state & storage
+        const updatedInvites = invitations.filter(inv => inv.id !== inviteId && inv.correo.toLowerCase() !== cleanEmail);
+        setInvitations(updatedInvites);
+        localStorage.setItem('sri_portal_invitations', JSON.stringify(updatedInvites));
 
-    const cleanEmail = inviteToDelete.correo.trim().toLowerCase();
-    
-    // 1. Remove from invitations state & storage
-    const updatedInvites = invitations.filter(inv => inv.id !== inviteId && inv.correo.toLowerCase() !== cleanEmail);
-    setInvitations(updatedInvites);
-    localStorage.setItem('sri_portal_invitations', JSON.stringify(updatedInvites));
+        // 2. Also remove from registered users state & storage if it was accepted/registered
+        const updatedUsers = users.filter(u => u.correo.toLowerCase() !== cleanEmail);
+        setUsers(updatedUsers);
+        localStorage.setItem('sri_portal_users', JSON.stringify(updatedUsers));
+        
+        if (generatedInvite?.id === inviteId) {
+          setGeneratedInvite(null);
+        }
 
-    // 2. Also remove from registered users state & storage if it was accepted/registered
-    const updatedUsers = users.filter(u => u.correo.toLowerCase() !== cleanEmail);
-    setUsers(updatedUsers);
-    localStorage.setItem('sri_portal_users', JSON.stringify(updatedUsers));
-    
-    if (generatedInvite?.id === inviteId) {
-      setGeneratedInvite(null);
-    }
+        // 3. Supabase deletion
+        await Promise.all([
+          deleteInvitationFromSupabase(inviteId),
+          deleteInvitationByEmailFromSupabase(cleanEmail),
+          deleteUserFromSupabase(cleanEmail, cleanEmail)
+        ]);
 
-    // 3. Supabase deletion
-    await Promise.all([
-      deleteInvitationFromSupabase(inviteId),
-      deleteInvitationByEmailFromSupabase(cleanEmail),
-      deleteUserFromSupabase(cleanEmail, cleanEmail)
-    ]);
-
-    // 4. Log revocation
-    logActivity(currentUser, 'Cancelación de Invitación', `Eliminada invitación/usuario para: ${inviteToDelete.correo} (Empresa: ${inviteToDelete.empresaNombre || 'Principal'})`);
-    refreshActivityLogs();
+        // 4. Log revocation
+        logActivity(currentUser, 'Cancelación de Invitación', `Eliminada invitación/usuario para: ${inviteToDelete.correo} (Empresa: ${inviteToDelete.empresaNombre || 'Principal'})`);
+        refreshActivityLogs();
+        modalAlert.success('Invitación Cancelada', `La invitación para ${inviteToDelete.correo} ha sido revocada.`);
+      },
+      true,
+      'Eliminar Invitación',
+      'Cancelar'
+    );
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert('¡Copiado al portapapeles con éxito!');
+    modalAlert.success('Copiado', '¡Enlace copiado al portapapeles con éxito!');
   };
 
   // Filtered Users: Non-superadmins MUST NEVER see SUPERADMIN users or users of other companies

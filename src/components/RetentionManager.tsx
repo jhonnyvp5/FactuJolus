@@ -25,6 +25,7 @@ import {
   uploadRetentionXmlSinFirmar
 } from '../lib/supabase';
 import { logActivity } from '../lib/activityLogger';
+import { modalAlert } from '../context/ModalAlertContext';
 import { 
   Plus, 
   Trash2, 
@@ -381,7 +382,7 @@ export default function RetentionManager({
 
   const handleRemoveTax = (index: number) => {
     if (impuestos.length === 1) {
-      alert('El comprobante de retención debe contener al menos un impuesto retenido.');
+      modalAlert.warning('Impuesto Requerido', 'El comprobante de retención debe contener al menos un impuesto retenido.');
       return;
     }
     setImpuestos(impuestos.filter((_, i) => i !== index));
@@ -717,25 +718,32 @@ export default function RetentionManager({
   // Delete Retention
   const handleDeleteRetention = async (id: string, seq: string) => {
     const targetRet = retenciones.find(r => r.id === id);
-    if (!confirm(`¿Está seguro de eliminar el comprobante de retención No. ${seq}?\n\nEsta acción borrará el registro de la base de datos y eliminará automáticamente el PDF y los XMLs generados en los buckets de almacenamiento.`)) {
-      return;
-    }
-
-    try {
-      await deleteRetencionFromSupabase(
-        id,
-        seq || targetRet?.secuencial,
-        targetRet?.claveAcceso,
-        config.codEstablecimiento || '001',
-        config.codPuntoEmision || '001'
-      );
-      const filtered = retenciones.filter(r => r.id !== id);
-      setRetenciones(filtered);
-      localStorage.setItem('sri_retenciones_history', JSON.stringify(filtered));
-      setStatusMessage({ type: 'success', text: `Retención No. ${seq} y sus archivos asociados en Storage fueron eliminados correctamente.` });
-    } catch {
-      setStatusMessage({ type: 'error', text: 'Error al eliminar la retención en la base de datos.' });
-    }
+    modalAlert.confirm(
+      '¿Eliminar comprobante de retención?',
+      `¿Está seguro de eliminar el comprobante de retención No. ${seq}?\nEsta acción borrará el registro de la base de datos y eliminará automáticamente el PDF y los XMLs generados en los buckets de almacenamiento.`,
+      async () => {
+        try {
+          await deleteRetencionFromSupabase(
+            id,
+            seq || targetRet?.secuencial,
+            targetRet?.claveAcceso,
+            config.codEstablecimiento || '001',
+            config.codPuntoEmision || '001'
+          );
+          const filtered = retenciones.filter(r => r.id !== id);
+          setRetenciones(filtered);
+          localStorage.setItem('sri_retenciones_history', JSON.stringify(filtered));
+          setStatusMessage({ type: 'success', text: `Retención No. ${seq} y sus archivos asociados en Storage fueron eliminados correctamente.` });
+          modalAlert.success('Comprobante Eliminado', `La retención No. ${seq} ha sido eliminada con éxito.`);
+        } catch {
+          setStatusMessage({ type: 'error', text: 'Error al eliminar la retención en la base de datos.' });
+          modalAlert.error('Error al Eliminar', 'Error al eliminar la retención en la base de datos.');
+        }
+      },
+      true,
+      'Eliminar Retención',
+      'Cancelar'
+    );
   };
 
   // Filtered Retenciones for History

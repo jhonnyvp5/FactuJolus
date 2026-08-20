@@ -5,6 +5,7 @@ import { Plus, Trash2, ShieldAlert, Sparkles, User, ShoppingBag, FileSpreadsheet
 import { generateInvoiceXml } from '../sri/xmlTemplates';
 import { uploadInvoiceXmlSinFirmar, uploadInvoiceXmlFirmado } from '../lib/supabase';
 import { apiSignXml, apiSendSri, apiAuthorizeSri, apiSendInvoiceEmail } from '../lib/apiClient';
+import { modalAlert } from '../context/ModalAlertContext';
 import RideViewer from './RideViewer';
 
 interface InvoiceFormProps {
@@ -55,12 +56,15 @@ export default function InvoiceForm({
       setIsSendingEmail(true);
       const data = await apiSendInvoiceEmail(createdInvoice, config);
       if (data.status === 'success') {
-        alert(`✅ Correo de Notificación de Documento Electrónico procesado exitosamente para ${createdInvoice.cliente.correo || 'cliente'}.\n\nIncluye los adjuntos XML y PDF RIDE.`);
+        modalAlert.success(
+          '¡Correo Notificado con Éxito!',
+          `Correo de Notificación de Documento Electrónico procesado exitosamente para ${createdInvoice.cliente.correo || 'cliente'}.\nIncluye los adjuntos XML y PDF RIDE.`
+        );
       } else {
-        alert(`⚠️ Inconveniente enviando correo: ${data.message}`);
+        modalAlert.warning('Aviso de Envío', `Inconveniente enviando correo: ${data.message}`);
       }
     } catch (err: any) {
-      alert(`Error al procesar el correo: ${err.message || String(err)}`);
+      modalAlert.error('Error al Enviar Correo', `Error al procesar el correo: ${err.message || String(err)}`);
     } finally {
       setIsSendingEmail(false);
     }
@@ -292,7 +296,7 @@ export default function InvoiceForm({
   const handleCreateProductInline = (index: number) => {
     const detail = details[index];
     if (!detail.producto.codigo || !detail.producto.nombre) {
-      alert('Por favor ingrese código y nombre para el nuevo producto.');
+      modalAlert.warning('Datos Incompletos', 'Por favor ingrese código y nombre para el nuevo producto.');
       return;
     }
 
@@ -311,7 +315,7 @@ export default function InvoiceForm({
     const updated = [...details];
     updated[index].producto = { ...newProd };
     setDetails(updated);
-    alert('¡Producto guardado en su catálogo con éxito!');
+    modalAlert.success('Producto Guardado', '¡Producto guardado en su catálogo con éxito!');
   };
 
   // Totals calculations
@@ -402,17 +406,17 @@ export default function InvoiceForm({
   const handleSaveAsDraftOnly = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!buyerIdent || !buyerName) {
-      alert('Por favor complete datos del cliente.');
+      modalAlert.warning('Datos Incompletos', 'Por favor complete datos del cliente.');
       return;
     }
 
     if (!details || details.length === 0) {
-      alert('Debe agregar al menos un ítem o producto a la factura.');
+      modalAlert.warning('Detalle Requerido', 'Debe agregar al menos un ítem o producto a la factura.');
       return;
     }
 
     if (details.some(d => !d.producto.nombre || !d.producto.nombre.trim() || d.producto.precio <= 0)) {
-      alert('Por favor, revise que todos los productos agregados tengan un nombre válido y precio mayor a 0.');
+      modalAlert.warning('Productos Inválidos', 'Por favor, revise que todos los productos agregados tengan un nombre válido y precio mayor a 0.');
       return;
     }
 
@@ -448,23 +452,23 @@ export default function InvoiceForm({
 
     onAddInvoice(newInvoice);
     onNavigateToHistory();
-    alert(`¡Factura borrador #${secuencialVal} creada y guardada con éxito!`);
+    modalAlert.success('Borrador Guardado', `¡Factura borrador #${secuencialVal} creada y guardada con éxito!`);
   };
 
   const handleSaveAndProcessSri = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!buyerIdent || !buyerName) {
-      alert('Por favor complete datos del cliente.');
+      modalAlert.warning('Datos Incompletos', 'Por favor complete datos del cliente.');
       return;
     }
 
     if (!details || details.length === 0) {
-      alert('Debe agregar al menos un ítem o producto a la factura.');
+      modalAlert.warning('Detalle Requerido', 'Debe agregar al menos un ítem o producto a la factura.');
       return;
     }
 
     if (details.some(d => !d.producto.nombre || !d.producto.nombre.trim() || d.producto.precio <= 0)) {
-      alert('Por favor, revise que todos los productos agregados tengan un nombre válido y precio mayor a 0.');
+      modalAlert.warning('Productos Inválidos', 'Por favor, revise que todos los productos agregados tengan un nombre válido y precio mayor a 0.');
       return;
     }
 
@@ -560,7 +564,7 @@ export default function InvoiceForm({
         setCreatedInvoice(newInvoice);
         setIsProcessingSri(false);
         setSriLogs(prev => [...prev, '✓ Proceso terminado de forma local. Estado: Firmado con XAdES-BES.']);
-        alert(`¡Factura #${secuencialVal} FIRMADA con éxito! Se despachó el correo a ${finalBuyer.correo || 'cliente'}.`);
+        modalAlert.success('Factura Firmada', `¡Factura #${secuencialVal} FIRMADA con éxito!\nSe despachó el correo a ${finalBuyer.correo || 'cliente'}.`);
         return;
       }
 
@@ -581,7 +585,7 @@ export default function InvoiceForm({
         setCreatedInvoice(newInvoice);
         setIsProcessingSri(false);
         setSriLogs(prev => [...prev, '❌ Recibido pero DEVUELTO por el SRI con observaciones de formato o datos.']);
-        alert('❌ Comprobante rechazado por el SRI (Devuelto). Detalle de observaciones disponible en Historial.');
+        modalAlert.error('Comprobante Rechazado por el SRI', 'Comprobante rechazado por el SRI (Devuelto). Detalle de observaciones disponible en Historial.');
         return;
       }
 
@@ -591,7 +595,7 @@ export default function InvoiceForm({
         setCreatedInvoice(newInvoice);
         setIsProcessingSri(false);
         setSriLogs(prev => [...prev, '⚠️ Error de enlace. Se guardó el comprobante localmente para posterior reIntento.']);
-        alert('⚠️ El SRI se encuentra fuera de línea o hubo un timeout. Comprobante guardado en borrador para posterior firma.');
+        modalAlert.warning('SRI Fuera de Línea', 'El SRI se encuentra fuera de línea o hubo un timeout. Comprobante guardado en borrador para posterior reintento.');
         return;
       }
 
@@ -640,7 +644,10 @@ export default function InvoiceForm({
         onAddInvoice(newInvoice);
         setCreatedInvoice(newInvoice);
         setIsProcessingSri(false);
-        alert(`✅ ¡Factura #${secuencialVal} FIRMADA, ENVIADA y AUTORIZADA correctamente por el SRI!\n📧 Correo enviado a: ${finalBuyer.correo || 'cliente'}`);
+        modalAlert.success(
+          '¡Factura Autorizada por el SRI!',
+          `¡Factura #${secuencialVal} FIRMADA, ENVIADA y AUTORIZADA correctamente por el SRI!\nCorreo enviado a: ${finalBuyer.correo || 'cliente'}`
+        );
       } else {
         newInvoice.estado = 'No Autorizado';
         newInvoice.mensajesSRI = autorizacion.mensajes;
@@ -648,13 +655,13 @@ export default function InvoiceForm({
         setCreatedInvoice(newInvoice);
         setIsProcessingSri(false);
         setSriLogs(prev => [...prev, '❌ Comprobante NO AUTORIZADO por el SRI. Detalle registrado para re-procesar.']);
-        alert('❌ Comprobante No Autorizado por discrepancias detectadas por el SRI.');
+        modalAlert.error('Comprobante No Autorizado', 'Comprobante No Autorizado por discrepancias detectadas por el SRI.');
       }
 
     } catch (err: any) {
       setIsProcessingSri(false);
       setSriLogs(prev => [...prev, `❌ Error ocurrido: ${err.message || String(err)}`]);
-      alert(`Inconveniente procesando trámite SRI: ${err.message || String(err)}`);
+      modalAlert.error('Error Procesando Trámite SRI', `Inconveniente procesando trámite SRI: ${err.message || String(err)}`);
     }
   };
 
@@ -705,12 +712,12 @@ export default function InvoiceForm({
     e.preventDefault();
 
     if (!buyerIdent || !buyerName) {
-      alert('Por favor complete datos del cliente.');
+      modalAlert.warning('Datos Incompletos', 'Por favor complete datos del cliente.');
       return;
     }
 
     if (details.some(d => !d.producto.nombre || d.producto.precio <= 0)) {
-      alert('Por favor, revise que todos los productos agregados tengan nombre y precio mayor a 0.');
+      modalAlert.warning('Productos Inválidos', 'Por favor, revise que todos los productos agregados tengan nombre y precio mayor a 0.');
       return;
     }
 
@@ -763,7 +770,7 @@ export default function InvoiceForm({
 
     onAddInvoice(newInvoice);
     onNavigateToHistory();
-    alert(`¡Factura borrador #${secuencialVal} creada y lista en el historial para firma/envío!`);
+    modalAlert.success('Borrador Guardado', `¡Factura borrador #${secuencialVal} creada y lista en el historial para firma/envío!`);
   };
 
   return (
