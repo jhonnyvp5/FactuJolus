@@ -389,6 +389,15 @@ CREATE TABLE IF NOT EXISTS public.retencion_detalles (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 16. TABLA DE PERSONALIZACIÓN Y MARCA (SUPERADMIN CUSTOMIZER)
+CREATE TABLE IF NOT EXISTS public.platform_settings (
+    id TEXT PRIMARY KEY DEFAULT 'global_platform_settings',
+    settings_json JSONB NOT NULL,
+    updated_by TEXT,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- =========================================================================
 -- ALTER MIGRATIONS PARA AGREGAR COLUMNAS DE EMPRESA A TABLAS EXISTENTES
 -- =========================================================================
@@ -481,7 +490,7 @@ DECLARE
         'empresas_inquilinos', 'clientes', 'productos', 'emisor_config', 
         'facturas', 'factura_detalles', 'proformas', 'proforma_detalles', 
         'notas_credito', 'nota_credito_detalles', 'retenciones', 'retencion_detalles',
-        'usuarios_portal', 'invitaciones', 'bitacora_actividades'
+        'usuarios_portal', 'invitaciones', 'bitacora_actividades', 'platform_settings'
     ];
 BEGIN
     FOREACH t IN ARRAY tables LOOP

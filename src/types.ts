@@ -310,3 +310,223 @@ export interface Retention {
   createdAt?: string;
 }
 
+// =========================================================================
+// SUPERADMIN PLATFORM CUSTOMIZATION & BRANDING TYPES
+// =========================================================================
+
+export interface LoginSlideItem {
+  id: string;
+  url: string;
+  tagline: string;
+  alt: string;
+  subtitle?: string;
+  active: boolean;
+}
+
+export interface BillingPlanFeature {
+  id: string;
+  text: string;
+  included: boolean;
+}
+
+export interface BillingPlanItem {
+  id: string;
+  name: string;
+  tagline: string;
+  priceMonthly: number;
+  priceYearly: number;
+  invoiceLimit: number; // 0 for unlimited
+  userLimit: number; // 0 for unlimited
+  features: string[];
+  isPopular?: boolean;
+  isRecommended?: boolean;
+  badge?: string;
+  buttonText: string;
+  active: boolean;
+  colorScheme: 'blue' | 'purple' | 'emerald' | 'amber' | 'indigo' | 'rose';
+  whatsappMessage?: string;
+}
+
+export interface CustomNewsItem {
+  id: string;
+  title: string;
+  summary: string;
+  category: string;
+  badgeColor?: 'blue' | 'emerald' | 'amber' | 'purple' | 'cyan' | 'rose';
+  date: string;
+  publishedAt: string;
+  url: string;
+  isHighlight?: boolean;
+  source?: string;
+  active?: boolean;
+}
+
+export interface SocialLinksConfig {
+  whatsapp?: string;
+  facebook?: string;
+  instagram?: string;
+  tiktok?: string;
+  youtube?: string;
+  linkedin?: string;
+  twitterX?: string;
+  telegram?: string;
+  website?: string;
+  email?: string;
+  phone?: string;
+}
+
+export interface TopAnnouncementBanner {
+  enabled: boolean;
+  badgeText: string;
+  badgeColor: 'indigo' | 'emerald' | 'amber' | 'rose' | 'purple' | 'sky';
+  message: string;
+  linkText?: string;
+  linkUrl?: string;
+  isDismissible: boolean;
+  bgColor?: string;
+}
+
+export interface PromotionalBanner {
+  enabled: boolean;
+  title: string;
+  subtitle: string;
+  discountText?: string;
+  buttonText: string;
+  buttonUrl?: string;
+  imageUrl?: string;
+  gradientTheme: 'blue-indigo' | 'purple-indigo' | 'emerald-teal' | 'amber-orange' | 'rose-pink' | 'cyber-dark';
+}
+
+export interface ModuleVisibilityFlags {
+  showSriNewsInLogin: boolean;
+  showPlansInLogin: boolean;
+  showPlansInApp: boolean;
+  showTopAnnouncementBar: boolean;
+  showPromotionalBanner: boolean;
+  showSocialLinksInFooter: boolean;
+  showSocialLinksInLogin: boolean;
+  showSimulatorIndicator: boolean;
+  allowPublicRegistration: boolean;
+}
+
+export interface CustomMenuItem {
+  id: string;
+  key: string;
+  label: string;
+  iconName: string;
+  visible: boolean;
+  order: number;
+  badge?: string;
+  isCustom?: boolean;
+  customUrl?: string;
+  openInNewTab?: boolean;
+  requiredRole?: 'ALL' | 'ADMIN' | 'SUPERADMIN';
+}
+
+export interface CustomWidgetMetric {
+  id: string;
+  label: string;
+  value: string;
+  subtext?: string;
+  iconName?: string;
+  color?: string;
+  trend?: string;
+}
+
+export interface CustomWidgetQuickAction {
+  id: string;
+  label: string;
+  actionTab?: string;
+  url?: string;
+  iconName?: string;
+  color?: string;
+}
+
+export interface CustomContainerWidget {
+  id: string;
+  title: string;
+  subtitle?: string;
+  type: 'hero-banner' | 'stat-metrics' | 'custom-html-code' | 'quick-actions' | 'plans-catalog' | 'info-card' | 'iframe-embed' | 'rich-text';
+  columnSpan: 'col-12' | 'col-6' | 'col-4' | 'col-3' | 'col-8';
+  order: number;
+  visible: boolean;
+  showInDashboard: boolean;
+  showInLogin: boolean;
+  style: {
+    bgType: 'solid' | 'gradient' | 'glass' | 'card';
+    bgColor?: string;
+    gradient?: string;
+    textColor?: string;
+    borderColor?: string;
+    borderRadius?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
+    shadow?: 'none' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'glow';
+    padding?: 'sm' | 'md' | 'lg' | 'xl';
+  };
+  content: {
+    htmlCode?: string;
+    iframeUrl?: string;
+    iframeHeight?: number;
+    heroTitle?: string;
+    heroSubtitle?: string;
+    heroButtonText?: string;
+    heroButtonUrl?: string;
+    heroBadge?: string;
+    heroBgImage?: string;
+    metrics?: CustomWidgetMetric[];
+    quickActions?: CustomWidgetQuickAction[];
+    richText?: string;
+  };
+}
+
+export interface PlatformCustomizationSettings {
+  id: string;
+  updatedAt: string;
+  updatedBy: string;
+
+  // Visual Identity & Branding
+  platformName: string;
+  platformTagline: string;
+  systemBadge: string;
+  logoUrl?: string;
+  faviconUrl?: string;
+  loginWelcomeHeading: string;
+  loginWelcomeSubheading: string;
+  footerCopyright: string;
+  footerLegalText: string;
+
+  // Layout & Menu Architecture (Hostinger & Figma Style)
+  menuLayout: 'topbar-classic' | 'sidebar-left' | 'sidebar-right' | 'compact-dock' | 'floating-island';
+  contentLayoutWidth: 'contained-sm' | 'contained-lg' | 'full-width' | 'fluid';
+  density: 'comfortable' | 'compact' | 'spacious';
+  customMenuItems: CustomMenuItem[];
+
+  // Theme & Colors
+  primaryColorName: 'blue' | 'indigo' | 'purple' | 'emerald' | 'teal' | 'rose' | 'amber' | 'cyan' | 'slate' | 'custom';
+  customPrimaryHex: string;
+  accentGradient: 'blue-indigo' | 'purple-indigo' | 'emerald-teal' | 'amber-orange' | 'rose-pink' | 'cyber-dark';
+  headerStyle: 'modern-white' | 'gradient-glass' | 'dark-slate' | 'minimal-clean';
+  borderRadiusStyle: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+
+  // Custom Visual Containers & Blocks (Hostinger / Figma Drag-and-Build)
+  customContainers: CustomContainerWidget[];
+
+  // Custom Code & Script Injector (CSS / HTML / Embeds)
+  customCss?: string;
+  customHeadHtml?: string;
+  customFooterHtml?: string;
+
+  // Plans Catalog Config
+  plansCatalogHeading?: string;
+  plansCatalogSubheading?: string;
+  plansAnnualDiscountText?: string;
+
+  // Components & Content
+  topBanner: TopAnnouncementBanner;
+  promoBanner: PromotionalBanner;
+  loginSlides: LoginSlideItem[];
+  customNews: CustomNewsItem[];
+  billingPlans: BillingPlanItem[];
+  socialLinks: SocialLinksConfig;
+  modules: ModuleVisibilityFlags;
+}
+

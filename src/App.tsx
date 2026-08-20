@@ -14,6 +14,9 @@ import ClientCatalog from './components/ClientCatalog';
 import TenantManagement from './components/TenantManagement';
 import { SupabaseExplorer } from './components/SupabaseExplorer';
 import RetentionManager from './components/RetentionManager';
+import SuperadminCustomizer from './components/SuperadminCustomizer';
+import DynamicContainerRenderer from './components/customContainers/DynamicContainerRenderer';
+import { usePlatformSettings } from './context/PlatformSettingsContext';
 import { logActivity } from './lib/activityLogger';
 import { modalAlert } from './context/ModalAlertContext';
 import { 
@@ -26,7 +29,7 @@ import {
   fetchEmpresasFromSupabase, getEmpresaByRuc, getEmpresaForUser,
   migrateLocalDataToSupabase, subscribeToSupabaseRealtime
 } from './lib/supabase';
-import { ShieldCheck, Send, Settings, History, Plus, Layers, ArrowLeftRight, FileCheck2, CloudLightning, Package, User, Users, Menu, X, FileText, Database, Building2, RefreshCw } from 'lucide-react';
+import { ShieldCheck, Send, Settings, History, Plus, Layers, ArrowLeftRight, FileCheck2, CloudLightning, Package, User, Users, Menu, X, FileText, Database, Building2, RefreshCw, Palette, Sparkles, Megaphone } from 'lucide-react';
 
 const STORAGE_KEYS = {
   CONFIG: 'sri_emitter_config',
@@ -82,8 +85,10 @@ const SEED_PRODUCTS: Product[] = [
 ];
 
 export default function App() {
-  // Navigation tabs 'history' | 'new-invoice' | 'new-nc' | 'retentions' | 'products' | 'profile' | 'settings' | 'users' | 'proformas' | 'clients' | 'tenants' | 'supabase'
-  const [activeTab, setActiveTab ] = useState<'history' | 'new-invoice' | 'new-nc' | 'retentions' | 'products' | 'profile' | 'settings' | 'users' | 'proformas' | 'clients' | 'tenants' | 'supabase'>('history');
+  const { settings, themeClasses } = usePlatformSettings();
+
+  // Navigation tabs 'history' | 'new-invoice' | 'new-nc' | 'retentions' | 'products' | 'profile' | 'settings' | 'users' | 'proformas' | 'clients' | 'tenants' | 'supabase' | 'customizer'
+  const [activeTab, setActiveTab ] = useState<'history' | 'new-invoice' | 'new-nc' | 'retentions' | 'products' | 'profile' | 'settings' | 'users' | 'proformas' | 'clients' | 'tenants' | 'supabase' | 'customizer'>('history');
   
   // Dynamic USER role permissions state
   const [userPermissions, setUserPermissions] = useState<string[]>(() => {
@@ -803,6 +808,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50/75 dark:bg-zinc-950 text-gray-900 dark:text-zinc-100 flex flex-col font-sans transition-colors duration-200 relative">
+      {/* Injected Custom CSS from Superadmin Customizer */}
+      {settings.customCss && (
+        <style id="sri-custom-injected-css">
+          {settings.customCss}
+        </style>
+      )}
+
       {isApplyingUpdate && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3 border border-indigo-400/30 animate-pulse">
           <RefreshCw className="w-4 h-4 animate-spin text-white shrink-0" />
@@ -812,6 +824,37 @@ export default function App() {
         </div>
       )}
       
+      {/* GLOBAL ANNOUNCEMENT BANNER (CONFIGURED BY SUPERADMIN) */}
+      {settings.topBanner?.enabled && settings.topBanner.message && (
+        <div className={`w-full py-2 px-4 text-center text-xs font-semibold flex items-center justify-center gap-2 shadow-xs transition-colors ${
+          settings.topBanner.badgeColor === 'amber'
+            ? 'bg-amber-500 text-amber-950 border-b border-amber-600/30'
+            : settings.topBanner.badgeColor === 'rose'
+            ? 'bg-red-600 text-white border-b border-red-700'
+            : settings.topBanner.badgeColor === 'emerald'
+            ? 'bg-emerald-600 text-white border-b border-emerald-700'
+            : 'bg-blue-600 text-white border-b border-blue-700'
+        }`}>
+          <Megaphone className="w-4 h-4 shrink-0 animate-bounce" />
+          {settings.topBanner.badgeText && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-black/20 text-white tracking-wider">
+              {settings.topBanner.badgeText}
+            </span>
+          )}
+          <span>{settings.topBanner.message}</span>
+          {settings.topBanner.linkText && settings.topBanner.linkUrl && (
+            <a
+              href={settings.topBanner.linkUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="underline underline-offset-2 ml-2 hover:opacity-80 font-bold"
+            >
+              {settings.topBanner.linkText}
+            </a>
+          )}
+        </div>
+      )}
+
       {/* HEADER BAR */}
       <header className="bg-white border-b border-gray-200 dark:bg-zinc-900 dark:border-zinc-800 px-4 sm:px-6 py-3.5 sticky top-0 z-40 shadow-xs print:hidden">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
@@ -1180,6 +1223,22 @@ export default function App() {
               {currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
                 <button
                   onClick={() => {
+                    setActiveTab('customizer');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${activeTab === 'customizer' ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-500 text-white shadow-md shadow-purple-500/20' : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Palette className={`w-4 h-4 ${activeTab === 'customizer' ? 'text-white' : 'text-pink-500'}`} />
+                    <span>Diseño & Plataforma</span>
+                  </div>
+                  {activeTab === 'customizer' && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
+                </button>
+              )}
+
+              {currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
+                <button
+                  onClick={() => {
                     setActiveTab('supabase');
                     setIsMobileMenuOpen(false);
                   }}
@@ -1404,6 +1463,23 @@ export default function App() {
 
           {currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
             <button
+              onClick={() => setActiveTab('customizer')}
+              className={`group px-2.5 lg:px-3 py-1.5 lg:py-2 rounded-xl text-[11px] lg:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'customizer' ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-500 text-white font-bold shadow-md shadow-purple-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
+              title="Personalización Global del Sistema (Solo Superadmin)"
+            >
+              <Palette className={`w-4 h-4 shrink-0 transition-transform duration-200 ${activeTab === 'customizer' ? 'text-white' : 'text-pink-500 dark:text-pink-400 group-hover:scale-110'}`} />
+              <span>Diseño & Plataforma</span>
+              {activeTab === 'customizer' && (
+                <span className="relative flex h-2 w-2 shrink-0 ml-0.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-300 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+              )}
+            </button>
+          )}
+
+          {currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
+            <button
               onClick={() => setActiveTab('supabase')}
               className={`group px-2.5 lg:px-3 py-1.5 lg:py-2 rounded-xl text-[11px] lg:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === 'supabase' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'}`}
               title="Estado de conexión Supabase"
@@ -1424,16 +1500,24 @@ export default function App() {
         {/* TAB PORTALS */}
         <div className="transition-opacity duration-200">
           {activeTab === 'history' && (
-            <HistoryList
-              config={config}
-              invoices={invoices}
-              creditNotes={creditNotes}
-              onUpdateInvoice={handleUpdateInvoice}
-              onUpdateCreditNote={handleUpdateCreditNote}
-              onDeleteInvoice={handleDeleteInvoice}
-              onDeleteCreditNote={handleDeleteCreditNote}
-              onOpenRide={(doc) => setActiveRideDoc(doc)}
-            />
+            <div className="space-y-6">
+              {/* Dynamic Containers / Widgets configured in Diseño & Plataforma */}
+              <DynamicContainerRenderer
+                location="dashboard"
+                onNavigateTab={(tab) => setActiveTab(tab as any)}
+              />
+
+              <HistoryList
+                config={config}
+                invoices={invoices}
+                creditNotes={creditNotes}
+                onUpdateInvoice={handleUpdateInvoice}
+                onUpdateCreditNote={handleUpdateCreditNote}
+                onDeleteInvoice={handleDeleteInvoice}
+                onDeleteCreditNote={handleDeleteCreditNote}
+                onOpenRide={(doc) => setActiveRideDoc(doc)}
+              />
+            </div>
           )}
 
           {activeTab === 'new-invoice' && (
@@ -1576,6 +1660,10 @@ export default function App() {
 
           {activeTab === 'supabase' && currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
             <SupabaseExplorer />
+          )}
+
+          {activeTab === 'customizer' && currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
+            <SuperadminCustomizer />
           )}
         </div>
 

@@ -19,8 +19,12 @@ async function startServer() {
   // Mount API router & routes from shared module
   app.use(expressApp);
 
-  // --- Vite & Client static serving ---
-  if (process.env.NODE_ENV !== 'production') {
+  // Determine production mode: either explicit NODE_ENV or presence of built dist/index.html
+  const distPath = path.join(process.cwd(), 'dist');
+  const indexPath = path.join(distPath, 'index.html');
+  const isProduction = process.env.NODE_ENV === 'production' || fs.existsSync(indexPath);
+
+  if (!isProduction) {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -28,20 +32,13 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    // Resolve static dist folder robustly whether launched from cwd or dist
-    const distPath = fs.existsSync(path.join(process.cwd(), 'dist'))
-      ? path.join(process.cwd(), 'dist')
-      : (typeof __dirname !== 'undefined' && __dirname.endsWith('dist') ? __dirname : path.join(process.cwd(), 'dist'));
-
-    const indexPath = path.join(distPath, 'index.html');
-
     app.use(express.static(distPath));
 
     app.get('*', (req, res) => {
       if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
       } else {
-        res.status(200).send('<!DOCTYPE html><html><head><title>Facturador SRI</title></head><body><div id="root">Cargando aplicación...</div></body></html>');
+        res.status(200).send('<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Facturador SRI</title></head><body><div id="root">Cargando aplicación...</div></body></html>');
       }
     });
   }
@@ -63,4 +60,5 @@ startServer().catch((err) => {
   console.error('[FATAL SERVER START ERROR]', err);
   process.exit(1);
 });
+
 

@@ -13,6 +13,7 @@ import {
   Clock,
   Sparkles
 } from 'lucide-react';
+import { usePlatformSettings } from '../context/PlatformSettingsContext';
 
 export interface SriNewsItem {
   id: string;
@@ -197,8 +198,31 @@ export function generateCuratedSriNews(): SriNewsItem[] {
 }
 
 export default function SriNewsWidget() {
+  const { settings } = usePlatformSettings();
   const periods = getMonthPeriods();
-  const [news, setNews] = useState<SriNewsItem[]>(() => generateCuratedSriNews());
+  const [news, setNews] = useState<SriNewsItem[]>(() => {
+    const curated = generateCuratedSriNews();
+    if (settings.customNews && settings.customNews.length > 0) {
+      const customFormatted: SriNewsItem[] = settings.customNews
+        .filter(n => n.active !== false)
+        .map(n => ({
+          id: n.id,
+          title: n.title,
+          summary: n.summary,
+          category: n.category,
+          badgeColor: n.badgeColor || 'blue',
+          date: n.date,
+          publishedAt: n.publishedAt || new Date().toISOString(),
+          monthPeriod: 'current',
+          monthLabel: periods.current.label,
+          url: n.url,
+          isHighlight: n.isHighlight,
+          source: n.source || 'SRI Ecuador'
+        }));
+      return [...customFormatted, ...curated];
+    }
+    return curated;
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>(
     'Hoy, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -214,23 +238,43 @@ export default function SriNewsWidget() {
     setIsLoading(true);
     try {
       const response = await fetch('/api/sri-news');
+      let baseList: SriNewsItem[] = [];
       if (response.ok) {
         const data = await response.json();
         if (data.news && Array.isArray(data.news) && data.news.length > 0) {
-          // STRICT FILTER: Keep only news matching current or previous month period
           const validNews = data.news.filter((item: SriNewsItem) => 
             item.monthPeriod === 'current' || item.monthPeriod === 'previous'
           );
-          if (validNews.length > 0) {
-            setNews(validNews);
-          } else {
-            setNews(generateCuratedSriNews());
-          }
-          setLastUpdated('Hoy, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+          baseList = validNews.length > 0 ? validNews : generateCuratedSriNews();
+        } else {
+          baseList = generateCuratedSriNews();
         }
       } else {
-        setNews(generateCuratedSriNews());
+        baseList = generateCuratedSriNews();
       }
+
+      if (settings.customNews && settings.customNews.length > 0) {
+        const customFormatted: SriNewsItem[] = settings.customNews
+          .filter(n => n.active !== false)
+          .map(n => ({
+            id: n.id,
+            title: n.title,
+            summary: n.summary,
+            category: n.category,
+            badgeColor: n.badgeColor || 'blue',
+            date: n.date,
+            publishedAt: n.publishedAt || new Date().toISOString(),
+            monthPeriod: 'current',
+            monthLabel: periods.current.label,
+            url: n.url,
+            isHighlight: n.isHighlight,
+            source: n.source || 'SRI Ecuador'
+          }));
+        setNews([...customFormatted, ...baseList]);
+      } else {
+        setNews(baseList);
+      }
+      setLastUpdated('Hoy, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     } catch (e) {
       console.warn('Usando boletines SRI del mes actual y mes anterior:', e);
       setNews(generateCuratedSriNews());
@@ -241,7 +285,7 @@ export default function SriNewsWidget() {
 
   useEffect(() => {
     fetchSriNews();
-  }, []);
+  }, [settings.customNews]);
 
   const categories = ['TODAS', 'Facturación Electrónica', 'Tributario & IVA', 'Resoluciones & Ley', 'Calendario Fiscal', 'Régimen RIMPE'];
 
