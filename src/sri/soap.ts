@@ -9,7 +9,7 @@ const SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION = 0x00040000;
  * Realiza una petición SOAP al SRI utilizando TLS v1.0/1.2 compatible con sus servidores legacy (resuelve ECONNRESET y fallos de fetch).
  * Incluye reintentos automáticos para lidiar con la inestabilidad de los servidores del SRI.
  */
-async function soapRequest(urlStr: string, xmlBody: string, retriesRemaining = 3): Promise<string> {
+async function soapRequest(urlStr: string, xmlBody: string, retriesRemaining = 2): Promise<string> {
   // If running in browser client environment without Node https module
   if (typeof window !== 'undefined' || !(https as any)?.request) {
     try {
@@ -18,11 +18,19 @@ async function soapRequest(urlStr: string, xmlBody: string, retriesRemaining = 3
         headers: { 'Content-Type': 'text/xml;charset=UTF-8' },
         body: xmlBody
       });
+      if (!response.ok) {
+        throw new Error(`HTTP Error ${response.status} desde el servidor SRI.`);
+      }
       return await response.text();
     } catch (err: any) {
-      if (retriesRemaining > 0) {
-        await new Promise(r => setTimeout(r, 1000));
-        return soapRequest(urlStr, xmlBody, retriesRemaining - 1);
+      // In browser, direct fetch to celcer.sri.gob.ec fails because SRI doesn't send CORS headers.
+      // We produce a clear, friendly diagnostic message instead of raw "Failed to fetch".
+      const isCorsOrNetwork = String(err.message || err).toLowerCase().includes('failed to fetch') || 
+                              String(err.message || err).toLowerCase().includes('networkerror') ||
+                              String(err.message || err).toLowerCase().includes('cors');
+      
+      if (isCorsOrNetwork) {
+        throw new Error(`El Web Service del SRI (${urlStr.includes('celcer') ? 'Ambiente Pruebas celcer' : 'Ambiente Producción cel'}) no respondió o rechazó la conexión. Los servidores de prueba del SRI presentan frecuente mantenimiento. Puede activar el "Modo Simulador (Recomendado)" en Configuración para emitir y validar comprobantes de inmediato.`);
       }
       throw err;
     }
@@ -39,8 +47,8 @@ async function soapRequest(urlStr: string, xmlBody: string, retriesRemaining = 3
           path: parsedUrl.pathname + parsedUrl.search,
           headers: {
             'Content-Type': 'text/xml;charset=UTF-8',
-            'SOAPAction': '',
-            'Content-Length': Buffer.byteLength(xmlBody),
+            'SOAPAction': '""',
+            'Content-Length': Buffer.byteLength(xmlBody, 'utf-8'),
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.1'
           },
           agent: new https.Agent({
@@ -50,7 +58,7 @@ async function soapRequest(urlStr: string, xmlBody: string, retriesRemaining = 3
             ciphers: 'DEFAULT:@SECLEVEL=1',
             secureOptions: SSL_OP_LEGACY_SERVER_CONNECT | SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION
           }),
-          timeout: 25000
+          timeout: 20000
         };
 
         const req = https.request(options, (res) => {
@@ -68,7 +76,7 @@ async function soapRequest(urlStr: string, xmlBody: string, retriesRemaining = 3
         });
 
         req.on('timeout', () => {
-          req.destroy(new Error('Timeout de conexión de 25 segundos superado al conectar con el SRI'));
+          req.destroy(new Error('Timeout de conexión de 20 segundos superado al conectar con los servidores del SRI'));
         });
 
         req.write(xmlBody);

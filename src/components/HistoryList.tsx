@@ -389,13 +389,20 @@ export default function HistoryList({
   const renderDiagnosticColumn = (doc: Invoice | CreditNote) => {
     if (doc.estado === 'Autorizado') {
       return (
-        <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 py-1">
           <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-          <div className="leading-tight">
-            <span className="font-semibold text-[11px] block">Autorizado y Válido</span>
+          <div className="leading-snug">
+            <span className="font-bold text-[11px] block text-emerald-800 dark:text-emerald-300">
+              Autorizado y Válido SRI
+            </span>
             {doc.numeroAutorizacion && (
-              <span className="text-[10px] text-gray-400 font-mono block truncate max-w-[190px]" title={doc.numeroAutorizacion}>
+              <span className="text-[10px] text-gray-500 dark:text-zinc-400 font-mono block break-all" title={doc.numeroAutorizacion}>
                 Aut: {doc.numeroAutorizacion}
+              </span>
+            )}
+            {doc.fechaAutorizacion && (
+              <span className="text-[10px] text-gray-400 dark:text-zinc-500 font-mono block">
+                Fecha: {doc.fechaAutorizacion.replace('T', ' ').substring(0, 19)}
               </span>
             )}
           </div>
@@ -408,34 +415,53 @@ export default function HistoryList({
       const msgText = firstMsg.mensaje || firstMsg.informacionAdicional || 'Observación registrada por el SRI';
       const isTimeout = msgText.toLowerCase().includes('timeout') || msgText.toLowerCase().includes('fuera de línea') || firstMsg.identificador === 'TIMEOUT';
       const isSignature = msgText.toLowerCase().includes('firma') || firstMsg.identificador === 'FIRMA_ERR';
+      const isDevuelto = doc.estado === 'Devuelto';
 
       return (
-        <div className="flex items-start gap-1.5 max-w-[260px]">
-          {isTimeout ? (
-            <Clock className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-          ) : isSignature ? (
-            <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-          ) : doc.estado === 'Devuelto' ? (
-            <XCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-          ) : (
-            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-          )}
+        <div className="py-1 space-y-1.5 min-w-[280px] max-w-[460px]">
+          <div className="flex items-start gap-2">
+            {isTimeout ? (
+              <Clock className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+            ) : isSignature ? (
+              <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+            ) : isDevuelto ? (
+              <XCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+            )}
 
-          <div className="leading-tight">
-            <p className="text-[11px] font-semibold text-gray-900 dark:text-gray-100 truncate max-w-[220px]" title={msgText}>
-              {msgText}
-            </p>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-[10px] text-gray-500 dark:text-zinc-400 font-mono">
-                {firstMsg.identificador ? `[${firstMsg.identificador}]` : ''} {firstMsg.informacionAdicional ? `Info: ${firstMsg.informacionAdicional.substring(0, 30)}...` : ''}
-              </span>
-              <button
-                type="button"
-                onClick={() => setSelectedErrorDoc(doc)}
-                className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer inline-flex items-center gap-0.5 shrink-0"
-              >
-                <Info className="w-2.5 h-2.5" /> Detalle
-              </button>
+            <div className="leading-snug space-y-1 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {firstMsg.identificador && (
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-900/50 shrink-0">
+                    [{firstMsg.identificador}]
+                  </span>
+                )}
+                <span className="text-[11px] font-bold text-gray-900 dark:text-gray-100 break-words">
+                  {msgText}
+                </span>
+              </div>
+
+              {firstMsg.informacionAdicional && (
+                <p className="text-[11px] text-gray-600 dark:text-zinc-300 leading-snug break-words bg-gray-50/80 dark:bg-zinc-800/80 p-1.5 rounded-lg border border-gray-200/70 dark:border-zinc-700/60 font-sans">
+                  <strong className="text-gray-800 dark:text-zinc-200">Info:</strong> {firstMsg.informacionAdicional}
+                </p>
+              )}
+
+              <div className="flex items-center gap-2 pt-0.5">
+                {doc.mensajesSRI.length > 1 && (
+                  <span className="text-[10px] font-mono text-gray-500 dark:text-zinc-400 bg-gray-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+                    +{doc.mensajesSRI.length - 1} aviso(s) más
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedErrorDoc(doc)}
+                  className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline cursor-pointer inline-flex items-center gap-1 bg-indigo-50/80 dark:bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-200/60 dark:border-indigo-800/50 transition"
+                >
+                  <Info className="w-3 h-3" /> Ver Diagnóstico Completo
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -444,27 +470,33 @@ export default function HistoryList({
 
     if (doc.estado === 'Enviado') {
       return (
-        <div className="flex items-center gap-1.5 text-sky-700 dark:text-sky-400">
+        <div className="flex items-center gap-2 text-sky-700 dark:text-sky-400 py-1">
           <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-500 shrink-0" />
-          <span className="text-[11px] font-medium">Recepción aceptada. Pendiente de autorización.</span>
+          <span className="text-[11px] font-medium leading-snug">
+            Recepción aceptada por el SRI. Pendiente de procesar autorización.
+          </span>
         </div>
       );
     }
 
     if (doc.estado === 'Firmado') {
       return (
-        <div className="flex items-center gap-1.5 text-purple-700 dark:text-purple-400">
+        <div className="flex items-center gap-2 text-purple-700 dark:text-purple-400 py-1">
           <FileCheck2 className="w-3.5 h-3.5 text-purple-500 shrink-0" />
-          <span className="text-[11px] font-medium">Firmado. Listo para transmitir al SRI.</span>
+          <span className="text-[11px] font-medium leading-snug">
+            Documento firmado con XAdES-BES. Listo para transmitir al SRI.
+          </span>
         </div>
       );
     }
 
     // Default Borrador
     return (
-      <div className="flex items-center gap-1.5 text-gray-500 dark:text-zinc-400">
+      <div className="flex items-center gap-2 text-gray-500 dark:text-zinc-400 py-1">
         <FileText className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-        <span className="text-[11px] font-normal">Borrador creado. Requiere presionar "Firmar y Enviar".</span>
+        <span className="text-[11px] font-normal leading-snug">
+          Borrador preparado. Presione "Firmar y Enviar" para emitir al SRI.
+        </span>
       </div>
     );
   };
@@ -853,7 +885,7 @@ export default function HistoryList({
                   </div>
                 </th>
                 {/* SOLICITUD 1: NUEVA COLUMNA DE DIAGNÓSTICO / MENSAJE DE PROCESAMIENTO */}
-                <th className="px-4 py-3.5 text-left min-w-[220px]">
+                <th className="px-4 py-3.5 text-left min-w-[300px] max-w-[480px]">
                   <span>Diagnóstico / Mensaje SRI</span>
                 </th>
                 <th className="px-4 py-3.5 text-right">Acciones de Emisor</th>
@@ -985,7 +1017,7 @@ export default function HistoryList({
                       </td>
 
                       {/* SOLICITUD 1: COLUMNA DIAGNÓSTICO / MOTIVO DE PROCESAMIENTO */}
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-3.5 whitespace-normal min-w-[300px] max-w-[480px] align-top">
                         {renderDiagnosticColumn(doc)}
                       </td>
 
