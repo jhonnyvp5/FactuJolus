@@ -43,19 +43,20 @@ export function renderMenuIcon(iconName?: string, itemKey?: string, className: s
   const name = (iconName || '').toLowerCase();
   const key = (itemKey || '').toLowerCase();
 
-  if (name === 'filetext' || key === 'history') return <History className={className} />;
-  if (name === 'pluscircle' || name === 'plus' || key === 'new-invoice') return <Plus className={className} />;
-  if (name === 'receipt' || key === 'new-nc') return <ArrowLeftRight className={className} />;
-  if (name === 'coins' || key === 'retentions') return <ShieldCheck className={className} />;
-  if (name === 'filespreadsheet' || key === 'proformas') return <FileText className={className} />;
-  if (name === 'package' || key === 'products') return <Package className={className} />;
-  if (name === 'users' || key === 'clients') return <Users className={className} />;
-  if (name === 'user' || key === 'profile') return <User className={className} />;
-  if (name === 'settings' || key === 'settings') return <Settings className={className} />;
-  if (name === 'shieldcheck' || key === 'users') return <ShieldCheck className={className} />;
-  if (name === 'building2' || key === 'tenants') return <Building2 className={className} />;
-  if (name === 'palette' || key === 'customizer') return <Palette className={className} />;
-  if (name === 'database' || key === 'supabase') return <Database className={className} />;
+  // Explicit iconName matches
+  if (name === 'filetext') return <FileText className={className} />;
+  if (name === 'pluscircle' || name === 'plus') return <PlusCircle className={className} />;
+  if (name === 'receipt') return <Receipt className={className} />;
+  if (name === 'coins') return <Coins className={className} />;
+  if (name === 'filespreadsheet') return <FileSpreadsheet className={className} />;
+  if (name === 'package') return <Package className={className} />;
+  if (name === 'users') return <Users className={className} />;
+  if (name === 'user') return <User className={className} />;
+  if (name === 'settings') return <Settings className={className} />;
+  if (name === 'shieldcheck') return <ShieldCheck className={className} />;
+  if (name === 'building2') return <Building2 className={className} />;
+  if (name === 'palette') return <Palette className={className} />;
+  if (name === 'database') return <Database className={className} />;
   if (name === 'barchart3') return <BarChart3 className={className} />;
   if (name === 'helpcircle') return <HelpCircle className={className} />;
   if (name === 'shoppingbag') return <ShoppingBag className={className} />;
@@ -66,7 +67,25 @@ export function renderMenuIcon(iconName?: string, itemKey?: string, className: s
   if (name === 'calculator') return <Calculator className={className} />;
   if (name === 'sliders') return <Sliders className={className} />;
   if (name === 'layout') return <Layout className={className} />;
-  if (name === 'folder') return <Folder className={className} />;
+  if (name === 'folder' || name === 'folderopen') return <Folder className={className} />;
+  if (name === 'history') return <History className={className} />;
+  if (name === 'arrowleftright') return <ArrowLeftRight className={className} />;
+  if (name === 'globe') return <Globe className={className} />;
+
+  // Default keys fallback mapping
+  if (key === 'history') return <History className={className} />;
+  if (key === 'new-invoice') return <Plus className={className} />;
+  if (key === 'new-nc') return <Receipt className={className} />;
+  if (key === 'retentions') return <Coins className={className} />;
+  if (key === 'proformas') return <FileSpreadsheet className={className} />;
+  if (key === 'products') return <Package className={className} />;
+  if (key === 'clients') return <Users className={className} />;
+  if (key === 'profile') return <User className={className} />;
+  if (key === 'settings') return <Settings className={className} />;
+  if (key === 'users') return <ShieldCheck className={className} />;
+  if (key === 'tenants') return <Building2 className={className} />;
+  if (key === 'customizer') return <Palette className={className} />;
+  if (key === 'supabase') return <Database className={className} />;
 
   return <Globe className={className} />;
 }

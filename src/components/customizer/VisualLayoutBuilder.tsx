@@ -30,28 +30,132 @@ import { CustomMenuItem, MenuGroup } from '../../types';
 import { modalAlert } from '../../context/ModalAlertContext';
 import { renderMenuIcon } from '../navigation/DynamicPlatformNavigation';
 
-const AVAILABLE_ICONS = [
-  'FileText',
-  'PlusCircle',
-  'Receipt',
-  'Coins',
-  'FileSpreadsheet',
-  'Package',
-  'Users',
-  'User',
-  'Settings',
-  'ShieldCheck',
-  'Building2',
-  'Palette',
-  'Database',
-  'BarChart3',
-  'HelpCircle',
-  'ShoppingBag',
-  'Zap',
-  'Globe',
-  'Layers',
-  'Folder'
+export interface SpanishMenuIcon {
+  value: string;
+  labelEs: string;
+  desc: string;
+  emoji: string;
+}
+
+export const SPANISH_MENU_ICONS: SpanishMenuIcon[] = [
+  { value: 'FileText', labelEs: 'Facturas / Comprobantes SRI', desc: 'Historial y facturas emitidas', emoji: '📄' },
+  { value: 'Receipt', labelEs: 'Notas de Crédito / Recibos', desc: 'Comprobantes de crédito y anulación', emoji: '🧾' },
+  { value: 'Coins', labelEs: 'Retenciones / Impuestos SRI', desc: 'Comprobantes de retención', emoji: '🪙' },
+  { value: 'FileSpreadsheet', labelEs: 'Proformas / Cotizaciones', desc: 'Presupuestos y proformas comerciales', emoji: '📊' },
+  { value: 'Package', labelEs: 'Productos / Inventario', desc: 'Catálogo de artículos y servicios', emoji: '📦' },
+  { value: 'Users', labelEs: 'Clientes / Directorio', desc: 'Gestión de clientes y contactos', emoji: '👥' },
+  { value: 'User', labelEs: 'Perfil de Usuario', desc: 'Datos y cuenta de usuario', emoji: '👤' },
+  { value: 'ShieldCheck', labelEs: 'Seguridad / SRI / Permisos', desc: 'Acceso y firma electrónica', emoji: '🛡️' },
+  { value: 'Building2', labelEs: 'Inquilinos / Empresas', desc: 'Gestión multi-empresa y sucursales', emoji: '🏢' },
+  { value: 'BarChart3', labelEs: 'Reportes & Estadísticas', desc: 'Gráficos de ventas y métricas', emoji: '📈' },
+  { value: 'CreditCard', labelEs: 'Planes & Facturación', desc: 'Suscripciones y cobros', emoji: '💳' },
+  { value: 'Folder', labelEs: 'Carpeta / Menú Desplegable', desc: 'Agrupador de opciones', emoji: '📁' },
+  { value: 'Layers', labelEs: 'Módulos & Capas', desc: 'Estructura modular', emoji: '📚' },
+  { value: 'Sparkles', labelEs: 'Destacado / Función Especial', desc: 'Herramientas VIP e innovaciones', emoji: '✨' },
+  { value: 'Zap', labelEs: 'Accesos Rápidos / Acciones', desc: 'Operaciones ágiles', emoji: '⚡' },
+  { value: 'ShoppingBag', labelEs: 'Punto de Venta / Tienda', desc: 'Ventas y mostrador', emoji: '🛍️' },
+  { value: 'Palette', labelEs: 'Diseño & Personalización', desc: 'Colores, logos y apariencia', emoji: '🎨' },
+  { value: 'Database', labelEs: 'Base de Datos / Supabase', desc: 'Almacenamiento y sincronización', emoji: '🗄️' },
+  { value: 'Settings', labelEs: 'Configuración del Sistema', desc: 'Ajustes generales', emoji: '⚙️' },
+  { value: 'Sliders', labelEs: 'Parámetros & Controles', desc: 'Configuraciones avanzadas', emoji: '🎛️' },
+  { value: 'Layout', labelEs: 'Estructura & Vistas', desc: 'Distribución y navegación', emoji: '📐' },
+  { value: 'Globe', labelEs: 'Enlace Web / Externo', desc: 'URLs y páginas externas', emoji: '🌐' },
+  { value: 'HelpCircle', labelEs: 'Ayuda & Soporte', desc: 'Guías y centro de asistencia', emoji: '❓' }
 ];
+
+const AVAILABLE_ICONS = SPANISH_MENU_ICONS.map(i => i.value);
+
+function SpanishIconPicker({
+  value,
+  onChange,
+  accentColor = 'purple'
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  accentColor?: 'purple' | 'blue';
+}) {
+  const activeIcon = SPANISH_MENU_ICONS.find(i => i.value.toLowerCase() === (value || 'folder').toLowerCase()) || SPANISH_MENU_ICONS[11];
+
+  return (
+    <div className="space-y-2">
+      {/* ACTIVE ICON PREVIEW CARD */}
+      <div className={`p-3 rounded-2xl border flex items-center justify-between gap-3 ${
+        accentColor === 'purple'
+          ? 'bg-purple-50/70 dark:bg-purple-950/30 border-purple-200/80 dark:border-purple-800/60'
+          : 'bg-blue-50/70 dark:bg-blue-950/30 border-blue-200/80 dark:border-blue-800/60'
+      }`}>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
+            accentColor === 'purple'
+              ? 'bg-purple-600 text-white'
+              : 'bg-blue-600 text-white'
+          }`}>
+            {renderMenuIcon(value || 'folder', undefined, 'w-5 h-5')}
+          </div>
+          <div className="min-w-0">
+            <div className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5 truncate">
+              <span>{activeIcon.emoji}</span>
+              <span>{activeIcon.labelEs}</span>
+            </div>
+            <div className="text-[11px] text-slate-500 dark:text-zinc-400 truncate">
+              {activeIcon.desc}
+            </div>
+          </div>
+        </div>
+        <span className="px-2 py-0.5 rounded-md text-[9px] font-mono font-bold bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 shrink-0">
+          {activeIcon.value}
+        </span>
+      </div>
+
+      {/* SPANISH DROPDOWN SELECT */}
+      <div>
+        <select
+          value={value || 'Folder'}
+          onChange={(e) => onChange(e.target.value)}
+          className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white font-medium focus:outline-none ${
+            accentColor === 'purple' ? 'focus:ring-2 focus:ring-purple-500' : 'focus:ring-2 focus:ring-blue-500'
+          }`}
+        >
+          {SPANISH_MENU_ICONS.map(icon => (
+            <option key={icon.value} value={icon.value}>
+              {icon.emoji} {icon.labelEs} ({icon.value})
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* POPULAR QUICK PICK ICONS GALLERY */}
+      <div className="pt-1">
+        <div className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-1.5">
+          Iconos Rápidos de Referencia:
+        </div>
+        <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1 bg-slate-50/50 dark:bg-zinc-950/40 rounded-xl border border-slate-100 dark:border-zinc-800/80">
+          {SPANISH_MENU_ICONS.map(icon => {
+            const isSelected = (value || 'folder').toLowerCase() === icon.value.toLowerCase();
+            return (
+              <button
+                key={icon.value}
+                type="button"
+                onClick={() => onChange(icon.value)}
+                className={`p-1.5 px-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
+                  isSelected
+                    ? accentColor === 'purple'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700 border border-slate-200 dark:border-zinc-700'
+                }`}
+                title={`${icon.labelEs} - ${icon.desc}`}
+              >
+                <span>{renderMenuIcon(icon.value, undefined, 'w-3.5 h-3.5')}</span>
+                <span className="text-[11px] truncate max-w-[120px]">{icon.labelEs.split('/')[0].trim()}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function VisualLayoutBuilder() {
   const { settings, updateSettings, themeClasses } = usePlatformSettings();
@@ -846,18 +950,14 @@ export default function VisualLayoutBuilder() {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">
-                  Icono del Grupo
+                <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1.5">
+                  Icono del Grupo (En Español con Referencia Visual)
                 </label>
-                <select
+                <SpanishIconPicker
                   value={newGroupFormData.iconName || 'Folder'}
-                  onChange={(e) => setNewGroupFormData({ ...newGroupFormData, iconName: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white focus:outline-purple-500"
-                >
-                  {AVAILABLE_ICONS.map(icon => (
-                    <option key={icon} value={icon}>{icon}</option>
-                  ))}
-                </select>
+                  onChange={(icon) => setNewGroupFormData({ ...newGroupFormData, iconName: icon })}
+                  accentColor="purple"
+                />
               </div>
 
               <div className="pt-2 flex justify-end gap-2">
@@ -917,18 +1017,14 @@ export default function VisualLayoutBuilder() {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">
-                  Icono del Grupo
+                <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1.5">
+                  Icono del Grupo (En Español con Referencia Visual)
                 </label>
-                <select
+                <SpanishIconPicker
                   value={editingGroup.iconName || 'Folder'}
-                  onChange={(e) => setEditingGroup({ ...editingGroup, iconName: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white focus:outline-purple-500"
-                >
-                  {AVAILABLE_ICONS.map(icon => (
-                    <option key={icon} value={icon}>{icon}</option>
-                  ))}
-                </select>
+                  onChange={(icon) => setEditingGroup({ ...editingGroup, iconName: icon })}
+                  accentColor="purple"
+                />
               </div>
 
               <div className="pt-2 flex justify-end gap-2">
@@ -1001,6 +1097,17 @@ export default function VisualLayoutBuilder() {
                     <option key={g.id} value={g.id}>📁 {g.name}</option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1.5">
+                  Icono del Botón (En Español con Referencia Visual)
+                </label>
+                <SpanishIconPicker
+                  value={editingItem.iconName || 'FileText'}
+                  onChange={(icon) => setEditingItem({ ...editingItem, iconName: icon })}
+                  accentColor="blue"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1113,6 +1220,17 @@ export default function VisualLayoutBuilder() {
                     <option key={g.id} value={g.id}>📁 {g.name}</option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1.5">
+                  Icono de la Opción (En Español con Referencia Visual)
+                </label>
+                <SpanishIconPicker
+                  value={newItemFormData.iconName || 'FileText'}
+                  onChange={(icon) => setNewItemFormData({ ...newItemFormData, iconName: icon })}
+                  accentColor="blue"
+                />
               </div>
 
               <div>

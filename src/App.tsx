@@ -1095,9 +1095,9 @@ export default function App() {
         {/* MAIN BODY AREA */}
         <div className="flex-1 flex flex-col min-w-0">
           
-          {/* TOPBAR / FLOATING ISLAND / COMPACT DOCK NAVIGATION (WHEN NOT SIDEBAR) */}
+          {/* TOPBAR / FLOATING ISLAND / COMPACT DOCK NAVIGATION (WHEN NOT SIDEBAR) - AUTO-HIDES ON MOBILE & TABLET (< lg) */}
           {settings.menuLayout !== 'sidebar-left' && settings.menuLayout !== 'sidebar-right' && (
-            <div className={`sticky top-[64px] sm:top-[68px] z-30 transition-all ${
+            <div className={`hidden lg:block sticky top-[64px] sm:top-[68px] z-30 transition-all ${
               settings.menuLayout === 'topbar-classic'
                 ? 'bg-slate-100/90 dark:bg-zinc-950/90 backdrop-blur-md py-2.5 border-b border-slate-200/50 dark:border-zinc-800/50 shadow-xs'
                 : settings.menuLayout === 'floating-island'
