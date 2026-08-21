@@ -1299,8 +1299,13 @@ export default function App() {
             <SupabaseExplorer />
           )}
 
-          {activeTab === 'customizer' && currentUser?.role?.toUpperCase() === 'SUPERADMIN' && (
-            <SuperadminCustomizer />
+          {activeTab === 'customizer' && (
+            <SuperadminCustomizer 
+              currentUserEmail={currentUser?.correo}
+              currentUser={currentUser}
+              currentUserRole={currentUser?.role}
+              currentEmpresa={currentEmpresa}
+            />
           )}
         </div>
 

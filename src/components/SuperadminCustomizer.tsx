@@ -37,7 +37,7 @@ import {
   Code
 } from 'lucide-react';
 import { usePlatformSettings, THEME_COLOR_MAP } from '../context/PlatformSettingsContext';
-import { LoginSlideItem, BillingPlanItem, CustomNewsItem, PlatformCustomizationSettings } from '../types';
+import { LoginSlideItem, BillingPlanItem, CustomNewsItem, PlatformCustomizationSettings, PortalUser, UserRole, EmpresaTenant } from '../types';
 import { modalAlert } from '../context/ModalAlertContext';
 import VisualLayoutBuilder from './customizer/VisualLayoutBuilder';
 import VisualContainerBuilder from './customizer/VisualContainerBuilder';
@@ -50,11 +50,20 @@ import { ThemeColorsBuilder } from './customizer/ThemeColorsBuilder';
 interface SuperadminCustomizerProps {
   currentUserEmail?: string;
   onPreviewLogin?: () => void;
+  currentUser?: PortalUser | null;
+  currentUserRole?: UserRole;
+  currentEmpresa?: EmpresaTenant | null;
 }
 
 type SubTab = 'layout' | 'screens' | 'texts' | 'theme' | 'containers' | 'plans' | 'code' | 'identity' | 'banners' | 'slides' | 'news' | 'social' | 'modules';
 
-export default function SuperadminCustomizer({ currentUserEmail, onPreviewLogin }: SuperadminCustomizerProps) {
+export default function SuperadminCustomizer({ 
+  currentUserEmail, 
+  onPreviewLogin,
+  currentUser,
+  currentUserRole,
+  currentEmpresa
+}: SuperadminCustomizerProps) {
   const { settings, updateSettings, saveSettingsToCloud, resetToDefaults, isSaving, themeClasses } = usePlatformSettings();
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('layout');
   const [isExporting, setIsExporting] = useState(false);
@@ -431,8 +440,8 @@ export default function SuperadminCustomizer({ currentUserEmail, onPreviewLogin 
           </select>
         </div>
 
-        {/* SUB-NAVIGATION TABS (SCROLLABLE ON TABLET/DESKTOP WITH CUSTOM STYLING) */}
-        <div className="hidden sm:flex items-center gap-1.5 mt-6 pt-4 border-t border-slate-800/80 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+        {/* SUB-NAVIGATION TABS (WRAPPED ON TABLET/DESKTOP WITHOUT SCROLLBARS FOR CLEAN VISIBILITY) */}
+        <div className="hidden sm:flex flex-wrap items-center gap-1.5 mt-6 pt-4 border-t border-slate-800/80">
           <button
             onClick={() => setActiveSubTab('layout')}
             className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
@@ -594,7 +603,14 @@ export default function SuperadminCustomizer({ currentUserEmail, onPreviewLogin 
       {/* ========================================================================= */}
       {/* SUB-TAB: ESTRUCTURA & MENÚ (FIGMA / HOSTINGER) */}
       {/* ========================================================================= */}
-      {activeSubTab === 'layout' && <VisualLayoutBuilder />}
+      {activeSubTab === 'layout' && (
+        <VisualLayoutBuilder 
+          currentUser={currentUser}
+          currentUserRole={currentUserRole}
+          currentUserEmail={currentUserEmail}
+          currentEmpresa={currentEmpresa}
+        />
+      )}
 
       {/* ========================================================================= */}
       {/* SUB-TAB: EDITOR DE PANTALLAS & COMPONENTES */}

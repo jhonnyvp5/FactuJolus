@@ -21,12 +21,24 @@ import {
   Folder,
   FolderPlus,
   FolderEdit,
+  FolderOpen,
   Tag,
   ChevronDown,
-  Info
+  ChevronRight,
+  Info,
+  GripVertical,
+  ShieldCheck,
+  Building2,
+  Lock,
+  GitBranch,
+  CornerDownRight,
+  ArrowUpDown,
+  Save,
+  CheckCircle2,
+  RefreshCw
 } from 'lucide-react';
 import { usePlatformSettings } from '../../context/PlatformSettingsContext';
-import { CustomMenuItem, MenuGroup } from '../../types';
+import { CustomMenuItem, MenuGroup, PortalUser, UserRole, EmpresaTenant } from '../../types';
 import { modalAlert } from '../../context/ModalAlertContext';
 import { renderMenuIcon } from '../navigation/DynamicPlatformNavigation';
 
@@ -62,8 +74,6 @@ export const SPANISH_MENU_ICONS: SpanishMenuIcon[] = [
   { value: 'Globe', labelEs: 'Enlace Web / Externo', desc: 'URLs y páginas externas', emoji: '🌐' },
   { value: 'HelpCircle', labelEs: 'Ayuda & Soporte', desc: 'Guías y centro de asistencia', emoji: '❓' }
 ];
-
-const AVAILABLE_ICONS = SPANISH_MENU_ICONS.map(i => i.value);
 
 function SpanishIconPicker({
   value,
@@ -157,9 +167,31 @@ function SpanishIconPicker({
   );
 }
 
-export default function VisualLayoutBuilder() {
-  const { settings, updateSettings, themeClasses } = usePlatformSettings();
-  
+interface VisualLayoutBuilderProps {
+  currentUser?: PortalUser | null;
+  currentUserRole?: UserRole;
+  currentUserEmail?: string;
+  currentEmpresa?: EmpresaTenant | null;
+}
+
+export default function VisualLayoutBuilder({
+  currentUser,
+  currentUserRole,
+  currentUserEmail,
+  currentEmpresa,
+}: VisualLayoutBuilderProps = {}) {
+  const { 
+    settings, 
+    updateSettings, 
+    saveSettingsToCloud,
+    saveTenantMenuToCloud,
+    isSaving 
+  } = usePlatformSettings();
+
+  const isSuperadmin = currentUserRole === 'SUPERADMIN' || (!currentUserRole && !currentUser?.empresaRuc);
+  const tenantKey = currentEmpresa?.ruc || currentUser?.empresaRuc || (currentUser?.role !== 'SUPERADMIN' ? currentUser?.correo : null);
+  const tenantDisplayName = currentEmpresa?.razonSocial || currentUser?.empresaNombre || 'Mi Empresa';
+
   // State for menu items
   const [newItemFormData, setNewItemFormData] = useState<Partial<CustomMenuItem>>({
     label: '',
@@ -186,8 +218,16 @@ export default function VisualLayoutBuilder() {
     color: 'blue'
   });
 
-  // Filter state for menu organizer
-  const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('ALL');
+  // Collapsed branches state for branch mode
+  const [collapsedBranches, setCollapsedBranches] = useState<Record<string, boolean>>({});
+
+  // Drag & Drop State
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [dragOverTarget, setDragOverTarget] = useState<{
+    type: 'item' | 'group' | 'root';
+    id: string;
+    groupId?: string;
+  } | null>(null);
 
   const menuItems = settings.customMenuItems || [];
   const menuGroups: MenuGroup[] = settings.menuGroups && settings.menuGroups.length > 0
@@ -201,12 +241,30 @@ export default function VisualLayoutBuilder() {
   // Update layout mode
   const handleLayoutChange = (mode: 'topbar-classic' | 'sidebar-left' | 'sidebar-right' | 'compact-dock' | 'floating-island') => {
     updateSettings({ menuLayout: mode });
-    modalAlert.success('Distribución Actualizada', `Se ha aplicado el diseño "${mode}" a la plataforma.`);
+    modalAlert.success('Distribución Actualizada', `Se ha aplicado el diseño "${mode}" a la navegación.`);
   };
 
   // Update content width
   const handleWidthChange = (width: 'contained-sm' | 'contained-lg' | 'full-width' | 'fluid') => {
     updateSettings({ contentLayoutWidth: width });
+  };
+
+  // Toggle branch collapse
+  const toggleBranch = (branchId: string) => {
+    setCollapsedBranches(prev => ({
+      ...prev,
+      [branchId]: !prev[branchId]
+    }));
+  };
+
+  const expandAllBranches = () => {
+    setCollapsedBranches({});
+  };
+
+  const collapseAllBranches = () => {
+    const collapsed: Record<string, boolean> = { '__root__': true };
+    menuGroups.forEach(g => { collapsed[g.id] = true; });
+    setCollapsedBranches(collapsed);
   };
 
   // Toggle item visibility
@@ -223,35 +281,145 @@ export default function VisualLayoutBuilder() {
       item.id === itemId ? { ...item, groupId: groupId === 'NONE' ? undefined : groupId } : item
     );
     updateSettings({ customMenuItems: updated });
-    modalAlert.success('Grupo Asignado', 'La opción de menú fue reasignada al grupo correspondiente.');
+    modalAlert.success('Grupo Asignado', 'La opción de menú fue reubicada en la rama correspondiente.');
   };
 
-  // Move item up
-  const handleMoveUp = (index: number) => {
-    if (index <= 0) return;
+  // Move item up within its branch
+  const handleMoveUpInBranch = (itemId: string, groupId?: string) => {
+    const branchItems = menuItems.filter(it => groupId ? it.groupId === groupId : !it.groupId);
+    const itemIndex = branchItems.findIndex(it => it.id === itemId);
+    if (itemIndex <= 0) return;
+
+    const prevItem = branchItems[itemIndex - 1];
+    
+    // Swap global positions in menuItems array
     const newItems = [...menuItems];
-    const temp = newItems[index];
-    newItems[index] = newItems[index - 1];
-    newItems[index - 1] = temp;
-    // update orders
+    const idxA = newItems.findIndex(i => i.id === itemId);
+    const idxB = newItems.findIndex(i => i.id === prevItem.id);
+    
+    const temp = newItems[idxA];
+    newItems[idxA] = newItems[idxB];
+    newItems[idxB] = temp;
+
     newItems.forEach((item, idx) => {
       item.order = idx + 1;
     });
+
     updateSettings({ customMenuItems: newItems });
   };
 
-  // Move item down
-  const handleMoveDown = (index: number) => {
-    if (index >= menuItems.length - 1) return;
+  // Move item down within its branch
+  const handleMoveDownInBranch = (itemId: string, groupId?: string) => {
+    const branchItems = menuItems.filter(it => groupId ? it.groupId === groupId : !it.groupId);
+    const itemIndex = branchItems.findIndex(it => it.id === itemId);
+    if (itemIndex === -1 || itemIndex >= branchItems.length - 1) return;
+
+    const nextItem = branchItems[itemIndex + 1];
+    
     const newItems = [...menuItems];
-    const temp = newItems[index];
-    newItems[index] = newItems[index + 1];
-    newItems[index + 1] = temp;
-    // update orders
+    const idxA = newItems.findIndex(i => i.id === itemId);
+    const idxB = newItems.findIndex(i => i.id === nextItem.id);
+    
+    const temp = newItems[idxA];
+    newItems[idxA] = newItems[idxB];
+    newItems[idxB] = temp;
+
     newItems.forEach((item, idx) => {
       item.order = idx + 1;
     });
+
     updateSettings({ customMenuItems: newItems });
+  };
+
+  // Drag & Drop Handlers
+  const handleDragStart = (e: React.DragEvent, itemId: string) => {
+    e.dataTransfer.setData('text/plain', itemId);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedItemId(itemId);
+  };
+
+  const handleDragOver = (
+    e: React.DragEvent, 
+    targetType: 'item' | 'group' | 'root', 
+    targetId: string, 
+    groupId?: string
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverTarget?.id !== targetId || dragOverTarget?.type !== targetType) {
+      setDragOverTarget({ type: targetType, id: targetId, groupId });
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (
+    e: React.DragEvent, 
+    targetType: 'item' | 'group' | 'root', 
+    targetGroupId?: string, 
+    targetItemId?: string
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverTarget(null);
+
+    const sourceItemId = draggedItemId || e.dataTransfer.getData('text/plain');
+    if (!sourceItemId) return;
+
+    const sourceItem = menuItems.find(i => i.id === sourceItemId);
+    if (!sourceItem) return;
+
+    let updatedList = [...menuItems];
+    const sourceIndex = updatedList.findIndex(i => i.id === sourceItemId);
+    if (sourceIndex === -1) return;
+
+    // Remove item from current position
+    const [movedItem] = updatedList.splice(sourceIndex, 1);
+
+    // Apply target group
+    const newGroupId = targetGroupId === 'NONE' || !targetGroupId ? undefined : targetGroupId;
+    movedItem.groupId = newGroupId;
+
+    if (targetType === 'item' && targetItemId && targetItemId !== sourceItemId) {
+      const targetIndex = updatedList.findIndex(i => i.id === targetItemId);
+      if (targetIndex !== -1) {
+        updatedList.splice(targetIndex, 0, movedItem);
+      } else {
+        updatedList.push(movedItem);
+      }
+    } else {
+      // If dropped onto a group header or root branch container, append to the end of that group
+      let lastGroupItemIndex = -1;
+      for (let i = updatedList.length - 1; i >= 0; i--) {
+        if (newGroupId ? updatedList[i].groupId === newGroupId : !updatedList[i].groupId) {
+          lastGroupItemIndex = i;
+          break;
+        }
+      }
+      if (lastGroupItemIndex !== -1) {
+        updatedList.splice(lastGroupItemIndex + 1, 0, movedItem);
+      } else {
+        updatedList.push(movedItem);
+      }
+    }
+
+    // Re-index all orders sequentially
+    updatedList.forEach((item, idx) => {
+      item.order = idx + 1;
+    });
+
+    updateSettings({ customMenuItems: updatedList });
+    setDraggedItemId(null);
+    modalAlert.success('Menú Actualizado', `Opción "${movedItem.label}" organizada en la rama.`);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItemId(null);
+    setDragOverTarget(null);
   };
 
   // Delete custom item
@@ -273,9 +441,13 @@ export default function VisualLayoutBuilder() {
     modalAlert.success('Menú Actualizado', 'Los cambios en la opción del menú se aplicaron correctamente.');
   };
 
-  // GROUP OPERATIONS
+  // GROUP OPERATIONS (SUPERADMIN EXCLUSIVE)
   const handleCreateGroup = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isSuperadmin) {
+      modalAlert.warning('Acceso Restringido', 'Solo el SUPERADMIN puede crear nuevos grupos maestros de menú.');
+      return;
+    }
     if (!newGroupFormData.name?.trim()) {
       modalAlert.warning('Campo Requerido', 'Ingresa un nombre para el nuevo grupo.');
       return;
@@ -299,11 +471,12 @@ export default function VisualLayoutBuilder() {
       visible: true,
       color: 'blue'
     });
-    modalAlert.success('Grupo Creado', `Se creó el grupo "${newGroup.name}". Ahora puedes agrupar opciones dentro de él.`);
+    modalAlert.success('Grupo Creado', `Se creó el grupo "${newGroup.name}". Ahora cualquier inquilino puede distribuir opciones dentro de él.`);
   };
 
   const handleSaveEditedGroup = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isSuperadmin) return;
     if (!editingGroup) return;
     const updated = menuGroups.map(g => g.id === editingGroup.id ? editingGroup : g);
     updateSettings({ menuGroups: updated });
@@ -312,6 +485,10 @@ export default function VisualLayoutBuilder() {
   };
 
   const handleDeleteGroup = (groupId: string) => {
+    if (!isSuperadmin) {
+      modalAlert.warning('Acceso Restringido', 'Solo el SUPERADMIN puede eliminar grupos de menú.');
+      return;
+    }
     const grp = menuGroups.find(g => g.id === groupId);
     if (!grp) return;
 
@@ -323,11 +500,11 @@ export default function VisualLayoutBuilder() {
       menuGroups: updatedGroups,
       customMenuItems: updatedItems
     });
-    modalAlert.info('Grupo Eliminado', `El grupo "${grp.name}" fue eliminado. Las opciones ahora están en la barra principal.`);
+    modalAlert.info('Grupo Eliminado', `El grupo "${grp.name}" fue eliminado. Las opciones pasaron a la rama de ítems sueltos.`);
   };
 
   const handleResetMenuItems = () => {
-    const confirmed = window.confirm('¿Restablecer el menú, grupos y el orden a los valores predeterminados?');
+    const confirmed = window.confirm('¿Restablecer el menú y la distribución a los valores predeterminados?');
     if (!confirmed) return;
     updateSettings({
       menuGroups: [
@@ -339,7 +516,7 @@ export default function VisualLayoutBuilder() {
         { id: 'menu-history', key: 'history', label: 'Facturas & Notas', iconName: 'FileText', visible: true, order: 1, requiredRole: 'ALL', groupId: 'group-facturacion' },
         { id: 'menu-invoice', key: 'new-invoice', label: 'Nueva Factura', iconName: 'PlusCircle', visible: true, order: 2, requiredRole: 'ALL', groupId: 'group-facturacion' },
         { id: 'menu-nc', key: 'new-nc', label: 'Nota Crédito', iconName: 'Receipt', visible: true, order: 3, requiredRole: 'ALL', groupId: 'group-facturacion' },
-        { id: 'menu-retentions', key: 'retentions', label: 'Retenciones', iconName: 'Coins', visible: true, order: 4, requiredRole: 'ALL', groupId: 'group-facturacion' },
+        { id: 'menu-retenciones', key: 'retenciones', label: 'Retenciones', iconName: 'Coins', visible: true, order: 4, requiredRole: 'ALL', groupId: 'group-facturacion' },
         { id: 'menu-proformas', key: 'proformas', label: 'Proformas', iconName: 'FileSpreadsheet', visible: true, order: 5, requiredRole: 'ALL', groupId: 'group-facturacion' },
         { id: 'menu-products', key: 'products', label: 'Productos', iconName: 'Package', visible: true, order: 6, requiredRole: 'ALL', groupId: 'group-catalogos' },
         { id: 'menu-clients', key: 'clients', label: 'Clientes', iconName: 'Users', visible: true, order: 7, requiredRole: 'ALL', groupId: 'group-catalogos' },
@@ -351,7 +528,7 @@ export default function VisualLayoutBuilder() {
         { id: 'menu-supabase', key: 'supabase', label: 'Supabase', iconName: 'Database', visible: true, order: 13, requiredRole: 'SUPERADMIN', groupId: 'group-admin' },
       ]
     });
-    modalAlert.info('Menú Restaurado', 'Se ha restablecido la lista, grupos y orden original de las secciones.');
+    modalAlert.info('Menú Restaurado', 'Se ha restablecido la distribución original de las secciones.');
   };
 
   const handleCreateCustomItem = (e: React.FormEvent) => {
@@ -389,19 +566,60 @@ export default function VisualLayoutBuilder() {
       badge: '',
       groupId: ''
     });
-    modalAlert.success('Elemento Añadido', 'El nuevo elemento fue agregado al menú.');
+    modalAlert.success('Elemento Añadido', 'El nuevo elemento fue agregado a la estructura.');
   };
 
-  // Filtered menu items for display in table
-  const displayedItems = menuItems.filter(item => {
-    if (selectedGroupFilter === 'ALL') return true;
-    if (selectedGroupFilter === 'NONE') return !item.groupId;
-    return item.groupId === selectedGroupFilter;
-  });
+  const handleSaveMenuChanges = async () => {
+    if (tenantKey && !isSuperadmin) {
+      await saveTenantMenuToCloud(tenantKey, currentUserEmail || currentUser?.correo);
+    } else {
+      await saveSettingsToCloud(currentUserEmail || 'SUPERADMIN');
+    }
+  };
+
+  // Ungrouped items (root branch)
+  const ungroupedItems = menuItems.filter(it => !it.groupId);
 
   return (
     <div className="space-y-8 animate-fade-in">
       
+      {/* TENANT / INQUILINO ISOLATION BANNER */}
+      {tenantKey && (
+        <div className="p-4 sm:p-5 rounded-2xl border border-blue-200 dark:border-blue-800/80 bg-blue-50/70 dark:bg-blue-950/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Building2 className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-blue-700 dark:text-blue-300">
+                  Personalización Aislada por Inquilino
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-200/80 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                  {tenantKey}
+                </span>
+              </div>
+              <h4 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                Empresa: {tenantDisplayName}
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-zinc-300">
+                Los cambios en la estructura visual, orden y distribución de opciones se guardan exclusivamente para esta empresa y no afectarán a otros inquilinos.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSaveMenuChanges}
+            disabled={isSaving}
+            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer transition active:scale-95 shrink-0"
+          >
+            {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            <span>Guardar Menú de esta Empresa</span>
+          </button>
+        </div>
+      )}
+
       {/* 1. SELECCIÓN DE ARQUITECTURA DE MENÚ */}
       <div className="bg-white dark:bg-zinc-850 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-zinc-800">
@@ -414,7 +632,7 @@ export default function VisualLayoutBuilder() {
               Arquitectura Visual del Sistema
             </h3>
             <p className="text-xs text-slate-500 dark:text-zinc-400">
-              Escoge cómo se distribuye la barra de herramientas, menús desplegables e islas interactivas.
+              Escoge cómo se distribuye la barra de herramientas, menús desplegables e islas interactivas. Cada inquilino puede configurar su propia arquitectura.
             </p>
           </div>
 
@@ -452,7 +670,7 @@ export default function VisualLayoutBuilder() {
                 {settings.menuLayout === 'topbar-classic' && <Check className="w-4 h-4 text-blue-600" />}
               </h4>
               <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
-                Fijo (Sticky) en la parte superior. Al scrollear permanece visible con submenús por grupos.
+                Barra horizontal fija en la parte superior con botones y menús desplegables.
               </p>
             </div>
             <div className="pt-2 text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider">
@@ -460,7 +678,7 @@ export default function VisualLayoutBuilder() {
             </div>
           </div>
 
-          {/* ISLA FLOTANTE */}
+          {/* FLOATING ISLAND */}
           <div
             onClick={() => handleLayoutChange('floating-island')}
             className={`p-5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
@@ -470,21 +688,22 @@ export default function VisualLayoutBuilder() {
             }`}
           >
             <div>
-              <div className="h-16 w-full rounded-xl bg-slate-100 dark:bg-zinc-800 p-2 mb-3 flex flex-col justify-between items-center border border-slate-200/50 dark:border-zinc-700/50">
-                <div className="h-2 w-full bg-slate-200 dark:bg-zinc-700 rounded-sm" />
-                <div className="h-5 w-4/5 bg-blue-500 rounded-full shadow-sm flex items-center justify-center gap-1 px-2">
-                  <div className="h-1.5 w-3 bg-white rounded-full" />
-                  <div className="h-1.5 w-3 bg-white rounded-full" />
-                  <div className="h-1.5 w-3 bg-white rounded-full" />
+              <div className="h-16 w-full rounded-xl bg-slate-100 dark:bg-zinc-800 p-2 mb-3 flex flex-col items-center justify-between border border-slate-200/50 dark:border-zinc-700/50">
+                <div className="h-4 w-4/5 bg-blue-600 rounded-full shrink-0 flex items-center justify-center px-2 shadow-xs">
+                  <div className="flex gap-1.5">
+                    <div className="h-1 w-2.5 bg-white/90 rounded-full" />
+                    <div className="h-1 w-2.5 bg-white/90 rounded-full" />
+                    <div className="h-1 w-2.5 bg-white/90 rounded-full" />
+                  </div>
                 </div>
-                <div className="h-3 w-full bg-slate-200/50 dark:bg-zinc-700/50 rounded-sm" />
+                <div className="h-5 w-full bg-slate-200/60 dark:bg-zinc-700/60 rounded-md" />
               </div>
               <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center justify-between">
                 <span>Isla Flotante</span>
                 {settings.menuLayout === 'floating-island' && <Check className="w-4 h-4 text-blue-600" />}
               </h4>
               <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
-                Barra flotante centrada de estilo Figma/macOS con acceso completo a todas las opciones y grupos.
+                Cápsula flotante y moderna con efecto vidrio y esquinas redondeadas.
               </p>
             </div>
             <div className="pt-2 text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider">
@@ -492,7 +711,7 @@ export default function VisualLayoutBuilder() {
             </div>
           </div>
 
-          {/* DOCK FLOTANTE */}
+          {/* COMPACT DOCK */}
           <div
             onClick={() => handleLayoutChange('compact-dock')}
             className={`p-5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
@@ -503,19 +722,19 @@ export default function VisualLayoutBuilder() {
           >
             <div>
               <div className="h-16 w-full rounded-xl bg-slate-100 dark:bg-zinc-800 p-2 mb-3 flex flex-col justify-between border border-slate-200/50 dark:border-zinc-700/50">
-                <div className="h-7 w-full bg-slate-200/70 dark:bg-zinc-700/70 rounded-md" />
-                <div className="h-4 w-3/4 mx-auto bg-slate-900 dark:bg-zinc-950 rounded-full flex items-center justify-center gap-1">
-                  <div className="h-1.5 w-2 bg-blue-400 rounded-full" />
-                  <div className="h-1.5 w-2 bg-slate-400 rounded-full" />
-                  <div className="h-1.5 w-2 bg-slate-400 rounded-full" />
+                <div className="h-5 w-full bg-slate-200/60 dark:bg-zinc-700/60 rounded-md" />
+                <div className="h-4 w-3/4 mx-auto bg-slate-900 dark:bg-white rounded-full flex items-center justify-center gap-1">
+                  <div className="h-1.5 w-1.5 bg-blue-500 rounded-full" />
+                  <div className="h-1.5 w-1.5 bg-blue-500 rounded-full" />
+                  <div className="h-1.5 w-1.5 bg-blue-500 rounded-full" />
                 </div>
               </div>
               <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center justify-between">
-                <span>Dock Flotante</span>
+                <span>Dock Inferior</span>
                 {settings.menuLayout === 'compact-dock' && <Check className="w-4 h-4 text-blue-600" />}
               </h4>
               <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
-                Dock inferior estilo macOS con popovers ascendentes hacia arriba.
+                Barra interactiva al estilo macOS en la parte inferior para agilidad táctil.
               </p>
             </div>
             <div className="pt-2 text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider">
@@ -617,7 +836,7 @@ export default function VisualLayoutBuilder() {
                 onClick={() => handleWidthChange(w.id as any)}
                 className={`p-3 rounded-2xl border text-left transition cursor-pointer ${
                   settings.contentLayoutWidth === w.id
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 font-bold shadow-xs'
                     : 'border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300'
                 }`}
               >
@@ -629,30 +848,48 @@ export default function VisualLayoutBuilder() {
         </div>
       </div>
 
-      {/* 2. SECCIÓN: GESTIÓN DE GRUPOS DE MENÚ (MENÚ DROPDOWNS / CARPETAS) */}
+      {/* 2. SECCIÓN: GESTIÓN DE GRUPOS DE MENÚ (AGRUPADOR MAESTRO - EXCLUSIVO SUPERADMIN) */}
       <div className="bg-white dark:bg-zinc-850 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-zinc-800">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 text-xs font-bold uppercase tracking-wider mb-1">
               <Folder className="w-3.5 h-3.5" />
-              <span>GRUPOS & SUBMENÚS</span>
+              <span>GRUPOS Y MENÚS DESPLEGABLES</span>
+              {isSuperadmin ? (
+                <span className="text-[10px] font-black px-1.5 py-0.2 rounded-sm bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200 ml-1">
+                  SUPERADMIN
+                </span>
+              ) : (
+                <span className="text-[10px] font-black px-1.5 py-0.2 rounded-sm bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 ml-1 flex items-center gap-1">
+                  <Lock className="w-2.5 h-2.5" /> GLOBAL
+                </span>
+              )}
             </div>
             <h3 className="text-xl font-black text-slate-900 dark:text-white">
-              Grupos y Menús Desplegables
+              Agrupador de Ítems del Menú
             </h3>
             <p className="text-xs text-slate-500 dark:text-zinc-400">
-              Crea grupos en el TopBar o barra de navegación. Al hacer clic en el grupo, se desplegarán las opciones asociadas a él.
+              {isSuperadmin 
+                ? 'Como SUPERADMIN, puedes crear, editar o eliminar carpetas y grupos globales del sistema.' 
+                : 'Grupos globales administrados por el SUPERADMIN. Puedes distribuir y ordenar tus ítems en estas ramas a continuación.'}
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setShowNewGroupModal(true)}
-            className="px-4 py-2.5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-md shadow-purple-500/20 flex items-center gap-2 cursor-pointer transition active:scale-95 shrink-0"
-          >
-            <FolderPlus className="w-4 h-4" />
-            <span>Crear Nuevo Grupo</span>
-          </button>
+          {isSuperadmin ? (
+            <button
+              type="button"
+              onClick={() => setShowNewGroupModal(true)}
+              className="px-4 py-2.5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-md shadow-purple-500/20 flex items-center gap-2 cursor-pointer transition active:scale-95 shrink-0"
+            >
+              <FolderPlus className="w-4 h-4" />
+              <span>Crear Nuevo Grupo</span>
+            </button>
+          ) : (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 text-xs font-bold">
+              <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
+              <span>Gestionado por SUPERADMIN</span>
+            </div>
+          )}
         </div>
 
         {/* LISTA DE GRUPOS */}
@@ -678,51 +915,70 @@ export default function VisualLayoutBuilder() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setEditingGroup({ ...grp })}
-                    className="p-1.5 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 text-blue-600 dark:text-blue-400 transition cursor-pointer"
-                    title="Editar grupo"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteGroup(grp.id)}
-                    className="p-1.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-500 transition cursor-pointer"
-                    title="Eliminar grupo"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                {isSuperadmin && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setEditingGroup({ ...grp })}
+                      className="p-1.5 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 text-blue-600 dark:text-blue-400 transition cursor-pointer"
+                      title="Editar grupo"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteGroup(grp.id)}
+                      className="p-1.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-500 transition cursor-pointer"
+                      title="Eliminar grupo"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* 3. ORGANIZADOR Y DISTRIBUCIÓN DE ÍTEMS DEL MENÚ */}
+      {/* 3. ORGANIZADOR Y DISTRIBUCIÓN DE ÍTEMS DEL MENÚ (MODO RAMAS JERÁRQUICO + ARRASTRAR Y SOLTAR) */}
       <div className="bg-white dark:bg-zinc-850 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-zinc-800">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-wider mb-1">
-              <Sliders className="w-3.5 h-3.5" />
-              <span>OPCIONES DEL MENÚ</span>
+              <GitBranch className="w-3.5 h-3.5" />
+              <span>MODO RAMAS & ARRASTRAR Y SOLTAR</span>
             </div>
             <h3 className="text-xl font-black text-slate-900 dark:text-white">
               Organizador y Distribución de Ítems del Menú
             </h3>
             <p className="text-xs text-slate-500 dark:text-zinc-400">
-              Reordena las secciones, asigna cada opción a su grupo (Facturación, Catálogos, etc.) o déjala como botón individual. Los cambios se reflejan inmediatamente en la barra de menú.
+              Visualiza el menú en estructura de ramas (Rama principal = Grupo, Subramas = Opciones). 
+              Arrastra y suelta cualquier opción para reordenarla o moverla entre grupos fácilmente.
             </p>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
+              onClick={expandAllBranches}
+              className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 text-xs font-bold transition cursor-pointer"
+              title="Expandir todas las ramas"
+            >
+              Expandir Todo
+            </button>
+            <button
+              type="button"
+              onClick={collapseAllBranches}
+              className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 text-xs font-bold transition cursor-pointer"
+              title="Colapsar todas las ramas"
+            >
+              Colapsar
+            </button>
+            <button
+              type="button"
               onClick={handleResetMenuItems}
-              className="px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 text-xs font-bold transition cursor-pointer"
+              className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 text-xs font-bold transition cursor-pointer"
               title="Restablecer menú por defecto"
             >
               Restablecer
@@ -730,190 +986,443 @@ export default function VisualLayoutBuilder() {
             <button
               type="button"
               onClick={() => setShowNewItemModal(true)}
-              className="px-4 py-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 flex items-center gap-2 cursor-pointer transition active:scale-95"
+              className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer transition active:scale-95"
             >
-              <Plus className="w-4 h-4" />
-              <span>Crear Opción Personalizada</span>
+              <Plus className="w-3.5 h-3.5" />
+              <span>Nueva Opción</span>
             </button>
           </div>
         </div>
 
-        {/* FILTRADO POR GRUPO PARA FACILITAR ORGANIZACIÓN */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-          <span className="font-bold text-slate-500 dark:text-zinc-400 shrink-0">Filtrar vista:</span>
-          <button
-            type="button"
-            onClick={() => setSelectedGroupFilter('ALL')}
-            className={`px-3 py-1.5 rounded-xl font-bold cursor-pointer transition whitespace-nowrap ${
-              selectedGroupFilter === 'ALL'
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-200'
-            }`}
-          >
-            Todos ({menuItems.length})
-          </button>
-          {menuGroups.map(grp => (
-            <button
-              key={grp.id}
-              type="button"
-              onClick={() => setSelectedGroupFilter(grp.id)}
-              className={`px-3 py-1.5 rounded-xl font-bold cursor-pointer transition whitespace-nowrap ${
-                selectedGroupFilter === grp.id
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-200'
-              }`}
-            >
-              {grp.name} ({menuItems.filter(it => it.groupId === grp.id).length})
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => setSelectedGroupFilter('NONE')}
-            className={`px-3 py-1.5 rounded-xl font-bold cursor-pointer transition whitespace-nowrap ${
-              selectedGroupFilter === 'NONE'
-                ? 'bg-slate-700 text-white'
-                : 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-200'
-            }`}
-          >
-            Sin Grupo ({menuItems.filter(it => !it.groupId).length})
-          </button>
-        </div>
+        {/* MODO RAMAS TREE VIEW */}
+        <div className="space-y-6">
 
-        {/* ITEMS LIST WITH REORDER, GROUP SELECT & TOGGLE */}
-        <div className="space-y-2.5">
-          {displayedItems.map((item, index) => {
-            const currentGroup = menuGroups.find(g => g.id === item.groupId);
+          {/* 1. RAMAS DE CADA GRUPO */}
+          {menuGroups.map((grp, grpIndex) => {
+            const groupSubItems = menuItems
+              .filter(it => it.groupId === grp.id)
+              .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+            const isCollapsed = !!collapsedBranches[grp.id];
+            const isGroupDropTarget = dragOverTarget?.type === 'group' && dragOverTarget?.id === grp.id;
+
             return (
-              <div
-                key={item.id || item.key}
-                className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all duration-200 ${
-                  item.visible !== false
-                    ? 'bg-slate-50/70 dark:bg-zinc-900/60 border-slate-200 dark:border-zinc-800'
-                    : 'bg-slate-100/40 dark:bg-zinc-900/30 border-dashed border-slate-300 dark:border-zinc-700 opacity-60'
+              <div 
+                key={grp.id}
+                onDragOver={(e) => handleDragOver(e, 'group', grp.id, grp.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, 'group', grp.id)}
+                className={`rounded-2xl border transition-all duration-200 ${
+                  isGroupDropTarget 
+                    ? 'border-purple-500 bg-purple-50/60 dark:bg-purple-950/40 ring-2 ring-purple-500/40' 
+                    : 'border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/40'
                 }`}
               >
-                {/* Left: Position handle & Label */}
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="w-6 h-6 rounded-lg bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-xs font-black flex items-center justify-center shrink-0">
-                    {index + 1}
-                  </span>
+                {/* RAMA PRINCIPAL (ENCABEZADO DE GRUPO) */}
+                <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3 bg-white dark:bg-zinc-850 rounded-2xl border-b border-slate-100 dark:border-zinc-800/80">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => toggleBranch(grp.id)}
+                      className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-500 dark:text-zinc-400 transition cursor-pointer"
+                      title={isCollapsed ? 'Expandir rama' : 'Colapsar rama'}
+                    >
+                      {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
 
-                  <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                    {renderMenuIcon(item.iconName, item.key, 'w-4 h-4')}
-                  </div>
-
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">
-                        {item.label}
-                      </span>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400">
-                        key: {item.key}
-                      </span>
-                      {item.badge && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-                          {item.badge}
-                        </span>
-                      )}
-                      {item.isCustom && (
-                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 uppercase">
-                          Personalizado
-                        </span>
-                      )}
+                    <div className="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                      {renderMenuIcon(grp.iconName || 'folder', undefined, 'w-4 h-4')}
                     </div>
-                    {item.customUrl && (
-                      <div className="text-[11px] text-blue-600 dark:text-blue-400 truncate max-w-sm">
-                        🔗 {item.customUrl}
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300">
+                          Rama {grpIndex + 1}
+                        </span>
+                        <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                          {grp.name}
+                        </h4>
                       </div>
-                    )}
+                      <div className="text-[11px] text-slate-500 dark:text-zinc-400">
+                        {groupSubItems.length} {groupSubItems.length === 1 ? 'subrama / opción' : 'subramas / opciones'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono font-bold text-slate-400 dark:text-zinc-500 hidden sm:inline">
+                      Arrastra ítems aquí para agrupar
+                    </span>
+                    <span className="px-2.5 py-1 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 text-xs font-black">
+                      {groupSubItems.length}
+                    </span>
                   </div>
                 </div>
 
-                {/* Middle & Right: Group Assignment Selector & Actions */}
-                <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200 dark:border-zinc-800">
-                  {/* Quick Group Assignment */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 hidden md:inline">Grupo:</span>
-                    <select
-                      value={item.groupId || 'NONE'}
-                      onChange={(e) => handleAssignGroup(item.id, e.target.value)}
-                      className={`text-xs px-2.5 py-1.5 rounded-xl border font-bold cursor-pointer transition ${
-                        item.groupId
-                          ? 'bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300'
-                          : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300'
-                      }`}
-                    >
-                      <option value="NONE">Sin Grupo (Botón suelto)</option>
-                      {menuGroups.map(g => (
-                        <option key={g.id} value={g.id}>📁 {g.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                {/* SUBRAMAS (ITEMS DEL GRUPO) */}
+                {!isCollapsed && (
+                  <div className="p-4 pt-3 pl-6 sm:pl-8 space-y-2 relative">
+                    {/* TRONCO VERTICAL DE LA RAMA */}
+                    <div className="absolute left-6 sm:left-8 top-0 bottom-6 w-0.5 bg-purple-200 dark:bg-purple-900/60" />
 
-                  {/* Actions (Edit, Move Up, Move Down, Toggle Visibility, Delete) */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setEditingItem({ ...item })}
-                      className="p-1.5 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 text-blue-600 dark:text-blue-400 transition cursor-pointer"
-                      title="Editar nombre, grupo e icono"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleMoveUp(index)}
-                      disabled={index === 0}
-                      className="p-1.5 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 text-slate-600 dark:text-zinc-400 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
-                      title="Mover arriba"
-                    >
-                      <MoveUp className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleMoveDown(index)}
-                      disabled={index === menuItems.length - 1}
-                      className="p-1.5 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 text-slate-600 dark:text-zinc-400 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
-                      title="Mover abajo"
-                    >
-                      <MoveDown className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleToggleVisibility(item.id)}
-                      className={`p-1.5 rounded-xl transition cursor-pointer ${
-                        item.visible !== false
-                          ? 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
-                          : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-zinc-800'
-                      }`}
-                      title={item.visible !== false ? 'Visible (clic para ocultar)' : 'Oculto (clic para mostrar)'}
-                    >
-                      {item.visible !== false ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                    </button>
-
-                    {item.isCustom && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteItem(item.id)}
-                        className="p-1.5 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
-                        title="Eliminar elemento"
+                    {groupSubItems.length === 0 ? (
+                      <div 
+                        onDragOver={(e) => handleDragOver(e, 'group', grp.id, grp.id)}
+                        onDrop={(e) => handleDrop(e, 'group', grp.id)}
+                        className="py-6 px-4 border-2 border-dashed border-purple-200 dark:border-purple-900/60 rounded-xl text-center text-xs text-purple-600/80 dark:text-purple-400/80 bg-purple-50/20 dark:bg-purple-950/10 ml-4"
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                        <FolderOpen className="w-5 h-5 mx-auto mb-1 opacity-60" />
+                        Rama vacía. Arrastra y suelta aquí opciones de menú para incluirlas en "{grp.name}".
+                      </div>
+                    ) : (
+                      groupSubItems.map((item, itemIdx) => {
+                        const isDragging = draggedItemId === item.id;
+                        const isDropTarget = dragOverTarget?.type === 'item' && dragOverTarget?.id === item.id;
+
+                        return (
+                          <div
+                            key={item.id || item.key}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, item.id)}
+                            onDragOver={(e) => handleDragOver(e, 'item', item.id, grp.id)}
+                            onDragLeave={handleDragLeave}
+                            onDrop={(e) => handleDrop(e, 'item', grp.id, item.id)}
+                            onDragEnd={handleDragEnd}
+                            className={`relative ml-4 pl-3 py-2.5 px-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all duration-150 ${
+                              isDragging 
+                                ? 'opacity-40 scale-98 border-blue-400 bg-blue-50 dark:bg-zinc-800' 
+                                : isDropTarget
+                                ? 'border-blue-500 bg-blue-50/90 dark:bg-blue-950/60 ring-2 ring-blue-500/50 shadow-md'
+                                : item.visible !== false
+                                ? 'bg-white dark:bg-zinc-850 border-slate-200 dark:border-zinc-800 hover:border-blue-300 dark:hover:border-zinc-700 shadow-xs'
+                                : 'bg-slate-100/50 dark:bg-zinc-900/40 border-dashed border-slate-300 dark:border-zinc-700 opacity-60'
+                            }`}
+                          >
+                            {/* CONECTOR HORIZONTAL DE LA SUBRAMA */}
+                            <div className="absolute -left-4 top-1/2 -translate-y-1/2 w-4 h-0.5 bg-purple-200 dark:bg-purple-900/60" />
+
+                            {/* Left: Drag Handle, Number & Item Details */}
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div 
+                                className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-slate-400 hover:text-blue-600 dark:text-zinc-500 dark:hover:text-blue-400 rounded-md transition"
+                                title="Arrastrar para reordenar o cambiar de grupo"
+                              >
+                                <GripVertical className="w-4 h-4" />
+                              </div>
+
+                              <span className="w-5 h-5 rounded-md bg-purple-50 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 text-[10px] font-black flex items-center justify-center shrink-0">
+                                {itemIdx + 1}
+                              </span>
+
+                              <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                                {renderMenuIcon(item.iconName, item.key, 'w-3.5 h-3.5')}
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-bold text-xs text-slate-900 dark:text-white">
+                                    {item.label}
+                                  </span>
+                                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400">
+                                    key: {item.key}
+                                  </span>
+                                  {item.badge && (
+                                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                                      {item.badge}
+                                    </span>
+                                  )}
+                                  {item.isCustom && (
+                                    <span className="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 uppercase">
+                                      Personalizado
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Right: Group Selector & Actions */}
+                            <div className="flex items-center justify-between sm:justify-end gap-1.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-zinc-800">
+                              {/* Quick Move between Groups */}
+                              <select
+                                value={item.groupId || 'NONE'}
+                                onChange={(e) => handleAssignGroup(item.id, e.target.value)}
+                                className="text-[11px] px-2 py-1 rounded-lg border font-semibold bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 cursor-pointer"
+                              >
+                                <option value="NONE">Desagrupar (Suelto)</option>
+                                {menuGroups.map(g => (
+                                  <option key={g.id} value={g.id}>📁 {g.name}</option>
+                                ))}
+                              </select>
+
+                              <button
+                                type="button"
+                                onClick={() => handleMoveUpInBranch(item.id, grp.id)}
+                                disabled={itemIdx === 0}
+                                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-500 disabled:opacity-20 cursor-pointer"
+                                title="Subir en esta rama"
+                              >
+                                <MoveUp className="w-3.5 h-3.5" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleMoveDownInBranch(item.id, grp.id)}
+                                disabled={itemIdx === groupSubItems.length - 1}
+                                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-500 disabled:opacity-20 cursor-pointer"
+                                title="Bajar en esta rama"
+                              >
+                                <MoveDown className="w-3.5 h-3.5" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setEditingItem({ ...item })}
+                                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-blue-600 dark:text-blue-400 cursor-pointer"
+                                title="Editar opción"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleToggleVisibility(item.id)}
+                                className={`p-1 rounded-lg cursor-pointer ${
+                                  item.visible !== false ? 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800'
+                                }`}
+                                title={item.visible !== false ? 'Visible' : 'Oculto'}
+                              >
+                                {item.visible !== false ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                              </button>
+
+                              {item.isCustom && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteItem(item.id)}
+                                  className="p-1 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                                  title="Eliminar opción"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
                     )}
                   </div>
-                </div>
+                )}
               </div>
             );
           })}
+
+          {/* 2. RAMA DE ÍTEMS SUELTOS / NIVEL SUPERIOR (SIN GRUPO) */}
+          <div
+            onDragOver={(e) => handleDragOver(e, 'root', '__root__', undefined)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, 'root', 'NONE')}
+            className={`rounded-2xl border transition-all duration-200 ${
+              dragOverTarget?.type === 'root'
+                ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/40 ring-2 ring-blue-500/40'
+                : 'border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/40'
+            }`}
+          >
+            {/* ENCABEZADO DE RAMA SIN GRUPO */}
+            <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3 bg-white dark:bg-zinc-850 rounded-2xl border-b border-slate-100 dark:border-zinc-800/80">
+              <div className="flex items-center gap-3 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => toggleBranch('__root__')}
+                  className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-500 dark:text-zinc-400 transition cursor-pointer"
+                  title={collapsedBranches['__root__'] ? 'Expandir rama' : 'Colapsar rama'}
+                >
+                  {collapsedBranches['__root__'] ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+
+                <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 flex items-center justify-center shrink-0">
+                  <Layout className="w-4 h-4" />
+                </div>
+
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
+                      Nivel Superior
+                    </span>
+                    <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                      Opciones Sueltas (Botones Directos en Barra)
+                    </h4>
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-zinc-400">
+                    {ungroupedItems.length} {ungroupedItems.length === 1 ? 'opción directa' : 'opciones directas'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-mono font-bold text-slate-400 dark:text-zinc-500 hidden sm:inline">
+                  Arrastra aquí para desagrupar
+                </span>
+                <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-xs font-black">
+                  {ungroupedItems.length}
+                </span>
+              </div>
+            </div>
+
+            {/* SUBRAMAS SUELTAS */}
+            {!collapsedBranches['__root__'] && (
+              <div className="p-4 pt-3 pl-6 sm:pl-8 space-y-2 relative">
+                <div className="absolute left-6 sm:left-8 top-0 bottom-6 w-0.5 bg-slate-200 dark:bg-zinc-700" />
+
+                {ungroupedItems.length === 0 ? (
+                  <div 
+                    onDragOver={(e) => handleDragOver(e, 'root', '__root__', undefined)}
+                    onDrop={(e) => handleDrop(e, 'root', 'NONE')}
+                    className="py-6 px-4 border-2 border-dashed border-slate-200 dark:border-zinc-700 rounded-xl text-center text-xs text-slate-500 dark:text-zinc-400 bg-slate-50/20 dark:bg-zinc-950/10 ml-4"
+                  >
+                    No hay opciones sueltas. Todas las opciones están clasificadas dentro de grupos.
+                  </div>
+                ) : (
+                  ungroupedItems.map((item, itemIdx) => {
+                    const isDragging = draggedItemId === item.id;
+                    const isDropTarget = dragOverTarget?.type === 'item' && dragOverTarget?.id === item.id;
+
+                    return (
+                      <div
+                        key={item.id || item.key}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, item.id)}
+                        onDragOver={(e) => handleDragOver(e, 'item', item.id, undefined)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, 'item', 'NONE', item.id)}
+                        onDragEnd={handleDragEnd}
+                        className={`relative ml-4 pl-3 py-2.5 px-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all duration-150 ${
+                          isDragging 
+                            ? 'opacity-40 scale-98 border-blue-400 bg-blue-50 dark:bg-zinc-800' 
+                            : isDropTarget
+                            ? 'border-blue-500 bg-blue-50/90 dark:bg-blue-950/60 ring-2 ring-blue-500/50 shadow-md'
+                            : item.visible !== false
+                            ? 'bg-white dark:bg-zinc-850 border-slate-200 dark:border-zinc-800 hover:border-blue-300 dark:hover:border-zinc-700 shadow-xs'
+                            : 'bg-slate-100/50 dark:bg-zinc-900/40 border-dashed border-slate-300 dark:border-zinc-700 opacity-60'
+                        }`}
+                      >
+                        {/* Conector horizontal */}
+                        <div className="absolute -left-4 top-1/2 -translate-y-1/2 w-4 h-0.5 bg-slate-200 dark:bg-zinc-700" />
+
+                        {/* Left */}
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div 
+                            className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-slate-400 hover:text-blue-600 dark:text-zinc-500 dark:hover:text-blue-400 rounded-md transition"
+                            title="Arrastrar para reordenar o asignar a un grupo"
+                          >
+                            <GripVertical className="w-4 h-4" />
+                          </div>
+
+                          <span className="w-5 h-5 rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[10px] font-black flex items-center justify-center shrink-0">
+                            {itemIdx + 1}
+                          </span>
+
+                          <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                            {renderMenuIcon(item.iconName, item.key, 'w-3.5 h-3.5')}
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-xs text-slate-900 dark:text-white">
+                                {item.label}
+                              </span>
+                              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400">
+                                key: {item.key}
+                              </span>
+                              {item.badge && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                                  {item.badge}
+                                </span>
+                              )}
+                              {item.isCustom && (
+                                <span className="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 uppercase">
+                                  Personalizado
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right */}
+                        <div className="flex items-center justify-between sm:justify-end gap-1.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-zinc-800">
+                          <select
+                            value="NONE"
+                            onChange={(e) => handleAssignGroup(item.id, e.target.value)}
+                            className="text-[11px] px-2 py-1 rounded-lg border font-semibold bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 cursor-pointer"
+                          >
+                            <option value="NONE">Sin Grupo (Suelto)</option>
+                            {menuGroups.map(g => (
+                              <option key={g.id} value={g.id}>📁 Asignar a {g.name}</option>
+                            ))}
+                          </select>
+
+                          <button
+                            type="button"
+                            onClick={() => handleMoveUpInBranch(item.id, undefined)}
+                            disabled={itemIdx === 0}
+                            className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-500 disabled:opacity-20 cursor-pointer"
+                            title="Subir en esta rama"
+                          >
+                            <MoveUp className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleMoveDownInBranch(item.id, undefined)}
+                            disabled={itemIdx === ungroupedItems.length - 1}
+                            className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-500 disabled:opacity-20 cursor-pointer"
+                            title="Bajar en esta rama"
+                          >
+                            <MoveDown className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setEditingItem({ ...item })}
+                            className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-blue-600 dark:text-blue-400 cursor-pointer"
+                            title="Editar opción"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleToggleVisibility(item.id)}
+                            className={`p-1 rounded-lg cursor-pointer ${
+                              item.visible !== false ? 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800'
+                            }`}
+                            title={item.visible !== false ? 'Visible' : 'Oculto'}
+                          >
+                            {item.visible !== false ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                          </button>
+
+                          {item.isCustom && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteItem(item.id)}
+                              className="p-1 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                              title="Eliminar opción"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
 
-      {/* MODAL PARA CREAR NUEVO GRUPO */}
-      {showNewGroupModal && (
+      {/* MODAL PARA CREAR NUEVO GRUPO (SUPERADMIN ONLY) */}
+      {showNewGroupModal && isSuperadmin && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
           <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 sm:p-8 max-w-md w-full border border-slate-200 dark:border-zinc-800 shadow-2xl space-y-5">
             <div className="flex items-center justify-between">
@@ -922,7 +1431,7 @@ export default function VisualLayoutBuilder() {
                   Crear Nuevo Grupo de Menú
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-zinc-400">
-                  Aparecerá en el TopBar y al darle clic saldrán sus opciones asociadas.
+                  Aparecerá en el TopBar y al darle clic saldrán sus subramas asociadas.
                 </p>
               </div>
               <button
@@ -981,7 +1490,7 @@ export default function VisualLayoutBuilder() {
       )}
 
       {/* MODAL PARA EDITAR GRUPO */}
-      {editingGroup && (
+      {editingGroup && isSuperadmin && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
           <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 sm:p-8 max-w-md w-full border border-slate-200 dark:border-zinc-800 shadow-2xl space-y-5">
             <div className="flex items-center justify-between">
@@ -1085,7 +1594,7 @@ export default function VisualLayoutBuilder() {
 
               <div>
                 <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">
-                  Pertenece al Grupo
+                  Pertenece a la Rama / Grupo
                 </label>
                 <select
                   value={editingItem.groupId || 'NONE'}
@@ -1208,7 +1717,7 @@ export default function VisualLayoutBuilder() {
 
               <div>
                 <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">
-                  Asignar a Grupo
+                  Asignar a Rama / Grupo
                 </label>
                 <select
                   value={newItemFormData.groupId || 'NONE'}

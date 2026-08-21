@@ -1,4 +1,4 @@
-import { PlatformCustomizationSettings } from '../types';
+import { PlatformCustomizationSettings, CustomMenuItem, MenuGroup } from '../types';
 import { getSupabase } from './supabase';
 
 export const PLATFORM_SETTINGS_STORAGE_KEY = 'sri_platform_custom_settings';
@@ -518,6 +518,110 @@ export async function loadPlatformSettings(): Promise<PlatformCustomizationSetti
   }
 
   return DEFAULT_PLATFORM_SETTINGS;
+}
+
+/**
+ * Tenant Menu Settings Storage Key
+ */
+export function getTenantMenuStorageKey(tenantId: string): string {
+  const cleanId = tenantId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  return `sri_tenant_menu_settings_${cleanId}`;
+}
+
+/**
+ * Loads menu configuration specific to a tenant/company
+ */
+export async function loadTenantMenuSettings(
+  tenantId?: string,
+  baseSettings?: PlatformCustomizationSettings
+): Promise<Partial<PlatformCustomizationSettings> | null> {
+  if (!tenantId) return null;
+
+  const storageKey = getTenantMenuStorageKey(tenantId);
+  const localCached = localStorage.getItem(storageKey);
+  let tenantConfig: Partial<PlatformCustomizationSettings> | null = null;
+
+  if (localCached) {
+    try {
+      tenantConfig = JSON.parse(localCached);
+    } catch (e) {
+      console.warn('Error parsing local tenant menu settings:', e);
+    }
+  }
+
+  try {
+    const supabase = getSupabase();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('platform_settings')
+        .select('settings_json')
+        .eq('id', `tenant_menu_${tenantId}`)
+        .single();
+
+      if (!error && data && data.settings_json) {
+        tenantConfig = { ...tenantConfig, ...data.settings_json };
+        localStorage.setItem(storageKey, JSON.stringify(tenantConfig));
+      }
+    }
+  } catch (err) {
+    // Silently fallback to local cached
+  }
+
+  return tenantConfig;
+}
+
+/**
+ * Saves menu configuration specific to a tenant/company
+ */
+export async function saveTenantMenuSettings(
+  tenantId: string,
+  menuSettings: {
+    menuLayout?: 'topbar-classic' | 'sidebar-left' | 'sidebar-right' | 'compact-dock' | 'floating-island';
+    contentLayoutWidth?: 'contained-sm' | 'contained-lg' | 'full-width' | 'fluid';
+    density?: 'compact' | 'comfortable' | 'spacious';
+    customMenuItems?: CustomMenuItem[];
+    menuGroups?: MenuGroup[];
+  },
+  userEmail?: string
+): Promise<{ success: boolean; message: string }> {
+  if (!tenantId) {
+    return { success: false, message: 'Identificador de inquilino requerido' };
+  }
+
+  const storageKey = getTenantMenuStorageKey(tenantId);
+  const payload = {
+    ...menuSettings,
+    updatedAt: new Date().toISOString(),
+    updatedBy: userEmail || tenantId,
+  };
+
+  // 1. Save to LocalStorage immediately
+  localStorage.setItem(storageKey, JSON.stringify(payload));
+
+  // 2. Persist to Supabase if connected
+  try {
+    const supabase = getSupabase();
+    if (supabase) {
+      const record = {
+        id: `tenant_menu_${tenantId}`,
+        updated_at: payload.updatedAt,
+        updated_by: payload.updatedBy,
+        settings_json: payload,
+      };
+
+      const { error } = await supabase
+        .from('platform_settings')
+        .upsert(record, { onConflict: 'id' });
+
+      if (error) {
+        console.warn('Notice saving tenant platform_settings in Supabase:', error.message);
+      }
+    }
+    return { success: true, message: '¡Menú personalizado guardado para esta empresa exitosamente!' };
+  } catch (err: any) {
+    console.warn('Error saving tenant settings to Supabase:', err);
+    return { success: true, message: 'Menú personalizado guardado localmente para esta empresa.' };
+  }
 }
 
 /**

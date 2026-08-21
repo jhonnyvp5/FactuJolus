@@ -4,16 +4,22 @@ import {
   DEFAULT_PLATFORM_SETTINGS,
   loadPlatformSettings,
   savePlatformSettings,
+  loadTenantMenuSettings,
+  saveTenantMenuSettings as saveTenantMenuSettingsLib,
 } from '../lib/platformSettings';
 import { modalAlert } from './ModalAlertContext';
 
 interface PlatformSettingsContextType {
   settings: PlatformCustomizationSettings;
   updateSettings: (newSettingsOrUpdater: Partial<PlatformCustomizationSettings> | ((prev: PlatformCustomizationSettings) => Partial<PlatformCustomizationSettings> | PlatformCustomizationSettings)) => void;
-  saveSettingsToCloud: (userEmail?: string) => Promise<{ success: boolean; message: string }>;
+  saveSettingsToCloud: (userEmail?: string, tenantId?: string) => Promise<{ success: boolean; message: string }>;
+  saveTenantMenuToCloud: (tenantId: string, userEmail?: string) => Promise<{ success: boolean; message: string }>;
+  applyTenantMenuSettings: (tenantId: string) => Promise<void>;
   resetToDefaults: () => Promise<void>;
   isLoading: boolean;
   isSaving: boolean;
+  activeTenantId: string | null;
+  setActiveTenantId: (tenantId: string | null) => void;
   getLabel: (key: string, fallback: string) => string;
   themeClasses: {
     primaryBg: string;
@@ -226,6 +232,26 @@ export function PlatformSettingsProvider({ children }: { children: React.ReactNo
     settings.enableCustomColorPalette
   ]);
 
+  const [activeTenantId, setActiveTenantId] = useState<string | null>(null);
+
+  // Apply tenant menu settings when active tenant changes
+  const applyTenantMenuSettings = async (tenantId: string) => {
+    setActiveTenantId(tenantId);
+    const tenantOverrides = await loadTenantMenuSettings(tenantId);
+    if (tenantOverrides) {
+      setSettings(prev => ({
+        ...prev,
+        ...tenantOverrides,
+        customMenuItems: tenantOverrides.customMenuItems && tenantOverrides.customMenuItems.length > 0 
+          ? tenantOverrides.customMenuItems 
+          : prev.customMenuItems,
+        menuGroups: tenantOverrides.menuGroups && tenantOverrides.menuGroups.length > 0
+          ? tenantOverrides.menuGroups
+          : prev.menuGroups,
+      }));
+    }
+  };
+
   const getLabel = (key: string, fallback: string): string => {
     return settings.textOverrides?.[key] || fallback;
   };
@@ -236,13 +262,65 @@ export function PlatformSettingsProvider({ children }: { children: React.ReactNo
       const next = { ...prev, ...result };
       // Instant local persistence for live responsive UI
       localStorage.setItem('sri_platform_custom_settings', JSON.stringify(next));
+
+      // If there is an active tenant and menu settings are updated, also persist to tenant cache
+      if (activeTenantId && (result.menuLayout || result.contentLayoutWidth || result.customMenuItems || result.menuGroups)) {
+        saveTenantMenuSettingsLib(activeTenantId, {
+          menuLayout: next.menuLayout,
+          contentLayoutWidth: next.contentLayoutWidth,
+          density: next.density,
+          customMenuItems: next.customMenuItems,
+          menuGroups: next.menuGroups,
+        });
+      }
+
       return next;
     });
   };
 
-  const saveSettingsToCloud = async (userEmail?: string) => {
+  const saveTenantMenuToCloud = async (tenantId: string, userEmail?: string) => {
     setIsSaving(true);
     try {
+      const res = await saveTenantMenuSettingsLib(tenantId, {
+        menuLayout: settings.menuLayout,
+        contentLayoutWidth: settings.contentLayoutWidth,
+        density: settings.density,
+        customMenuItems: settings.customMenuItems,
+        menuGroups: settings.menuGroups,
+      }, userEmail);
+
+      if (res.success) {
+        modalAlert.success('Menú de Empresa Guardado', 'La distribución de opciones y diseño visual del menú se guardaron exclusivamente para esta empresa.');
+      } else {
+        modalAlert.warning('Aviso de Guardado', res.message);
+      }
+      return res;
+    } catch (err: any) {
+      modalAlert.error('Error al Guardar', err.message || 'No se pudo guardar la configuración del menú');
+      return { success: false, message: err.message };
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const saveSettingsToCloud = async (userEmail?: string, tenantId?: string) => {
+    setIsSaving(true);
+    try {
+      if (tenantId && tenantId !== 'GLOBAL') {
+        const tenantRes = await saveTenantMenuSettingsLib(tenantId, {
+          menuLayout: settings.menuLayout,
+          contentLayoutWidth: settings.contentLayoutWidth,
+          density: settings.density,
+          customMenuItems: settings.customMenuItems,
+          menuGroups: settings.menuGroups,
+        }, userEmail);
+
+        if (tenantRes.success) {
+          modalAlert.success('Menú de Empresa Guardado', 'Los cambios en la arquitectura visual del menú se aplicaron exclusivamente para este inquilino.');
+        }
+        return tenantRes;
+      }
+
       const res = await savePlatformSettings(settings, userEmail);
       if (res.success) {
         modalAlert.success('Diseño y Configuración Guardados', 'Los cambios en colores, logotipos, banners, noticias, planes y componentes se han aplicado y sincronizado exitosamente.');
@@ -283,9 +361,13 @@ export function PlatformSettingsProvider({ children }: { children: React.ReactNo
         settings,
         updateSettings,
         saveSettingsToCloud,
+        saveTenantMenuToCloud,
+        applyTenantMenuSettings,
         resetToDefaults,
         isLoading,
         isSaving,
+        activeTenantId,
+        setActiveTenantId,
         getLabel,
         themeClasses: selectedTheme,
       }}
