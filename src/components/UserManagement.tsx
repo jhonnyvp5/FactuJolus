@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Users, UserPlus, Trash2, Key, Check, ShieldCheck, Mail, Clipboard, AlertCircle, FileText, History, RefreshCw, User, Lock, Unlock, Settings, Package, ArrowLeftRight, Plus, GripVertical, ArrowRight, ArrowLeft, Sliders, CheckSquare, Building2, Search, Filter } from 'lucide-react';
+import { Users, UserPlus, Trash2, Key, Check, ShieldCheck, Mail, Clipboard, AlertCircle, FileText, History, RefreshCw, User, Lock, Unlock, Settings, Package, ArrowLeftRight, Plus, GripVertical, ArrowRight, ArrowLeft, Sliders, CheckSquare, Building2, Search, Filter, Palette } from 'lucide-react';
 import { PortalUser, Invitation, UserRole, ActivityLog, EmpresaTenant } from '../types';
 import { getLogs, logActivity } from '../lib/activityLogger';
 import { modalAlert } from '../context/ModalAlertContext';
@@ -869,7 +869,8 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
               { id: 'products', name: 'Catálogo de Productos', desc: 'Permite registrar nuevos ítems de ventas, modificar precios de lista, configurar códigos auxiliares e IVA personalizado.', icon: Package, colorClass: 'text-sky-600 bg-sky-50/70 dark:bg-sky-950/20' },
               { id: 'clients', name: 'Directorio de Clientes', desc: 'Gestión completa de clientes, actualización de RUC/Cédula, correos de envío de comprobantes y direcciones.', icon: Users, colorClass: 'text-teal-600 bg-teal-50/70 dark:bg-teal-950/20' },
               { id: 'profile', name: 'Mi Perfil de Sucursal', desc: 'Edición de nombre comercial, dirección matriz, dirección de la sucursal, logotipo e información de contacto.', icon: User, colorClass: 'text-purple-600 bg-purple-50/70 dark:bg-purple-950/20' },
-              { id: 'settings', name: 'Llave Digital y Token SRI', desc: 'Acceso crítico para subir la firma digital .p12, cambiar la contraseña de resguardo y alternar los ambientes de prueba/producción.', icon: Settings, colorClass: 'text-rose-600 bg-rose-50/70 dark:bg-rose-950/20' }
+              { id: 'settings', name: 'Llave Digital y Token SRI', desc: 'Acceso crítico para subir la firma digital .p12, cambiar la contraseña de resguardo y alternar los ambientes de prueba/producción.', icon: Settings, colorClass: 'text-rose-600 bg-rose-50/70 dark:bg-rose-950/20' },
+              { id: 'customizer', name: 'Diseño & Organizador de Menú', desc: 'Permite personalizar la estructura visual, ordenar ramas y subramas de opciones con arrastrar y soltar (Drag & Drop) para la empresa.', icon: Palette, colorClass: 'text-blue-600 bg-blue-50/70 dark:bg-blue-950/20' }
             ];
 
             const handleMoveBlock = (tabId: string, action: 'allow' | 'restrict') => {

@@ -19,15 +19,19 @@ async function startServer() {
   // Mount API router & routes from shared module
   app.use(expressApp);
 
-  // Determine production mode: either explicit NODE_ENV or presence of built dist/index.html
+  // Determine production mode: only production if NODE_ENV is explicitly production
   const distPath = path.join(process.cwd(), 'dist');
   const indexPath = path.join(distPath, 'index.html');
-  const isProduction = process.env.NODE_ENV === 'production' || fs.existsSync(indexPath);
+  const isProduction = process.env.NODE_ENV === 'production';
 
   if (!isProduction) {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { 
+        middlewareMode: true,
+        host: '0.0.0.0',
+        port: PORT
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);

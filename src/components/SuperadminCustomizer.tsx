@@ -64,11 +64,16 @@ export default function SuperadminCustomizer({
   currentUserRole,
   currentEmpresa
 }: SuperadminCustomizerProps) {
-  const { settings, updateSettings, saveSettingsToCloud, resetToDefaults, isSaving, themeClasses } = usePlatformSettings();
+  const { settings, updateSettings, saveSettingsToCloud, saveTenantMenuToCloud, resetToDefaults, isSaving, themeClasses } = usePlatformSettings();
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('layout');
   const [isExporting, setIsExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const slideImageInputRef = useRef<HTMLInputElement>(null);
+
+  const userRole = (currentUserRole || currentUser?.role || '').toUpperCase();
+  const isSuperadmin = userRole === 'SUPERADMIN' || currentUserEmail?.toLowerCase() === 'jhonnyvp5@gmail.com';
+  const tenantKey = currentEmpresa?.ruc || currentUser?.empresaRuc;
+  const tenantDisplayName = currentEmpresa?.nombreComercial || currentEmpresa?.razonSocial || currentUser?.empresaNombre || tenantKey || 'Empresa';
 
   // Temporary slide creation/editing state
   const [editingSlideId, setEditingSlideId] = useState<string | null>(null);
@@ -352,7 +357,7 @@ export default function SuperadminCustomizer({
   return (
     <div className="space-y-6 animate-fade-in">
       
-      {/* SUPERADMIN TOP HERO HEADER */}
+      {/* TOP HERO HEADER */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-5 sm:p-7 shadow-xl border border-indigo-900/50 relative overflow-hidden">
         {/* Glow / Ambient background */}
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -361,26 +366,45 @@ export default function SuperadminCustomizer({
         <div className="relative z-10 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
           <div className="space-y-2 max-w-3xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-bold uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>SUPERADMIN MASTER CONTROL</span>
+              {isSuperadmin ? (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>SUPERADMIN MASTER CONTROL</span>
+                </>
+              ) : (
+                <>
+                  <Building2 className="w-3.5 h-3.5 text-blue-400" />
+                  <span>PERSONALIZACIÓN DE EMPRESA • {tenantDisplayName}</span>
+                </>
+              )}
             </div>
             <h2 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-white">
-              Personalización & Marca de la Plataforma
+              {isSuperadmin 
+                ? 'Personalización & Marca de la Plataforma' 
+                : `Personalización & Menús de ${tenantDisplayName}`}
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Personaliza el diseño global, paleta de colores, logotipo, banners de anuncios, carrusel de bienvenida, noticias del SRI, planes de suscripción y menús de la plataforma.
+              {isSuperadmin
+                ? 'Personaliza el diseño global, paleta de colores, logotipo, banners de anuncios, carrusel de bienvenida, noticias del SRI, planes de suscripción y menús de la plataforma.'
+                : 'Organiza la estructura de navegación de tu empresa, distribuye las opciones en el Organizador en Modo Ramas Jerárquico con Arrastrar y Soltar (Drag & Drop), y personaliza la apariencia visual.'}
             </p>
           </div>
 
           {/* MASTER ACTIONS - FULLY VISIBLE & RESPONSIVE */}
           <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 pt-2 xl:pt-0">
             <button
-              onClick={() => saveSettingsToCloud(currentUserEmail)}
+              onClick={() => {
+                if (tenantKey && !isSuperadmin) {
+                  saveTenantMenuToCloud(tenantKey, currentUserEmail || currentUser?.correo);
+                } else {
+                  saveSettingsToCloud(currentUserEmail);
+                }
+              }}
               disabled={isSaving}
               className="px-4 py-2.5 sm:px-5 sm:py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-emerald-900/30 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95 shrink-0"
             >
               <Save className="w-4 h-4 shrink-0" />
-              <span>{isSaving ? 'Guardando...' : 'Guardar y Aplicar'}</span>
+              <span>{isSaving ? 'Guardando...' : (isSuperadmin ? 'Guardar y Aplicar' : 'Guardar Menú de Empresa')}</span>
             </button>
 
             <button

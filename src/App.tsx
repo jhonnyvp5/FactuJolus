@@ -86,7 +86,7 @@ const SEED_PRODUCTS: Product[] = [
 ];
 
 export default function App() {
-  const { settings, themeClasses } = usePlatformSettings();
+  const { settings, themeClasses, applyTenantMenuSettings } = usePlatformSettings();
 
   // Navigation tabs 'history' | 'new-invoice' | 'new-nc' | 'retentions' | 'products' | 'profile' | 'settings' | 'users' | 'proformas' | 'clients' | 'tenants' | 'supabase' | 'customizer'
   const [activeTab, setActiveTab ] = useState<'history' | 'new-invoice' | 'new-nc' | 'retentions' | 'products' | 'profile' | 'settings' | 'users' | 'proformas' | 'clients' | 'tenants' | 'supabase' | 'customizer'>('history');
@@ -398,6 +398,10 @@ export default function App() {
 
       const activeEmpresaRuc = emp?.ruc || currentUser?.empresaRuc;
       const activeEmpresaNombre = emp?.nombreComercial || emp?.razonSocial || currentUser?.empresaNombre;
+
+      if (activeEmpresaRuc) {
+        applyTenantMenuSettings(activeEmpresaRuc);
+      }
 
       // 1. Clients
       const dbClients = await fetchClientsFromSupabase(currentUser?.correo, currentUser?.role, activeEmpresaRuc);

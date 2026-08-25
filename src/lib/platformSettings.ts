@@ -40,7 +40,7 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformCustomizationSettings = {
     { id: 'menu-settings', key: 'settings', label: 'Configuración', iconName: 'Settings', visible: true, order: 9, requiredRole: 'ALL' },
     { id: 'menu-users', key: 'users', label: 'Usuarios', iconName: 'ShieldCheck', visible: true, order: 10, requiredRole: 'ADMIN', groupId: 'group-admin' },
     { id: 'menu-tenants', key: 'tenants', label: 'Empresas', iconName: 'Building2', visible: true, order: 11, requiredRole: 'SUPERADMIN', groupId: 'group-admin' },
-    { id: 'menu-customizer', key: 'customizer', label: 'Diseño & Plataforma', iconName: 'Palette', visible: true, order: 12, requiredRole: 'SUPERADMIN', groupId: 'group-admin' },
+    { id: 'menu-customizer', key: 'customizer', label: 'Diseño & Menús', iconName: 'Palette', visible: true, order: 12, requiredRole: 'ALL', groupId: 'group-admin' },
     { id: 'menu-supabase', key: 'supabase', label: 'Supabase', iconName: 'Database', visible: true, order: 13, requiredRole: 'SUPERADMIN', groupId: 'group-admin' },
   ],
 

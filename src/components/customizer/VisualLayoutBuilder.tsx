@@ -948,13 +948,18 @@ export default function VisualLayoutBuilder({
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-wider mb-1">
               <GitBranch className="w-3.5 h-3.5" />
               <span>MODO RAMAS & ARRASTRAR Y SOLTAR</span>
+              {tenantKey && (
+                <span className="text-[10px] font-black px-1.5 py-0.2 rounded-sm bg-blue-200 dark:bg-blue-900 text-blue-800 dark:text-blue-200 ml-1">
+                  INQUILINO: {tenantDisplayName}
+                </span>
+              )}
             </div>
             <h3 className="text-xl font-black text-slate-900 dark:text-white">
-              Organizador y Distribución de Ítems del Menú
+              Organizador en Modo Ramas Jerárquico con Arrastrar y Soltar (Drag & Drop)
             </h3>
             <p className="text-xs text-slate-500 dark:text-zinc-400">
-              Visualiza el menú en estructura de ramas (Rama principal = Grupo, Subramas = Opciones). 
-              Arrastra y suelta cualquier opción para reordenarla o moverla entre grupos fácilmente.
+              Estructura en árbol interactivo (Rama principal = Grupo, Subramas = Ítems de navegación). 
+              Arrastra y suelta cualquier opción para reordenar secuencialmente o trasladarla entre ramas y carpetas para tu empresa.
             </p>
           </div>
 

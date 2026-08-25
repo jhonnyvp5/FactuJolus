@@ -147,13 +147,22 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
     .filter(item => {
       if (item.visible === false) return false;
 
+      // Allow 'customizer' for tenants and inquilinos to customize their menu layout and hierarchy
+      if (item.key === 'customizer') {
+        if (!isAdmin && userPermissions && userPermissions.length > 0 && !userPermissions.includes('customizer')) {
+          // If explicitly restricted in user permissions for simple USER role
+          return false;
+        }
+        return true;
+      }
+
       // Role check
       if (item.requiredRole === 'SUPERADMIN' && !isSuperadmin) return false;
       if (item.requiredRole === 'ADMIN' && !isAdmin) return false;
 
       // Regular user permissions check
       if (!isAdmin && item.requiredRole === 'ALL') {
-        const allowedKeys = ['history', 'new-invoice', 'new-nc', 'retenciones', 'proformas', 'products', 'clients', 'profile', 'settings'];
+        const allowedKeys = ['history', 'new-invoice', 'new-nc', 'retenciones', 'proformas', 'products', 'clients', 'profile', 'settings', 'customizer'];
         if (allowedKeys.includes(item.key) && !userPermissions.includes(item.key)) {
           return false;
         }
