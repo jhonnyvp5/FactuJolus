@@ -21,6 +21,8 @@ export interface EmitterConfig {
   p12Password?: string;
   p12ValidoDesde?: string; // Fecha ISO de inicio de vigencia del certificado
   p12ValidoHasta?: string; // Fecha ISO de expiración del certificado
+  validoDesde?: string;    // Alias para vigencia inicio
+  validoHasta?: string;    // Alias para vigencia fin
   p12Subject?: string;     // Titular / Propietario del certificado
   p12Issuer?: string;      // Entidad emisora certificada
   p12SerialNumber?: string;// Número de serie del certificado digital

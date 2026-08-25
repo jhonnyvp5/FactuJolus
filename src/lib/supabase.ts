@@ -158,6 +158,13 @@ CREATE TABLE IF NOT EXISTS public.emisor_config (
     p12_nombre TEXT,
     p12_firma_b64 TEXT,
     p12_password TEXT,
+    p12_valido_desde TEXT,
+    p12_valido_hasta TEXT,
+    valido_desde TEXT,
+    valido_hasta TEXT,
+    p12_subject TEXT,
+    p12_issuer TEXT,
+    p12_serial_number TEXT,
     correo TEXT,
     telefono TEXT,
     smtp_host TEXT,
@@ -179,6 +186,13 @@ ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_user TEXT;
 ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_pass TEXT;
 ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_from TEXT;
 ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS is_demo_mode BOOLEAN DEFAULT true;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS p12_valido_desde TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS p12_valido_hasta TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS valido_desde TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS valido_hasta TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS p12_subject TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS p12_issuer TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS p12_serial_number TEXT;
 
 -- 5. TABLA DE FACTURAS
 CREATE TABLE IF NOT EXISTS public.facturas (
@@ -926,8 +940,10 @@ export async function fetchEmitterConfigFromSupabase(ruc?: string, userEmail?: s
       p12Nombre: data.p12_nombre || '',
       p12FirmaB64: data.p12_firma_b64 || '',
       p12Password: data.p12_password || data.clave_firma || '',
-      p12ValidoDesde: data.p12_valido_desde || data.p12ValidoDesde || '',
-      p12ValidoHasta: data.p12_valido_hasta || data.p12ValidoHasta || '',
+      p12ValidoDesde: data.p12_valido_desde || data.valido_desde || data.p12ValidoDesde || '',
+      p12ValidoHasta: data.p12_valido_hasta || data.valido_hasta || data.p12ValidoHasta || '',
+      validoDesde: data.p12_valido_desde || data.valido_desde || data.p12ValidoDesde || '',
+      validoHasta: data.p12_valido_hasta || data.valido_hasta || data.p12ValidoHasta || '',
       p12Subject: data.p12_subject || data.p12Subject || '',
       p12Issuer: data.p12_issuer || data.p12Issuer || '',
       p12SerialNumber: data.p12_serial_number || data.p12SerialNumber || '',
@@ -980,8 +996,10 @@ export async function saveEmitterConfigToSupabase(config: EmitterConfig, userEma
     p12_nombre: config.p12Nombre || '',
     p12_firma_b64: config.p12FirmaB64 || '',
     p12_password: config.p12Password !== undefined ? config.p12Password : '',
-    p12_valido_desde: config.p12ValidoDesde || '',
-    p12_valido_hasta: config.p12ValidoHasta || '',
+    p12_valido_desde: config.p12ValidoDesde || config.validoDesde || '',
+    p12_valido_hasta: config.p12ValidoHasta || config.validoHasta || '',
+    valido_desde: config.p12ValidoDesde || config.validoDesde || '',
+    valido_hasta: config.p12ValidoHasta || config.validoHasta || '',
     p12_subject: config.p12Subject || '',
     p12_issuer: config.p12Issuer || '',
     p12_serial_number: config.p12SerialNumber || '',

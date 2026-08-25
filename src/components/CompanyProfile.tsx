@@ -302,6 +302,46 @@ export default function CompanyProfile({
   const isExpired = diasRestantes <= 0;
   const estadoPlan = isExpired ? 'VENCIDO' : (empresaTenant?.estado || 'ACTIVO');
 
+  // --------------------------------------------------------------------------
+  // CÁLCULO DE VIGENCIA DE LA FIRMA ELECTRÓNICA Y DÍAS RESTANTES
+  // --------------------------------------------------------------------------
+  const sigValidoDesde = config.p12ValidoDesde || config.validoDesde || '';
+  const sigValidoHasta = config.p12ValidoHasta || config.validoHasta || '';
+  const hasSignature = Boolean(config.p12FirmaB64 || sigValidoHasta);
+
+  let sigDaysRemaining: number | null = null;
+  let sigPercentRemaining: number = 0;
+  let sigIsExpired = false;
+  let sigIsExpiringSoon = false;
+  let sigFromDateFormatted = '';
+  let sigToDateFormatted = '';
+
+  if (sigValidoHasta) {
+    try {
+      const toDate = new Date(sigValidoHasta);
+      const fromDate = sigValidoDesde 
+        ? new Date(sigValidoDesde) 
+        : new Date(toDate.getTime() - 365 * 24 * 60 * 60 * 1000);
+      const now = new Date();
+
+      if (!isNaN(toDate.getTime())) {
+        const totalMs = Math.max(1, toDate.getTime() - fromDate.getTime());
+        const remainingMs = toDate.getTime() - now.getTime();
+        sigDaysRemaining = Math.ceil(remainingMs / (1000 * 60 * 60 * 24));
+        sigPercentRemaining = Math.max(0, Math.min(100, Math.round((remainingMs / totalMs) * 100)));
+        sigIsExpired = sigDaysRemaining <= 0;
+        sigIsExpiringSoon = sigDaysRemaining > 0 && sigDaysRemaining <= 30;
+
+        sigFromDateFormatted = !isNaN(fromDate.getTime())
+          ? fromDate.toLocaleDateString('es-EC', { year: 'numeric', month: '2-digit', day: '2-digit' })
+          : sigValidoDesde;
+        sigToDateFormatted = toDate.toLocaleDateString('es-EC', { year: 'numeric', month: '2-digit', day: '2-digit' });
+      }
+    } catch (e) {
+      console.warn('Aviso calculando días restantes de firma en perfil:', e);
+    }
+  }
+
   // Company Names: Commercial Name has absolute priority from Configuración del Emisor
   const displayNombreComercial = config.nombreComercial || empresaTenant?.nombreComercial || currentUser?.empresaNombre || config.razonSocial || empresaTenant?.razonSocial || 'EMPRESA INQUILINO';
   const displayRazonSocial = config.razonSocial || empresaTenant?.razonSocial || 'Razón Social No Especificada';
@@ -867,10 +907,181 @@ export default function CompanyProfile({
                 {/* Firma Electrónica */}
                 <div className="bg-gray-50/50 dark:bg-zinc-950/10 p-3 rounded-xl border border-gray-200/60 dark:border-zinc-800">
                   <span className="text-gray-400 block font-semibold text-[10px] uppercase">Firma Digital P12 / Token</span>
-                  <span className={`font-semibold text-xs truncate block ${config.p12FirmaB64 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`} title={config.p12Nombre}>
-                    {config.p12FirmaB64 ? (config.p12Nombre ? `✓ ${config.p12Nombre}` : '✓ Certificado P12 Cargado') : '⚠️ Firma no cargada'}
+                  <span className={`font-semibold text-xs truncate block ${
+                    sigIsExpired 
+                      ? 'text-rose-600 dark:text-rose-400 font-bold' 
+                      : sigIsExpiringSoon 
+                      ? 'text-amber-600 dark:text-amber-400 font-bold'
+                      : config.p12FirmaB64 || sigValidoHasta
+                      ? 'text-emerald-600 dark:text-emerald-400' 
+                      : 'text-amber-600 dark:text-amber-400'
+                  }`} title={config.p12Nombre || sigValidoHasta}>
+                    {sigDaysRemaining !== null ? (
+                      sigIsExpired 
+                        ? `⚠️ Expirada (0 días)` 
+                        : `✓ ${sigDaysRemaining} días restantes`
+                    ) : config.p12FirmaB64 ? (
+                      config.p12Nombre ? `✓ ${config.p12Nombre}` : '✓ Certificado P12'
+                    ) : (
+                      '⚠️ Firma no cargada'
+                    )}
                   </span>
                 </div>
+              </div>
+
+              {/* TARJETA MAESTRA & BARRA DE ESTADO DE VIGENCIA DE FIRMA ELECTRÓNICA */}
+              <div className={`p-4 sm:p-5 rounded-2xl border transition-all ${
+                sigIsExpired 
+                  ? 'bg-rose-50/70 border-rose-200 dark:bg-rose-950/30 dark:border-rose-900/50' 
+                  : sigIsExpiringSoon 
+                  ? 'bg-amber-50/70 border-amber-200 dark:bg-amber-950/30 dark:border-amber-900/50'
+                  : sigDaysRemaining !== null 
+                  ? 'bg-emerald-50/60 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-900/50'
+                  : 'bg-slate-50 border-slate-200 dark:bg-zinc-800/60 dark:border-zinc-700'
+              }`}>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-gray-200/70 dark:border-zinc-700/60">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-2 rounded-xl text-white shrink-0 ${
+                      sigIsExpired 
+                        ? 'bg-rose-600' 
+                        : sigIsExpiringSoon 
+                        ? 'bg-amber-500' 
+                        : sigDaysRemaining !== null 
+                        ? 'bg-emerald-600' 
+                        : 'bg-slate-600'
+                    }`}>
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                        Vigencia del Certificado de Firma Electrónica (.p12)
+                      </h4>
+                      <p className="text-xs text-gray-500 dark:text-zinc-400">
+                        {config.p12Nombre || 'Certificado digital para emisión de comprobantes SRI'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* ETIQUETA / BADGE DE ESTADO */}
+                  <div>
+                    {sigIsExpired ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-800 shadow-xs">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        Firma Expirada / Vencida
+                      </span>
+                    ) : sigIsExpiringSoon ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-800 shadow-xs">
+                        <Clock className="w-3.5 h-3.5" />
+                        Próxima a Vencer ({sigDaysRemaining} días)
+                      </span>
+                    ) : sigDaysRemaining !== null ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-200 dark:border-emerald-800 shadow-xs">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Firma Activa y Vigente
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-zinc-100 text-zinc-700 border border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        Pendiente de Verificación
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* MÉTRICA PRINCIPAL Y CONTADOR DE DÍAS RESTANTES */}
+                <div className="pt-3.5 pb-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-2">
+                    <span className="text-xs font-bold text-gray-700 dark:text-zinc-300 flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                      Tiempo Restante de Firma:
+                    </span>
+                    <span className={`text-sm font-black font-mono ${
+                      sigIsExpired 
+                        ? 'text-rose-600 dark:text-rose-400' 
+                        : sigIsExpiringSoon 
+                        ? 'text-amber-600 dark:text-amber-400' 
+                        : 'text-emerald-600 dark:text-emerald-400'
+                    }`}>
+                      {sigDaysRemaining !== null ? (
+                        sigIsExpired 
+                          ? `Expiró hace ${Math.abs(sigDaysRemaining)} ${Math.abs(sigDaysRemaining) === 1 ? 'día' : 'días'}` 
+                          : `${sigDaysRemaining} ${sigDaysRemaining === 1 ? 'día restante' : 'días restantes'} (~${Math.max(1, Math.round(sigDaysRemaining / 30))} meses)`
+                      ) : (
+                        'Fechas no verificadas'
+                      )}
+                    </span>
+                  </div>
+
+                  {/* BARRA DE ESTADO (PROGRESS / STATUS BAR) */}
+                  <div className="w-full bg-gray-200 dark:bg-zinc-700 h-3 rounded-full overflow-hidden p-0.5 border border-gray-300/60 dark:border-zinc-600">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        sigIsExpired 
+                          ? 'bg-rose-500' 
+                          : sigIsExpiringSoon 
+                          ? 'bg-amber-500' 
+                          : sigDaysRemaining !== null
+                          ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
+                          : 'bg-gray-400 dark:bg-zinc-500'
+                      }`}
+                      style={{ width: sigDaysRemaining !== null ? `${sigPercentRemaining}%` : '0%' }}
+                    />
+                  </div>
+
+                  {/* SUB-TEXTOS DE LA BARRA DE ESTADO */}
+                  <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-zinc-400 mt-1 font-mono">
+                    <span>Inicio: {sigFromDateFormatted || 'No registrado'}</span>
+                    <span className="font-semibold text-gray-700 dark:text-zinc-300">
+                      {sigDaysRemaining !== null ? `${sigPercentRemaining}% vigencia disponible` : 'Sin verificar'}
+                    </span>
+                    <span>Vence: {sigToDateFormatted || 'No registrado'}</span>
+                  </div>
+                </div>
+
+                {/* DETALLES ESPECÍFICOS DE VÁLIDO DESDE Y VÁLIDO HASTA */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-3 mt-2 border-t border-gray-200/60 dark:border-zinc-700/60 text-xs">
+                  <div className="bg-white/80 dark:bg-zinc-900/80 p-2.5 rounded-xl border border-gray-200/70 dark:border-zinc-800">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block">Válido Desde</span>
+                    <span className="font-mono font-bold text-gray-900 dark:text-gray-100">
+                      {sigFromDateFormatted || sigValidoDesde || 'Sin fecha'}
+                    </span>
+                  </div>
+
+                  <div className="bg-white/80 dark:bg-zinc-900/80 p-2.5 rounded-xl border border-gray-200/70 dark:border-zinc-800">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block">Válido Hasta</span>
+                    <span className={`font-mono font-bold ${sigIsExpired ? 'text-rose-600 dark:text-rose-400' : 'text-gray-900 dark:text-gray-100'}`}>
+                      {sigToDateFormatted || sigValidoHasta || 'Sin fecha'}
+                    </span>
+                  </div>
+
+                  <div className="bg-white/80 dark:bg-zinc-900/80 p-2.5 rounded-xl border border-gray-200/70 dark:border-zinc-800">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block">Titular / Sujeto</span>
+                    <span className="font-semibold text-gray-800 dark:text-zinc-200 truncate block" title={config.p12Subject || displayRazonSocial}>
+                      {config.p12Subject || displayRazonSocial}
+                    </span>
+                  </div>
+
+                  <div className="bg-white/80 dark:bg-zinc-900/80 p-2.5 rounded-xl border border-gray-200/70 dark:border-zinc-800">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block">Entidad Certificadora</span>
+                    <span className="font-semibold text-gray-800 dark:text-zinc-200 truncate block" title={config.p12Issuer || 'SRI / Entidad Autorizada'}>
+                      {config.p12Issuer || 'SRI / Entidad Autorizada'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* BOTÓN RÁPIDO PARA IR A CONFIGURACIÓN SI SE REQUIERE ACTUALIZAR */}
+                {onNavigateToSettings && (
+                  <div className="pt-3 mt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={onNavigateToSettings}
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 inline-flex items-center gap-1 hover:underline cursor-pointer"
+                    >
+                      <Settings className="w-3.5 h-3.5" />
+                      Gestionar o verificar firma en Configuración →
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Botón de Previsualización RIDE */}

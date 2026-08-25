@@ -62,6 +62,8 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
   const [password, setPassword] = useState(config.p12Password || '');
   const [signatureB64, setSignatureB64] = useState(config.p12FirmaB64 || '');
   const [signatureName, setSignatureName] = useState(config.p12Nombre || '');
+  const [validoDesde, setValidoDesde] = useState(config.p12ValidoDesde || config.validoDesde || '');
+  const [validoHasta, setValidoHasta] = useState(config.p12ValidoHasta || config.validoHasta || '');
   
   // Checking & Saving indicators
   const [isLoadingSig, setIsLoadingSig] = useState(false);
@@ -103,6 +105,8 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
     setPassword(config.p12Password || '');
     setSignatureB64(config.p12FirmaB64 || '');
     setSignatureName(config.p12Nombre || '');
+    setValidoDesde(config.p12ValidoDesde || config.validoDesde || '');
+    setValidoHasta(config.p12ValidoHasta || config.validoHasta || '');
     setSigDetails(null);
     setSigError(null);
   }, [configKeyStr]);
@@ -122,6 +126,8 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
     setPassword('');
     setSignatureB64('');
     setSignatureName('');
+    setValidoDesde('');
+    setValidoHasta('');
     setSigDetails(null);
     setSigError(null);
   };
@@ -176,6 +182,8 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
       if (result.status === 'success' && result.info) {
         const info = result.info;
         setSigDetails(info);
+        if (info.validFrom) setValidoDesde(info.validFrom);
+        if (info.validTo) setValidoHasta(info.validTo);
 
         // Immediate update to configuration and database
         const updatedConfig: EmitterConfig = {
@@ -196,8 +204,10 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
           p12Nombre: signatureName,
           p12FirmaB64: signatureB64,
           p12Password: password,
-          p12ValidoDesde: info.validFrom,
-          p12ValidoHasta: info.validTo,
+          p12ValidoDesde: info.validFrom || validoDesde,
+          p12ValidoHasta: info.validTo || validoHasta,
+          validoDesde: info.validFrom || validoDesde,
+          validoHasta: info.validTo || validoHasta,
           p12Subject: info.subject,
           p12Issuer: info.issuer,
           p12SerialNumber: info.serialNumber,
@@ -299,8 +309,10 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
       p12Nombre: signatureName,
       p12FirmaB64: signatureB64,
       p12Password: password,
-      p12ValidoDesde: sigDetails?.validFrom || config.p12ValidoDesde,
-      p12ValidoHasta: sigDetails?.validTo || config.p12ValidoHasta,
+      p12ValidoDesde: validoDesde || sigDetails?.validFrom || config.p12ValidoDesde || config.validoDesde || '',
+      p12ValidoHasta: validoHasta || sigDetails?.validTo || config.p12ValidoHasta || config.validoHasta || '',
+      validoDesde: validoDesde || sigDetails?.validFrom || config.p12ValidoDesde || config.validoDesde || '',
+      validoHasta: validoHasta || sigDetails?.validTo || config.p12ValidoHasta || config.validoHasta || '',
       p12Subject: sigDetails?.subject || config.p12Subject,
       p12Issuer: sigDetails?.issuer || config.p12Issuer,
       p12SerialNumber: sigDetails?.serialNumber || config.p12SerialNumber,
@@ -774,6 +786,45 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             </div>
           </div>
 
+          {/* CAMPOS DE VIGENCIA DE LA FIRMA ELECTRÓNICA: VÁLIDO DESDE Y VÁLIDO HASTA */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-100 dark:border-zinc-800">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                Válido desde
+              </label>
+              <input
+                type="text"
+                disabled={!isEditingForm}
+                value={validoDesde}
+                onChange={(e) => setValidoDesde(e.target.value)}
+                placeholder="AAAA-MM-DD (Se autocompleta al verificar firma)"
+                className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-zinc-800/70"
+              />
+              <span className="text-[11px] text-gray-400 dark:text-zinc-500 mt-1 block">
+                Fecha inicial de emisión del certificado digital (.p12)
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                Válido hasta
+              </label>
+              <input
+                type="text"
+                disabled={!isEditingForm}
+                value={validoHasta}
+                onChange={(e) => setValidoHasta(e.target.value)}
+                placeholder="AAAA-MM-DD (Se autocompleta al verificar firma)"
+                className="w-full px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-100 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-zinc-800/70"
+              />
+              <span className="text-[11px] text-gray-400 dark:text-zinc-500 mt-1 block">
+                Fecha final de expiración o caducidad del certificado digital (.p12)
+              </span>
+            </div>
+          </div>
+
           {sigError && (
             <div className="bg-red-50 text-red-700 p-4 rounded-xl border border-red-100 text-sm flex gap-2 items-center dark:bg-red-950/20 dark:border-red-900/30">
               <AlertCircle className="w-5 h-5 flex-shrink-0" />
@@ -783,8 +834,8 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
 
           {/* TARJETA DE VIGENCIA DE LA FIRMA ELECTRÓNICA */}
           {(() => {
-            const activeValidFrom = sigDetails?.validFrom || config.p12ValidoDesde;
-            const activeValidTo = sigDetails?.validTo || config.p12ValidoHasta;
+            const activeValidFrom = validoDesde || sigDetails?.validFrom || config.p12ValidoDesde || config.validoDesde;
+            const activeValidTo = validoHasta || sigDetails?.validTo || config.p12ValidoHasta || config.validoHasta;
             const activeSubject = sigDetails?.subject || config.p12Subject;
             const activeIssuer = sigDetails?.issuer || config.p12Issuer;
             const activeSerialNumber = sigDetails?.serialNumber || config.p12SerialNumber;
