@@ -848,20 +848,16 @@ export default function VisualLayoutBuilder({
         </div>
       </div>
 
-      {/* 2. SECCIÓN: GESTIÓN DE GRUPOS DE MENÚ (AGRUPADOR MAESTRO - EXCLUSIVO SUPERADMIN) */}
+      {/* 2. SECCIÓN: GESTIÓN DE GRUPOS DE MENÚ (AGRUPADOR DE ÍTEMS) */}
       <div className="bg-white dark:bg-zinc-850 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-zinc-800">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 text-xs font-bold uppercase tracking-wider mb-1">
               <Folder className="w-3.5 h-3.5" />
               <span>GRUPOS Y MENÚS DESPLEGABLES</span>
-              {isSuperadmin ? (
-                <span className="text-[10px] font-black px-1.5 py-0.2 rounded-sm bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200 ml-1">
-                  SUPERADMIN
-                </span>
-              ) : (
-                <span className="text-[10px] font-black px-1.5 py-0.2 rounded-sm bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 ml-1 flex items-center gap-1">
-                  <Lock className="w-2.5 h-2.5" /> GLOBAL
+              {tenantKey && (
+                <span className="text-[10px] font-black px-1.5 py-0.2 rounded-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 ml-1">
+                  {tenantKey}
                 </span>
               )}
             </div>
@@ -869,27 +865,18 @@ export default function VisualLayoutBuilder({
               Agrupador de Ítems del Menú
             </h3>
             <p className="text-xs text-slate-500 dark:text-zinc-400">
-              {isSuperadmin 
-                ? 'Como SUPERADMIN, puedes crear, editar o eliminar carpetas y grupos globales del sistema.' 
-                : 'Grupos globales administrados por el SUPERADMIN. Puedes distribuir y ordenar tus ítems en estas ramas a continuación.'}
+              Crea carpetas y categorías para organizar las opciones en menús desplegables. Cada inquilino puede configurar sus propios grupos y ramas.
             </p>
           </div>
 
-          {isSuperadmin ? (
-            <button
-              type="button"
-              onClick={() => setShowNewGroupModal(true)}
-              className="px-4 py-2.5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-md shadow-purple-500/20 flex items-center gap-2 cursor-pointer transition active:scale-95 shrink-0"
-            >
-              <FolderPlus className="w-4 h-4" />
-              <span>Crear Nuevo Grupo</span>
-            </button>
-          ) : (
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 text-xs font-bold">
-              <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
-              <span>Gestionado por SUPERADMIN</span>
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={() => setShowNewGroupModal(true)}
+            className="px-4 py-2.5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-md shadow-purple-500/20 flex items-center gap-2 cursor-pointer transition active:scale-95 shrink-0"
+          >
+            <FolderPlus className="w-4 h-4" />
+            <span>Crear Nuevo Grupo</span>
+          </button>
         </div>
 
         {/* LISTA DE GRUPOS */}
@@ -915,26 +902,24 @@ export default function VisualLayoutBuilder({
                   </div>
                 </div>
 
-                {isSuperadmin && (
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setEditingGroup({ ...grp })}
-                      className="p-1.5 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 text-blue-600 dark:text-blue-400 transition cursor-pointer"
-                      title="Editar grupo"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteGroup(grp.id)}
-                      className="p-1.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-500 transition cursor-pointer"
-                      title="Eliminar grupo"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setEditingGroup({ ...grp })}
+                    className="p-1.5 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 text-blue-600 dark:text-blue-400 transition cursor-pointer"
+                    title="Editar grupo"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteGroup(grp.id)}
+                    className="p-1.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-500 transition cursor-pointer"
+                    title="Eliminar grupo"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             );
           })}

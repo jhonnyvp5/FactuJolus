@@ -577,10 +577,16 @@ export async function saveTenantMenuSettings(
   tenantId: string,
   menuSettings: {
     menuLayout?: 'topbar-classic' | 'sidebar-left' | 'sidebar-right' | 'compact-dock' | 'floating-island';
+    headerStyle?: 'modern-white' | 'glassmorphism' | 'solid-dark' | 'gradient-accent' | 'minimal-transparent' | 'gradient-glass' | 'dark-slate' | 'minimal-clean';
     contentLayoutWidth?: 'contained-sm' | 'contained-lg' | 'full-width' | 'fluid';
     density?: 'compact' | 'comfortable' | 'spacious';
     customMenuItems?: CustomMenuItem[];
     menuGroups?: MenuGroup[];
+    primaryColorName?: string;
+    customPrimaryHex?: string;
+    customNavbarBgHex?: string;
+    buttonBorderRadius?: string;
+    [key: string]: any;
   },
   userEmail?: string
 ): Promise<{ success: boolean; message: string }> {

@@ -241,11 +241,27 @@ export interface TenantModulePermissions {
   };
 }
 
+export type CustomizerSubTabKey = 
+  | 'layout' 
+  | 'screens' 
+  | 'texts' 
+  | 'theme' 
+  | 'containers' 
+  | 'plans' 
+  | 'code' 
+  | 'identity' 
+  | 'banners' 
+  | 'slides' 
+  | 'news' 
+  | 'social' 
+  | 'modules';
+
 export interface TenantFeaturePermissions {
   allowedLayouts?: ('topbar-classic' | 'sidebar-left' | 'sidebar-right' | 'compact-dock' | 'floating-island')[];
   canCustomizeTheme?: boolean;
   canCustomizeMenu?: boolean;
   canUseGroups?: boolean;
+  allowedCustomizerSubtabs?: CustomizerSubTabKey[];
   modules?: TenantModulePermissions;
   customNotes?: string;
 }

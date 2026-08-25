@@ -264,9 +264,10 @@ export function PlatformSettingsProvider({ children }: { children: React.ReactNo
       localStorage.setItem('sri_platform_custom_settings', JSON.stringify(next));
 
       // If there is an active tenant and menu settings are updated, also persist to tenant cache
-      if (activeTenantId && (result.menuLayout || result.contentLayoutWidth || result.customMenuItems || result.menuGroups)) {
+      if (activeTenantId && (result.menuLayout || result.headerStyle || result.contentLayoutWidth || result.customMenuItems || result.menuGroups)) {
         saveTenantMenuSettingsLib(activeTenantId, {
           menuLayout: next.menuLayout,
+          headerStyle: next.headerStyle,
           contentLayoutWidth: next.contentLayoutWidth,
           density: next.density,
           customMenuItems: next.customMenuItems,
@@ -283,6 +284,7 @@ export function PlatformSettingsProvider({ children }: { children: React.ReactNo
     try {
       const res = await saveTenantMenuSettingsLib(tenantId, {
         menuLayout: settings.menuLayout,
+        headerStyle: settings.headerStyle,
         contentLayoutWidth: settings.contentLayoutWidth,
         density: settings.density,
         customMenuItems: settings.customMenuItems,
@@ -290,7 +292,7 @@ export function PlatformSettingsProvider({ children }: { children: React.ReactNo
       }, userEmail);
 
       if (res.success) {
-        modalAlert.success('Menú de Empresa Guardado', 'La distribución de opciones y diseño visual del menú se guardaron exclusivamente para esta empresa.');
+        modalAlert.success('Menú y TopBar Guardados', 'La distribución de opciones, arquitectura del TopBar y diseño visual se guardaron exclusivamente para esta empresa.');
       } else {
         modalAlert.warning('Aviso de Guardado', res.message);
       }
@@ -309,6 +311,7 @@ export function PlatformSettingsProvider({ children }: { children: React.ReactNo
       if (tenantId && tenantId !== 'GLOBAL') {
         const tenantRes = await saveTenantMenuSettingsLib(tenantId, {
           menuLayout: settings.menuLayout,
+          headerStyle: settings.headerStyle,
           contentLayoutWidth: settings.contentLayoutWidth,
           density: settings.density,
           customMenuItems: settings.customMenuItems,
@@ -316,7 +319,7 @@ export function PlatformSettingsProvider({ children }: { children: React.ReactNo
         }, userEmail);
 
         if (tenantRes.success) {
-          modalAlert.success('Menú de Empresa Guardado', 'Los cambios en la arquitectura visual del menú se aplicaron exclusivamente para este inquilino.');
+          modalAlert.success('Menú y TopBar Guardados', 'Los cambios en la arquitectura visual del menú y TopBar se aplicaron exclusivamente para este inquilino.');
         }
         return tenantRes;
       }

@@ -57,6 +57,32 @@ interface SuperadminCustomizerProps {
 
 type SubTab = 'layout' | 'screens' | 'texts' | 'theme' | 'containers' | 'plans' | 'code' | 'identity' | 'banners' | 'slides' | 'news' | 'social' | 'modules';
 
+interface SubTabDef {
+  key: SubTab;
+  number: string;
+  name: string;
+  shortName: string;
+  icon: any;
+  iconColor: string;
+  activeBg: string;
+}
+
+const ALL_SUBTAB_DEFINITIONS: SubTabDef[] = [
+  { key: 'layout', number: '1', name: '1. Menús & Grupos (TopBar & Ramas)', shortName: '1. Menús & Grupos', icon: Layout, iconColor: 'text-cyan-400', activeBg: 'bg-blue-600' },
+  { key: 'screens', number: '2', name: '2. Editor de Pantallas & Componentes', shortName: '2. Pantallas', icon: Layers, iconColor: 'text-purple-400', activeBg: 'bg-purple-600' },
+  { key: 'texts', number: '3', name: '3. Nombres, Botones & Títulos', shortName: '3. Textos & Botones', icon: Sparkles, iconColor: 'text-amber-400', activeBg: 'bg-indigo-600' },
+  { key: 'theme', number: '4', name: '4. Tema & Colores (HEX)', shortName: '4. Colores (HEX)', icon: Palette, iconColor: 'text-blue-400', activeBg: 'bg-blue-600' },
+  { key: 'containers', number: '5', name: '5. Lienzo & Ancho de Contenedores', shortName: '5. Lienzo & Ancho', icon: Layers, iconColor: 'text-emerald-400', activeBg: 'bg-emerald-600' },
+  { key: 'plans', number: '6', name: '6. Planes de Facturación SRI', shortName: '6. Planes SRI', icon: CreditCard, iconColor: 'text-amber-400', activeBg: 'bg-amber-600' },
+  { key: 'code', number: '7', name: '7. Inyección de Código (CSS / JS)', shortName: '7. Inyección CSS/JS', icon: Code, iconColor: 'text-indigo-400', activeBg: 'bg-indigo-600' },
+  { key: 'identity', number: '8', name: '8. Identidad & Logos', shortName: '8. Logos', icon: ImageIcon, iconColor: 'text-indigo-400', activeBg: 'bg-white text-slate-900' },
+  { key: 'banners', number: '9', name: '9. Banners & Anuncios', shortName: '9. Banners', icon: Megaphone, iconColor: 'text-sky-400', activeBg: 'bg-white text-slate-900' },
+  { key: 'slides', number: '10', name: '10. Carrusel de Login', shortName: '10. Login', icon: Sliders, iconColor: 'text-purple-400', activeBg: 'bg-white text-slate-900' },
+  { key: 'news', number: '11', name: '11. Novedades SRI', shortName: '11. Noticias', icon: Newspaper, iconColor: 'text-emerald-400', activeBg: 'bg-white text-slate-900' },
+  { key: 'social', number: '12', name: '12. Redes Sociales & Canales', shortName: '12. Redes', icon: Share2, iconColor: 'text-pink-400', activeBg: 'bg-white text-slate-900' },
+  { key: 'modules', number: '13', name: '13. Interruptores & Módulos Globales', shortName: '13. Módulos', icon: Layers, iconColor: 'text-teal-400', activeBg: 'bg-white text-slate-900' },
+];
+
 export default function SuperadminCustomizer({ 
   currentUserEmail, 
   onPreviewLogin,
@@ -65,15 +91,33 @@ export default function SuperadminCustomizer({
   currentEmpresa
 }: SuperadminCustomizerProps) {
   const { settings, updateSettings, saveSettingsToCloud, saveTenantMenuToCloud, resetToDefaults, isSaving, themeClasses } = usePlatformSettings();
-  const [activeSubTab, setActiveSubTab] = useState<SubTab>('layout');
-  const [isExporting, setIsExporting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const slideImageInputRef = useRef<HTMLInputElement>(null);
-
+  
   const userRole = (currentUserRole || currentUser?.role || '').toUpperCase();
   const isSuperadmin = userRole === 'SUPERADMIN' || currentUserEmail?.toLowerCase() === 'jhonnyvp5@gmail.com';
   const tenantKey = currentEmpresa?.ruc || currentUser?.empresaRuc;
   const tenantDisplayName = currentEmpresa?.nombreComercial || currentEmpresa?.razonSocial || currentUser?.empresaNombre || tenantKey || 'Empresa';
+
+  // Allowed subtabs calculation based on Superadmin permissions for this tenant
+  const allowedSubTabsList: SubTab[] = isSuperadmin 
+    ? (['layout', 'screens', 'texts', 'theme', 'containers', 'plans', 'code', 'identity', 'banners', 'slides', 'news', 'social', 'modules'] as SubTab[])
+    : (currentEmpresa?.featurePermissions?.allowedCustomizerSubtabs && currentEmpresa.featurePermissions.allowedCustomizerSubtabs.length > 0
+        ? (currentEmpresa.featurePermissions.allowedCustomizerSubtabs as SubTab[])
+        : (['layout'] as SubTab[]));
+
+  const [activeSubTab, setActiveSubTab] = useState<SubTab>(() => {
+    return allowedSubTabsList.includes('layout') ? 'layout' : allowedSubTabsList[0] || 'layout';
+  });
+
+  // Keep activeSubTab within allowed range if currentEmpresa changes
+  const effectiveActiveSubTab = allowedSubTabsList.includes(activeSubTab) 
+    ? activeSubTab 
+    : (allowedSubTabsList[0] || 'layout');
+
+  const visibleSubTabDefs = ALL_SUBTAB_DEFINITIONS.filter(def => allowedSubTabsList.includes(def.key));
+
+  const [isExporting, setIsExporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const slideImageInputRef = useRef<HTMLInputElement>(null);
 
   // Temporary slide creation/editing state
   const [editingSlideId, setEditingSlideId] = useState<string | null>(null);
@@ -440,194 +484,57 @@ export default function SuperadminCustomizer({
 
         {/* MOBILE QUICK-SELECT DROPDOWN FOR SUB-TABS */}
         <div className="mt-5 pt-4 border-t border-slate-800/80 sm:hidden">
-          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-            Sección de Personalización:
-          </label>
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              Sección de Personalización:
+            </label>
+            {!isSuperadmin && (
+              <span className="text-[10px] font-bold text-purple-300 bg-purple-950/60 px-2 py-0.5 rounded-full border border-purple-800/50">
+                {visibleSubTabDefs.length}/13 subopciones
+              </span>
+            )}
+          </div>
           <select
-            value={activeSubTab}
+            value={effectiveActiveSubTab}
             onChange={(e) => setActiveSubTab(e.target.value as any)}
             className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white font-bold text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
           >
-            <option value="layout">1. Estructura & Menú (Figma/Hostinger)</option>
-            <option value="screens">2. Editor de Pantallas & Componentes</option>
-            <option value="texts">3. Nombres, Botones & Títulos</option>
-            <option value="theme">4. Tema & Colores (HEX)</option>
-            <option value="containers">5. Lienzo & Contenedores</option>
-            <option value="plans">6. Planes de Facturación (Dinámico)</option>
-            <option value="code">7. Inyección de Código (CSS / JS)</option>
-            <option value="identity">8. Identidad & Logos</option>
-            <option value="banners">9. Banners & Anuncios</option>
-            <option value="slides">10. Carrusel de Login</option>
-            <option value="news">11. Novedades SRI</option>
-            <option value="social">12. Redes Sociales</option>
-            <option value="modules">13. Interruptores & Módulos</option>
+            {visibleSubTabDefs.map((subTab) => (
+              <option key={subTab.key} value={subTab.key}>
+                {subTab.name}
+              </option>
+            ))}
           </select>
         </div>
 
         {/* SUB-NAVIGATION TABS (WRAPPED ON TABLET/DESKTOP WITHOUT SCROLLBARS FOR CLEAN VISIBILITY) */}
         <div className="hidden sm:flex flex-wrap items-center gap-1.5 mt-6 pt-4 border-t border-slate-800/80">
-          <button
-            onClick={() => setActiveSubTab('layout')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
-              activeSubTab === 'layout'
-                ? 'bg-blue-600 text-white shadow-md font-black'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/70 border border-transparent hover:border-slate-700'
-            }`}
-          >
-            <Layout className="w-3.5 h-3.5 text-cyan-400" />
-            <span>1. Menús & Grupos</span>
-          </button>
+          {visibleSubTabDefs.map((subTab) => {
+            const IconComp = subTab.icon;
+            const isActive = effectiveActiveSubTab === subTab.key;
 
-          <button
-            onClick={() => setActiveSubTab('screens')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
-              activeSubTab === 'screens'
-                ? 'bg-purple-600 text-white shadow-md font-black'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/70 border border-transparent hover:border-slate-700'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5 text-purple-400" />
-            <span>2. Pantallas</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('texts')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
-              activeSubTab === 'texts'
-                ? 'bg-indigo-600 text-white shadow-md font-black'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/70 border border-transparent hover:border-slate-700'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>3. Textos & Botones</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('theme')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
-              activeSubTab === 'theme'
-                ? 'bg-blue-600 text-white shadow-md font-black'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/70 border border-transparent hover:border-slate-700'
-            }`}
-          >
-            <Palette className="w-3.5 h-3.5 text-blue-400" />
-            <span>4. Colores (HEX)</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('containers')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
-              activeSubTab === 'containers'
-                ? 'bg-emerald-600 text-white shadow-md font-black'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/70 border border-transparent hover:border-slate-700'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5 text-emerald-400" />
-            <span>5. Lienzo & Ancho</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('plans')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
-              activeSubTab === 'plans'
-                ? 'bg-amber-600 text-white shadow-md font-black'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/70 border border-transparent hover:border-slate-700'
-            }`}
-          >
-            <CreditCard className="w-3.5 h-3.5 text-amber-400" />
-            <span>6. Planes SRI</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('code')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
-              activeSubTab === 'code'
-                ? 'bg-indigo-600 text-white shadow-md font-black'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/70 border border-transparent hover:border-slate-700'
-            }`}
-          >
-            <Code className="w-3.5 h-3.5 text-indigo-400" />
-            <span>7. Inyección CSS/JS</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('identity')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
-              activeSubTab === 'identity'
-                ? 'bg-white text-slate-900 shadow-md font-black'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/70 border border-transparent hover:border-slate-700'
-            }`}
-          >
-            <ImageIcon className="w-3.5 h-3.5 text-indigo-400" />
-            <span>8. Logos</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('banners')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
-              activeSubTab === 'banners'
-                ? 'bg-white text-slate-900 shadow-md font-black'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/70 border border-transparent hover:border-slate-700'
-            }`}
-          >
-            <Megaphone className="w-3.5 h-3.5 text-sky-400" />
-            <span>9. Banners</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('slides')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
-              activeSubTab === 'slides'
-                ? 'bg-white text-slate-900 shadow-md font-black'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/70 border border-transparent hover:border-slate-700'
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5 text-purple-400" />
-            <span>10. Login</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('news')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
-              activeSubTab === 'news'
-                ? 'bg-white text-slate-900 shadow-md font-black'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/70 border border-transparent hover:border-slate-700'
-            }`}
-          >
-            <Newspaper className="w-3.5 h-3.5 text-emerald-400" />
-            <span>11. Noticias</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('social')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
-              activeSubTab === 'social'
-                ? 'bg-white text-slate-900 shadow-md font-black'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/70 border border-transparent hover:border-slate-700'
-            }`}
-          >
-            <Share2 className="w-3.5 h-3.5 text-pink-400" />
-            <span>12. Redes</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('modules')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
-              activeSubTab === 'modules'
-                ? 'bg-white text-slate-900 shadow-md font-black'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/70 border border-transparent hover:border-slate-700'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5 text-teal-400" />
-            <span>13. Módulos</span>
-          </button>
+            return (
+              <button
+                key={subTab.key}
+                onClick={() => setActiveSubTab(subTab.key)}
+                className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
+                  isActive
+                    ? `${subTab.activeBg} text-white shadow-md font-black`
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/70 border border-transparent hover:border-slate-700'
+                }`}
+              >
+                <IconComp className={`w-3.5 h-3.5 ${isActive ? 'text-white' : subTab.iconColor}`} />
+                <span>{subTab.shortName}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* ========================================================================= */}
       {/* SUB-TAB: ESTRUCTURA & MENÚ (FIGMA / HOSTINGER) */}
       {/* ========================================================================= */}
-      {activeSubTab === 'layout' && (
+      {effectiveActiveSubTab === 'layout' && (
         <VisualLayoutBuilder 
           currentUser={currentUser}
           currentUserRole={currentUserRole}
@@ -639,37 +546,37 @@ export default function SuperadminCustomizer({
       {/* ========================================================================= */}
       {/* SUB-TAB: EDITOR DE PANTALLAS & COMPONENTES */}
       {/* ========================================================================= */}
-      {activeSubTab === 'screens' && <ScreenPageBuilder />}
+      {effectiveActiveSubTab === 'screens' && <ScreenPageBuilder />}
 
       {/* ========================================================================= */}
       {/* SUB-TAB: NOMBRES, BOTONES & TÍTULOS (DICCIONARIO GLOBAL) */}
       {/* ========================================================================= */}
-      {activeSubTab === 'texts' && <TextDictionaryEditor />}
+      {effectiveActiveSubTab === 'texts' && <TextDictionaryEditor />}
 
       {/* ========================================================================= */}
       {/* SUB-TAB: TEMA, COLORES & ESTILO */}
       {/* ========================================================================= */}
-      {activeSubTab === 'theme' && <ThemeColorsBuilder />}
+      {effectiveActiveSubTab === 'theme' && <ThemeColorsBuilder />}
 
       {/* ========================================================================= */}
       {/* SUB-TAB: LIENZO & CONTENEDORES */}
       {/* ========================================================================= */}
-      {activeSubTab === 'containers' && <VisualContainerBuilder />}
+      {effectiveActiveSubTab === 'containers' && <VisualContainerBuilder />}
 
       {/* ========================================================================= */}
       {/* SUB-TAB: PLANES DE FACTURACIÓN (GESTOR DINÁMICO) */}
       {/* ========================================================================= */}
-      {activeSubTab === 'plans' && <DynamicPlansManager />}
+      {effectiveActiveSubTab === 'plans' && <DynamicPlansManager />}
 
       {/* ========================================================================= */}
       {/* SUB-TAB: INYECCIÓN DE CÓDIGO (CSS / JS / HTML) */}
       {/* ========================================================================= */}
-      {activeSubTab === 'code' && <CustomCodeEditor />}
+      {effectiveActiveSubTab === 'code' && <CustomCodeEditor />}
 
       {/* ========================================================================= */}
       {/* SUB-TAB 2: IDENTIDAD & LOGOTIPOS */}
       {/* ========================================================================= */}
-      {activeSubTab === 'identity' && (
+      {effectiveActiveSubTab === 'identity' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 bg-white dark:bg-zinc-900 rounded-3xl p-6 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-6">
             <div>
@@ -881,7 +788,7 @@ export default function SuperadminCustomizer({
       {/* ========================================================================= */}
       {/* SUB-TAB 3: BANNERS & ANUNCIOS */}
       {/* ========================================================================= */}
-      {activeSubTab === 'banners' && (
+      {effectiveActiveSubTab === 'banners' && (
         <div className="space-y-6">
           {/* TOP ANNOUNCEMENT BAR */}
           <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-5">
@@ -1119,7 +1026,7 @@ export default function SuperadminCustomizer({
       {/* ========================================================================= */}
       {/* SUB-TAB 4: CARRUSEL DE LOGIN */}
       {/* ========================================================================= */}
-      {activeSubTab === 'slides' && (
+      {effectiveActiveSubTab === 'slides' && (
         <div className="space-y-6">
           <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1299,7 +1206,7 @@ export default function SuperadminCustomizer({
       {/* ========================================================================= */}
       {/* SUB-TAB 5: NOVEDADES & NOTICIAS SRI */}
       {/* ========================================================================= */}
-      {activeSubTab === 'news' && (
+      {effectiveActiveSubTab === 'news' && (
         <div className="space-y-6">
           <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1882,7 +1789,7 @@ export default function SuperadminCustomizer({
       {/* ========================================================================= */}
       {/* SUB-TAB 7: REDES SOCIALES & CONTACTO */}
       {/* ========================================================================= */}
-      {activeSubTab === 'social' && (
+      {effectiveActiveSubTab === 'social' && (
         <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-6">
           <div>
             <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
@@ -2029,7 +1936,7 @@ export default function SuperadminCustomizer({
       {/* ========================================================================= */}
       {/* SUB-TAB 8: MÓDULOS & INTERRUPTORES */}
       {/* ========================================================================= */}
-      {activeSubTab === 'modules' && (
+      {effectiveActiveSubTab === 'modules' && (
         <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-6">
           <div>
             <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">

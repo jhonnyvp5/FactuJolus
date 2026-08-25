@@ -3,9 +3,10 @@ import {
   Shield, Check, X, Sparkles, Layout, Palette, FolderTree, FileText, 
   Receipt, Percent, FileSpreadsheet, Package, Users, KeyRound, 
   CheckCircle2, AlertCircle, Save, Sliders, Layers, ChevronRight,
-  ShieldCheck, Lock, ArrowRight, ToggleLeft, ToggleRight, FileCheck2
+  ShieldCheck, Lock, ArrowRight, ToggleLeft, ToggleRight, FileCheck2,
+  Code, Image as ImageIcon, Megaphone, Newspaper, Share2, Eye
 } from 'lucide-react';
-import { EmpresaTenant, TenantFeaturePermissions, TenantModulePermissions } from '../../types';
+import { EmpresaTenant, TenantFeaturePermissions, TenantModulePermissions, CustomizerSubTabKey } from '../../types';
 import { modalAlert } from '../../context/ModalAlertContext';
 
 interface TenantPermissionsModalProps {
@@ -14,6 +15,106 @@ interface TenantPermissionsModalProps {
   onClose: () => void;
   onSave: (updatedEmpresa: EmpresaTenant) => Promise<void>;
 }
+
+export const ALL_CUSTOMIZER_SUBTABS: {
+  key: CustomizerSubTabKey;
+  number: string;
+  name: string;
+  desc: string;
+  color: string;
+}[] = [
+  {
+    key: 'layout',
+    number: '01',
+    name: 'Menús & Grupos (TopBar, Agrupador y Modo Ramas)',
+    desc: 'Arquitectura del TopBar, personalización de barras, agrupación de ítems y organizador jerárquico Drag & Drop.',
+    color: 'blue',
+  },
+  {
+    key: 'screens',
+    number: '02',
+    name: 'Editor de Pantallas & Componentes',
+    desc: 'Personalizar títulos, bloques, visibilidad de tablas y tarjetas de métricas en cada pantalla del sistema.',
+    color: 'purple',
+  },
+  {
+    key: 'texts',
+    number: '03',
+    name: 'Nombres, Botones & Títulos (Diccionario Global)',
+    desc: 'Sobrescribir microcopy de botones (Emitir Factura, Firmar XAdES-BES, etc.) y subtítulos fiscales.',
+    color: 'amber',
+  },
+  {
+    key: 'theme',
+    number: '04',
+    name: 'Tema & Colores (HEX)',
+    desc: 'Selector de paleta de colores corporativos, gradientes de acento y colores directos en formato hexadecimal.',
+    color: 'blue',
+  },
+  {
+    key: 'containers',
+    number: '05',
+    name: 'Lienzo & Ancho de Contenedores',
+    desc: 'Ajuste de densidad, márgenes globales y contenedores visuales para pantallas ultraanchas o compactas.',
+    color: 'emerald',
+  },
+  {
+    key: 'plans',
+    number: '06',
+    name: 'Planes de Facturación SRI',
+    desc: 'Editor de tarjetas de suscripción, límites de emisión de comprobantes y precios mensuales/anuales.',
+    color: 'amber',
+  },
+  {
+    key: 'code',
+    number: '07',
+    name: 'Inyección de Código (CSS / JS)',
+    desc: 'Inyección directa de hojas de estilo CSS personalizadas y scripts JS para la empresa.',
+    color: 'indigo',
+  },
+  {
+    key: 'identity',
+    number: '08',
+    name: 'Identidad & Logos',
+    desc: 'Carga de logotipo corporativo en alta resolución y favicon oficial de la pestaña del navegador.',
+    color: 'indigo',
+  },
+  {
+    key: 'banners',
+    number: '09',
+    name: 'Banners & Anuncios',
+    desc: 'Banners de alerta superior y avisos promocionales con temporizador y botón de acción.',
+    color: 'sky',
+  },
+  {
+    key: 'slides',
+    number: '10',
+    name: 'Carrusel de Login',
+    desc: 'Diapositivas rotativas con imágenes y frases de bienvenida en la pantalla de inicio de sesión.',
+    color: 'purple',
+  },
+  {
+    key: 'news',
+    number: '11',
+    name: 'Novedades SRI',
+    desc: 'Muro informativo de reformas tributarias, resoluciones del SRI y comunicados oficiales.',
+    color: 'emerald',
+  },
+  {
+    key: 'social',
+    number: '12',
+    name: 'Redes Sociales & Canales',
+    desc: 'Canales de soporte, enlace de WhatsApp directo, web corporativa y perfiles sociales.',
+    color: 'pink',
+  },
+  {
+    key: 'modules',
+    number: '13',
+    name: 'Interruptores & Módulos Globales',
+    desc: 'Encendido y apagado de módulos del sistema para los usuarios de la empresa.',
+    color: 'teal',
+  },
+];
 
 const DEFAULT_MODULE_PERMS: TenantModulePermissions = {
   invoices: { enabled: true, canCreate: true, canExportRide: true, canSendEmail: true, canVoid: true },
@@ -31,6 +132,7 @@ const DEFAULT_FEATURE_PERMISSIONS: TenantFeaturePermissions = {
   canCustomizeTheme: true,
   canCustomizeMenu: true,
   canUseGroups: true,
+  allowedCustomizerSubtabs: ['layout'],
   modules: DEFAULT_MODULE_PERMS,
   customNotes: ''
 };
@@ -44,6 +146,11 @@ export default function TenantPermissionsModal({ empresa, isOpen, onClose, onSav
   const [canCustomizeTheme, setCanCustomizeTheme] = useState<boolean>(initialPerms.canCustomizeTheme ?? true);
   const [canCustomizeMenu, setCanCustomizeMenu] = useState<boolean>(initialPerms.canCustomizeMenu ?? true);
   const [canUseGroups, setCanUseGroups] = useState<boolean>(initialPerms.canUseGroups ?? true);
+  const [allowedCustomizerSubtabs, setAllowedCustomizerSubtabs] = useState<CustomizerSubTabKey[]>(
+    initialPerms.allowedCustomizerSubtabs && initialPerms.allowedCustomizerSubtabs.length > 0
+      ? initialPerms.allowedCustomizerSubtabs
+      : ['layout']
+  );
   const [customNotes, setCustomNotes] = useState<string>(initialPerms.customNotes || '');
 
   const [modules, setModules] = useState<TenantModulePermissions>(() => ({
@@ -58,9 +165,35 @@ export default function TenantPermissionsModal({ empresa, isOpen, onClose, onSav
   }));
 
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'modules' | 'layouts' | 'presets'>('modules');
+  const [activeTab, setActiveTab] = useState<'modules' | 'customizer' | 'layouts' | 'presets'>('customizer');
 
   if (!isOpen) return null;
+
+  const toggleCustomizerSubTab = (subTabKey: CustomizerSubTabKey) => {
+    if (subTabKey === 'layout') {
+      modalAlert.info('Subopción Base', 'La subopción "1. Menús & Grupos" (TopBar, Agrupador y Modo Ramas) está siempre disponible para que el inquilino organice su navegación.');
+      return;
+    }
+
+    if (allowedCustomizerSubtabs.includes(subTabKey)) {
+      setAllowedCustomizerSubtabs(allowedCustomizerSubtabs.filter(k => k !== subTabKey));
+    } else {
+      setAllowedCustomizerSubtabs([...allowedCustomizerSubtabs, subTabKey]);
+    }
+  };
+
+  const handleSetOnlyMenuTab = () => {
+    setAllowedCustomizerSubtabs(['layout']);
+    modalAlert.success('Restringido a Menús', 'El inquilino solo podrá acceder a "1. Menús & Grupos". Las otras 12 subopciones quedaron bloqueadas.');
+  };
+
+  const handleSetAllCustomizerTabs = () => {
+    setAllowedCustomizerSubtabs([
+      'layout', 'screens', 'texts', 'theme', 'containers', 'plans',
+      'code', 'identity', 'banners', 'slides', 'news', 'social', 'modules'
+    ]);
+    modalAlert.success('Acceso Total Otorgado', 'Se habilitaron todas las 13 subopciones de Diseño & Plataforma para este inquilino.');
+  };
 
   const toggleLayout = (layoutKey: string) => {
     if (allowedLayouts.includes(layoutKey)) {
@@ -131,6 +264,7 @@ export default function TenantPermissionsModal({ empresa, isOpen, onClose, onSav
         canCustomizeTheme,
         canCustomizeMenu,
         canUseGroups,
+        allowedCustomizerSubtabs,
         modules,
         customNotes
       };
@@ -183,8 +317,23 @@ export default function TenantPermissionsModal({ empresa, isOpen, onClose, onSav
         </div>
 
         {/* NAVIGATION TABS */}
-        <div className="px-6 py-2.5 bg-slate-50 dark:bg-zinc-850/50 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
+        <div className="px-6 py-2.5 bg-slate-50 dark:bg-zinc-850/50 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setActiveTab('customizer')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                activeTab === 'customizer'
+                  ? 'bg-purple-600 text-white shadow-xs font-black'
+                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-200/60 dark:hover:bg-zinc-800'
+              }`}
+            >
+              <Palette className="w-3.5 h-3.5" />
+              <span>Diseño & Subopciones</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold ${activeTab === 'customizer' ? 'bg-white/20 text-white' : 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300'}`}>
+                {allowedCustomizerSubtabs.length}/13
+              </span>
+            </button>
+
             <button
               onClick={() => setActiveTab('modules')}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
@@ -194,7 +343,7 @@ export default function TenantPermissionsModal({ empresa, isOpen, onClose, onSav
               }`}
             >
               <Sliders className="w-3.5 h-3.5" />
-              Módulos y Subfunciones SRI
+              Módulos SRI
             </button>
             <button
               onClick={() => setActiveTab('layouts')}
@@ -205,7 +354,7 @@ export default function TenantPermissionsModal({ empresa, isOpen, onClose, onSav
               }`}
             >
               <Layout className="w-3.5 h-3.5" />
-              Diseños de Menú y Navegación
+              Diseños de Menú
             </button>
             <button
               onClick={() => setActiveTab('presets')}
@@ -216,17 +365,131 @@ export default function TenantPermissionsModal({ empresa, isOpen, onClose, onSav
               }`}
             >
               <Sparkles className="w-3.5 h-3.5" />
-              Perfiles Rápidos (Presets)
+              Perfiles Rápidos
             </button>
           </div>
 
-          <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-semibold hidden sm:inline">
+          <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-semibold hidden lg:inline">
             Ajustes en vivo por empresa
           </span>
         </div>
 
         {/* BODY CONTENT */}
         <div className="p-6 overflow-y-auto flex-1 space-y-6">
+
+          {/* TAB: CUSTOMIZER SUBOPTIONS (DISEÑO & PLATAFORMA) */}
+          {activeTab === 'customizer' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="p-4 bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/40 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <Palette className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-purple-900 dark:text-purple-200 uppercase tracking-wide">
+                      Regla de Acceso a "Diseño & Plataforma"
+                    </h4>
+                    <p className="text-xs text-purple-800/80 dark:text-purple-300/90 mt-0.5 leading-relaxed">
+                      Por defecto, los inquilinos <strong className="font-black">solo pueden acceder a "1. Menús & Grupos"</strong> (TopBar, Agrupador y Modo Ramas con Drag & Drop). Las demás 12 subopciones permanecen bloqueadas a menos que las habilites aquí expresamente.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={handleSetOnlyMenuTab}
+                    className="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-zinc-800 hover:bg-slate-300 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 text-xs font-bold transition cursor-pointer flex-1 sm:flex-none"
+                    title="Restringir solo a Menús & Grupos"
+                  >
+                    Solo Menús (Defecto)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSetAllCustomizerTabs}
+                    className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition cursor-pointer shadow-xs flex-1 sm:flex-none"
+                    title="Habilitar todas las 13 subopciones"
+                  >
+                    Habilitar Todo (13)
+                  </button>
+                </div>
+              </div>
+
+              {/* LIST OF 13 SUBTABS */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {ALL_CUSTOMIZER_SUBTABS.map((subTab) => {
+                  const isEnabled = allowedCustomizerSubtabs.includes(subTab.key);
+                  const isBase = subTab.key === 'layout';
+
+                  return (
+                    <div
+                      key={subTab.key}
+                      onClick={() => !isBase && toggleCustomizerSubTab(subTab.key)}
+                      className={`p-4 rounded-2xl border transition-all duration-150 flex items-start justify-between gap-3 cursor-pointer select-none ${
+                        isBase
+                          ? 'bg-blue-50/60 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800/80 shadow-xs'
+                          : isEnabled
+                          ? 'bg-purple-50/50 dark:bg-purple-950/20 border-purple-300 dark:border-purple-800/70 shadow-xs'
+                          : 'bg-slate-50/60 dark:bg-zinc-900/50 border-slate-200 dark:border-zinc-800 opacity-65 hover:opacity-100 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3 min-w-0">
+                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs shrink-0 shadow-xs ${
+                          isBase 
+                            ? 'bg-blue-600 text-white' 
+                            : isEnabled 
+                            ? 'bg-purple-600 text-white' 
+                            : 'bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'
+                        }`}>
+                          {subTab.number}
+                        </span>
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-xs text-slate-900 dark:text-white">
+                              {subTab.name}
+                            </span>
+                            {isBase ? (
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-blue-200/80 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                                Básico (Activo)
+                              </span>
+                            ) : isEnabled ? (
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-purple-200/80 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
+                                Habilitado
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-slate-200 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 flex items-center gap-1">
+                                <Lock className="w-2.5 h-2.5" /> Bloqueado
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1 leading-snug">
+                            {subTab.desc}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* TOGGLE SWITCH */}
+                      <div className="shrink-0 pt-0.5">
+                        <label className="relative inline-flex items-center cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={isEnabled}
+                            disabled={isBase}
+                            onChange={() => toggleCustomizerSubTab(subTab.key)}
+                            className="sr-only peer"
+                          />
+                          <div className={`w-9 h-5 bg-gray-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${
+                            isBase ? 'peer-checked:bg-blue-600 opacity-80 cursor-not-allowed' : 'peer-checked:bg-purple-600'
+                          }`} />
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* TAB 1: MODULES & SUBFUNCTIONS */}
           {activeTab === 'modules' && (
