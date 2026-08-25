@@ -3,7 +3,8 @@ import { EmitterConfig, Invoice, Client, Product, PortalUser, EmpresaTenant, Pro
 import { 
   User, Image, FileText, CheckCircle, ShieldCheck, Landmark, Palette, Check, Settings, 
   Building2, Shield, Calendar, Layers, Users, FileCheck2, AlertCircle, AlertTriangle, 
-  Sparkles, CheckCircle2, DollarSign, TrendingUp, Clock, HelpCircle, ArrowRight, PieChart as PieIcon
+  Sparkles, CheckCircle2, DollarSign, TrendingUp, Clock, HelpCircle, ArrowRight, PieChart as PieIcon,
+  ChevronDown, ChevronUp
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import RideViewer from './RideViewer';
@@ -70,6 +71,7 @@ export default function CompanyProfile({
   const [activeTemplate, setActiveTemplate] = useState<string>(() => {
     return localStorage.getItem(getUserStorageKey('sri_ride_selected_template')) || 'oficial';
   });
+  const [isDesignAccordionOpen, setIsDesignAccordionOpen] = useState(false);
 
   // Sync state if config changes
   useEffect(() => {
@@ -1103,64 +1105,150 @@ export default function CompanyProfile({
         </div>
 
         {/* 6. SECCIÓN DE CONFIGURACIÓN Y SELECCIÓN DE DISEÑO RIDE */}
-        <div className="p-6 bg-white dark:bg-zinc-900 space-y-5" id="ride-design-selector-box">
-          <div>
-            <h3 className="text-base font-bold text-gray-950 dark:text-gray-50 flex items-center gap-2">
-              <Palette className="text-indigo-600 w-5 h-5" />
-              Configurar y Seleccionar Diseño de Factura RIDE
-            </h3>
-            <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
-              Selecciona el diseño visual definitivo para tus comprobantes autorizados. El estilo escogido se reflejará instantáneamente en todas las facturas y notas de crédito en PDF.
-            </p>
+        <div className="p-6 bg-white dark:bg-zinc-900 space-y-4" id="ride-design-selector-box">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-bold text-gray-950 dark:text-gray-50 flex items-center gap-2">
+                <Palette className="text-indigo-600 w-5 h-5" />
+                Configurar y Seleccionar Diseño de Factura RIDE
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
+                Diseño visual seleccionado para tus comprobantes autorizados y notas de crédito en PDF.
+              </p>
+            </div>
+
+            {/* Accordion Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setIsDesignAccordionOpen(!isDesignAccordionOpen)}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shrink-0 shadow-xs border ${
+                isDesignAccordionOpen
+                  ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/40 dark:border-indigo-800 dark:text-indigo-300'
+                  : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-750'
+              }`}
+            >
+              <Palette className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              <span>{isDesignAccordionOpen ? 'Ocultar Catálogo de Diseños' : 'Cambiar Diseño RIDE'}</span>
+              {isDesignAccordionOpen ? (
+                <ChevronUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              )}
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {TEMPLATES.map((tmpl) => {
-              const isSelected = activeTemplate === tmpl.id;
-              return (
-                <div
-                  key={tmpl.id}
-                  onClick={() => handleSelectTemplate(tmpl.id)}
-                  className={`group relative p-4 rounded-xl border-2 transition cursor-pointer flex flex-col justify-between h-36 ${
-                    isSelected
-                      ? 'border-indigo-600 bg-indigo-50/20 dark:bg-indigo-950/30'
-                      : 'border-gray-200/80 bg-white hover:bg-gray-50 dark:border-zinc-800 dark:bg-zinc-950/25 dark:hover:bg-zinc-900'
-                  }`}
-                >
-                  {/* Visual palette indicators */}
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-start">
-                      <span className="font-extrabold text-xs text-gray-950 dark:text-gray-50 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition uppercase tracking-wide text-left">
-                        {tmpl.name}
+          {/* VISTA PRINCIPAL: SOLO EL DISEÑO SELECCIONADO */}
+          {(() => {
+            const currentTmpl = TEMPLATES.find(t => t.id === activeTemplate) || TEMPLATES[0];
+            return (
+              <div className="p-4 sm:p-5 rounded-2xl border-2 border-indigo-600 bg-gradient-to-r from-indigo-50/40 via-white to-indigo-50/20 dark:from-indigo-950/30 dark:via-zinc-900 dark:to-zinc-900/60 transition shadow-xs">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="space-y-1.5 flex-1">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <span className="bg-indigo-600 text-white p-1 rounded-full text-xs flex items-center justify-center w-5 h-5 shadow-xs">
+                        <Check className="w-3.5 h-3.5 font-bold" />
                       </span>
-                      {isSelected ? (
-                        <span className="bg-indigo-600 text-white p-1 rounded-full text-xs flex items-center justify-center w-5 h-5">
-                          <Check className="w-3 h-3 font-bold" />
-                        </span>
-                      ) : (
-                        <div className="w-4 h-4 rounded-full border border-gray-300 dark:border-zinc-700 hover:border-indigo-400 transition" />
-                      )}
+                      <h4 className="font-extrabold text-sm text-gray-950 dark:text-gray-50 uppercase tracking-wide">
+                        {currentTmpl.name}
+                      </h4>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">
+                        ✓ Activo Actualmente
+                      </span>
                     </div>
-                    <p className="text-[11px] text-gray-400 dark:text-zinc-400 leading-snug text-left line-clamp-2">
-                      {tmpl.desc}
+                    <p className="text-xs text-gray-600 dark:text-zinc-300 leading-relaxed max-w-2xl">
+                      {currentTmpl.desc}
                     </p>
+                    <div className="flex items-center gap-2 pt-1">
+                      <span className="text-[11px] text-gray-400 dark:text-zinc-500 font-medium">Paleta visual:</span>
+                      <span className={`w-3.5 h-3.5 rounded-full bg-gradient-to-r ${currentTmpl.color} shadow-xs`} />
+                      <span className="w-3.5 h-3.5 rounded-full bg-gray-200 dark:bg-zinc-700" />
+                    </div>
                   </div>
 
-                  <div className="flex justify-between items-center pt-2 border-t border-gray-100/60 dark:border-zinc-800/60">
-                    <div className="flex gap-1.5">
-                      <span className={`w-3 h-3 rounded-full bg-gradient-to-r ${tmpl.color}`} />
-                      <span className="w-3 h-3 rounded-full bg-gray-200 dark:bg-zinc-700" />
-                    </div>
-                    <span className={`text-[10px] font-black uppercase tracking-wider ${
-                      isSelected ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-zinc-500'
-                    }`}>
-                      {isSelected ? '✓ Activo' : 'Hacer Activo'}
-                    </span>
+                  <div className="flex items-center gap-2.5 shrink-0 self-start md:self-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowModelPreview(true)}
+                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-xs transition text-xs flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+                    >
+                      <FileText className="w-3.5 h-3.5" /> Ver Ejemplo RIDE
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsDesignAccordionOpen(!isDesignAccordionOpen)}
+                      className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 font-bold rounded-xl transition text-xs flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+                    >
+                      {isDesignAccordionOpen ? 'Cerrar' : 'Cambiar'}
+                    </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })()}
+
+          {/* MODO ACORDEÓN DESPLEGABLE: CATÁLOGO COMPLETO DE DISEÑOS */}
+          {isDesignAccordionOpen && (
+            <div className="pt-3 border-t border-gray-100 dark:border-zinc-800 space-y-3 animate-in fade-in-50 slide-in-from-top-2 duration-200">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-gray-700 dark:text-zinc-300 uppercase tracking-wide">
+                  Selecciona otro diseño para activar:
+                </span>
+                <span className="text-[11px] text-gray-400 dark:text-zinc-500 font-medium">
+                  {TEMPLATES.length} estilos disponibles
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {TEMPLATES.map((tmpl) => {
+                  const isSelected = activeTemplate === tmpl.id;
+                  return (
+                    <div
+                      key={tmpl.id}
+                      onClick={() => {
+                        handleSelectTemplate(tmpl.id);
+                      }}
+                      className={`group relative p-4 rounded-xl border-2 transition cursor-pointer flex flex-col justify-between h-36 ${
+                        isSelected
+                          ? 'border-indigo-600 bg-indigo-50/25 dark:bg-indigo-950/35 shadow-xs'
+                          : 'border-gray-200/80 bg-white hover:bg-gray-50 hover:border-indigo-300 dark:border-zinc-800 dark:bg-zinc-950/25 dark:hover:bg-zinc-900'
+                      }`}
+                    >
+                      {/* Visual palette indicators */}
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-start">
+                          <span className="font-extrabold text-xs text-gray-950 dark:text-gray-50 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition uppercase tracking-wide text-left">
+                            {tmpl.name}
+                          </span>
+                          {isSelected ? (
+                            <span className="bg-indigo-600 text-white p-1 rounded-full text-xs flex items-center justify-center w-5 h-5 shadow-xs">
+                              <Check className="w-3 h-3 font-bold" />
+                            </span>
+                          ) : (
+                            <div className="w-4 h-4 rounded-full border border-gray-300 dark:border-zinc-700 group-hover:border-indigo-400 transition" />
+                          )}
+                        </div>
+                        <p className="text-[11px] text-gray-400 dark:text-zinc-400 leading-snug text-left line-clamp-2">
+                          {tmpl.desc}
+                        </p>
+                      </div>
+
+                      <div className="flex justify-between items-center pt-2 border-t border-gray-100/60 dark:border-zinc-800/60">
+                        <div className="flex gap-1.5">
+                          <span className={`w-3 h-3 rounded-full bg-gradient-to-r ${tmpl.color}`} />
+                          <span className="w-3 h-3 rounded-full bg-gray-200 dark:bg-zinc-700" />
+                        </div>
+                        <span className={`text-[10px] font-black uppercase tracking-wider ${
+                          isSelected ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-zinc-500 group-hover:text-indigo-600'
+                        }`}>
+                          {isSelected ? '✓ Activo' : 'Seleccionar'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
       </div>

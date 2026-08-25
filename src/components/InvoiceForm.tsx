@@ -991,40 +991,48 @@ export default function InvoiceForm({
         </div>
 
         {/* TABLA DE PRODUCTOS */}
-        <div className={`overflow-x-auto transition-all duration-300 ${activeRowSearch !== null ? 'pb-52' : 'pb-4'}`}>
-          <table className="w-full text-left text-sm whitespace-nowrap min-w-[700px]">
-            <thead className="bg-gray-50 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 text-xs font-semibold uppercase">
+        <div className={`overflow-x-auto pt-1 transition-all duration-200 ${activeRowSearch !== null ? 'min-h-[400px] pb-72' : 'min-h-[140px] pb-4'}`}>
+          <table className="w-full text-left text-sm">
+            <thead className="bg-gray-50/80 dark:bg-zinc-800/80 text-gray-600 dark:text-zinc-400 text-[11px] font-bold uppercase tracking-wider">
               <tr>
-                <th className="px-3 py-2.5 rounded-l-lg">Código Único</th>
-                <th className="px-3 py-2.5 min-w-[420px]">Descripción del Servicio/Bien</th>
-                <th className="px-3 py-2.5 w-24">Cantidad</th>
-                <th className="px-3 py-2.5 w-32">Precio Unitario ($)</th>
-                <th className="px-3 py-2.5 w-24">Desc ($)</th>
-                <th className="px-3 py-2.5 text-right">Subtotal ($)</th>
-                <th className="px-3 py-2.5 w-12 text-center rounded-r-lg"></th>
+                <th className="px-3 py-3 rounded-l-xl w-24 sm:w-28">Código</th>
+                <th className="px-3 py-3 min-w-[220px]">Descripción del Servicio / Bien</th>
+                <th className="px-2.5 py-3 w-16 sm:w-20 text-center">Cant.</th>
+                <th className="px-2.5 py-3 w-22 sm:w-26 text-right">Precio ($)</th>
+                <th className="px-2.5 py-3 w-16 sm:w-20 text-right">Desc ($)</th>
+                <th className="px-3 py-3 text-right w-24 sm:w-28">Subtotal ($)</th>
+                <th className="px-2 py-3 w-10 text-center rounded-r-xl"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-zinc-850">
               {details.map((row, index) => {
                 const isNewProd = row.producto.id === 'NEW' || !row.producto.id;
+                const searchTerm = (row.producto.nombre || '').toLowerCase().trim();
+                const filteredProducts = products.filter(p =>
+                  !searchTerm ||
+                  (p.nombre && p.nombre.toLowerCase().includes(searchTerm)) ||
+                  (p.codigo && p.codigo.toLowerCase().includes(searchTerm))
+                );
                 
                 return (
-                  <tr key={row.id} className="align-middle">
-                    <td className="px-3 py-4">
+                  <tr key={row.id} className="group hover:bg-gray-50/60 dark:hover:bg-zinc-800/30 transition-colors">
+                    {/* Código Único */}
+                    <td className="px-3 py-2.5 align-top">
                       <input
                         type="text"
-                        placeholder="Ej. SERV-01"
+                        placeholder="Ej. 001"
                         value={row.producto.codigo}
                         onChange={(e) => updateCodeName(index, 'codigo', e.target.value)}
-                        className="p-1 px-2 border border-gray-200 dark:border-zinc-700 rounded-md text-xs bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 font-mono w-24 focus:outline-none uppercase"
+                        className="w-full py-1.5 px-2.5 border border-gray-200 dark:border-zinc-700 rounded-xl text-xs bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase transition shadow-2xs"
                       />
                     </td>
 
-                    <td className="px-3 py-4 relative">
-                      <div className="relative">
+                    {/* Descripción con Autocompletado del Catálogo */}
+                    <td className="px-3 py-2.5 align-top relative">
+                      <div className="relative w-full">
                         <input
                           type="text"
-                          placeholder="Escriba descripción o busque del catálogo..."
+                          placeholder="Buscar en catálogo o escribir servicio/bien..."
                           value={row.producto.nombre || ''}
                           onFocus={() => setActiveRowSearch(index)}
                           onBlur={() => {
@@ -1037,94 +1045,119 @@ export default function InvoiceForm({
                           onChange={(e) => {
                             updateCodeName(index, 'nombre', e.target.value);
                           }}
-                          className="w-full p-2 border border-gray-200 dark:border-zinc-700 rounded-xl text-xs bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 uppercase font-medium shadow-xs"
+                          className="w-full py-1.5 px-3 border border-gray-200 dark:border-zinc-700 rounded-xl text-xs bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 uppercase font-medium transition shadow-2xs"
                         />
                         
-                        {/* Dropdown list search overlay */}
+                        {/* Dropdown list search overlay con diseño amplio y sin recortes */}
                         {activeRowSearch === index && (
-                          <div className="absolute left-0 right-0 mt-1.5 w-full bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl shadow-2xl max-h-56 overflow-y-auto z-50 divide-y divide-gray-100 dark:divide-zinc-800 animate-in fade-in-50 slide-in-from-top-1 duration-150">
-                            <div className="px-4 py-2 bg-gray-50 dark:bg-zinc-950 text-[10px] font-bold text-gray-450 dark:text-zinc-500 uppercase tracking-wider flex justify-between items-center">
-                              <span>SELECCIONAR DEL CATÁLOGO DE PRODUCTOS</span>
-                              <span className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded font-bold font-mono text-[9px]">{products.length} ÍTEMS</span>
+                          <div className="absolute left-0 top-full mt-2 w-full min-w-[340px] max-w-lg bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl shadow-2xl z-50 animate-in fade-in-50 slide-in-from-top-1 duration-150 overflow-hidden ring-1 ring-black/10 dark:ring-white/10">
+                            <div className="px-3.5 py-2.5 bg-gray-50 dark:bg-zinc-950 text-[10px] font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider flex justify-between items-center border-b border-gray-100 dark:border-zinc-800">
+                              <span className="flex items-center gap-1.5">
+                                📦 <span>Catálogo de Productos y Servicios</span>
+                              </span>
+                              <span className="bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full font-mono text-[9px] font-bold border border-indigo-200/50 dark:border-indigo-800/50">
+                                {filteredProducts.length} {filteredProducts.length === 1 ? 'resultado' : 'resultados'}
+                              </span>
                             </div>
-                            {products.map(p => (
-                              <button
-                                key={p.id}
-                                type="button"
-                                onMouseDown={() => {
-                                  const updated = [...details];
-                                  updated[index].producto = { ...p };
-                                  updated[index].cantidad = updated[index].cantidad || 1;
-                                  updated[index].descuento = p.descuentoDefault || 0;
-                                  recalcRow(updated, index);
-                                  setActiveRowSearch(null);
-                                }}
-                                className="w-full text-left px-4 py-3 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-xs text-gray-800 dark:text-zinc-200 transition-colors flex flex-col gap-0.5 cursor-pointer"
-                              >
-                                <div className="font-bold text-gray-900 dark:text-gray-100 uppercase flex justify-between items-center">
-                                  <span className="truncate pr-4">{p.nombre}</span>
-                                  <span className="text-indigo-600 dark:text-indigo-400 font-mono font-extrabold shrink-0">${p.precio.toFixed(2)}</span>
+                            <div className="max-h-64 overflow-y-auto divide-y divide-gray-100 dark:divide-zinc-800/60">
+                              {filteredProducts.map(p => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onMouseDown={() => {
+                                    const updated = [...details];
+                                    updated[index].producto = { ...p };
+                                    updated[index].cantidad = updated[index].cantidad || 1;
+                                    updated[index].descuento = p.descuentoDefault || 0;
+                                    recalcRow(updated, index);
+                                    setActiveRowSearch(null);
+                                  }}
+                                  className="w-full text-left px-4 py-2.5 hover:bg-indigo-50/80 dark:hover:bg-indigo-950/40 text-xs text-gray-800 dark:text-zinc-200 transition-colors flex flex-col gap-1 cursor-pointer group/item"
+                                >
+                                  <div className="font-bold text-gray-900 dark:text-gray-100 uppercase flex justify-between items-center text-xs">
+                                    <span className="truncate pr-3 group-hover/item:text-indigo-600 dark:group-hover/item:text-indigo-400 transition-colors">{p.nombre}</span>
+                                    <span className="text-emerald-600 dark:text-emerald-400 font-mono font-black shrink-0 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/50">${p.precio.toFixed(2)}</span>
+                                  </div>
+                                  <div className="text-[10px] text-gray-400 dark:text-zinc-500 font-mono flex items-center justify-between">
+                                    <span className="bg-gray-100 dark:bg-zinc-800 px-1.5 py-0.2 rounded text-[9px] font-semibold text-gray-600 dark:text-zinc-400">
+                                      CÓD: {p.codigo}
+                                    </span>
+                                    {p.descuentoDefault > 0 && (
+                                      <span className="text-amber-600 dark:text-amber-400 font-bold text-[9px]">
+                                        Desc. recurrente: ${p.descuentoDefault.toFixed(2)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </button>
+                              ))}
+                              {filteredProducts.length === 0 && (
+                                <div className="px-4 py-4 text-xs text-gray-500 dark:text-zinc-400 text-center bg-gray-50/50 dark:bg-zinc-950/50 space-y-1">
+                                  <p className="font-medium">
+                                    {products.length === 0 
+                                      ? 'No hay productos guardados en el catálogo aún.' 
+                                      : 'Sin resultados para este criterio.'}
+                                  </p>
+                                  <p className="text-[11px] text-gray-400 dark:text-zinc-500">
+                                    Puedes escribir libremente la descripción en esta fila.
+                                  </p>
                                 </div>
-                                <div className="text-[10px] text-gray-400 dark:text-zinc-500 font-mono flex items-center justify-between">
-                                  <span>CÓDIGO: {p.codigo}</span>
-                                  {p.descuentoDefault > 0 && (
-                                    <span className="text-emerald-600 dark:text-emerald-450 font-bold">DESC: ${p.descuentoDefault.toFixed(2)}</span>
-                                  )}
-                                </div>
-                              </button>
-                            ))}
-                            {products.length === 0 && (
-                              <div className="px-4 py-3 text-xs text-gray-400 text-center bg-gray-50/50 dark:bg-zinc-950/50">
-                                No hay productos en el catálogo. Vaya a Catálogo de Productos para agregar ítems recurrentes.
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
                     </td>
 
-                    <td className="px-3 py-4">
+                    {/* Cantidad */}
+                    <td className="px-2.5 py-2.5 align-top">
                       <input
                         type="number"
                         step="0.01"
+                        min="0.01"
                         value={row.cantidad}
                         onChange={(e) => updateQuantity(index, parseFloat(e.target.value) || 0)}
-                        className="p-1 px-2 border border-gray-200 dark:border-zinc-700 rounded-md text-xs bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 w-16 text-center focus:outline-none"
+                        className="w-full py-1.5 px-2 border border-gray-200 dark:border-zinc-700 rounded-xl text-xs bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 text-center font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 transition shadow-2xs"
                       />
                     </td>
 
-                    <td className="px-3 py-4">
+                    {/* Precio Unitario */}
+                    <td className="px-2.5 py-2.5 align-top">
                       <input
                         type="number"
                         step="0.01"
+                        min="0"
                         value={row.producto.precio}
                         onChange={(e) => updatePrice(index, parseFloat(e.target.value) || 0)}
-                        className="p-1 px-2 border border-gray-200 dark:border-zinc-700 rounded-md text-xs bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 w-24 text-right focus:outline-none"
+                        className="w-full py-1.5 px-2.5 border border-gray-200 dark:border-zinc-700 rounded-xl text-xs bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 text-right font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 transition shadow-2xs"
                       />
                     </td>
 
-                    <td className="px-3 py-4">
+                    {/* Descuento */}
+                    <td className="px-2.5 py-2.5 align-top">
                       <input
                         type="number"
                         step="0.01"
+                        min="0"
                         value={row.descuento}
                         onChange={(e) => updateDiscount(index, parseFloat(e.target.value) || 0)}
-                        className="p-1 px-2 border border-gray-200 dark:border-zinc-700 rounded-md text-xs bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 w-16 text-right focus:outline-none"
+                        className="w-full py-1.5 px-2 border border-gray-200 dark:border-zinc-700 rounded-xl text-xs bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 text-right font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 transition shadow-2xs"
                       />
                     </td>
 
-                    <td className="px-3 py-4 text-right font-mono text-xs font-semibold text-gray-900 dark:text-gray-100">
+                    {/* Subtotal */}
+                    <td className="px-3 py-2.5 align-middle text-right font-mono text-xs font-black text-gray-900 dark:text-gray-100">
                       ${row.subtotal.toFixed(2)}
                     </td>
 
-                    <td className="px-3 py-4 text-center">
+                    {/* Acciones */}
+                    <td className="px-2 py-2.5 align-middle text-center">
                       <div className="flex items-center gap-1 justify-center">
                         {isNewProd && row.producto.codigo && row.producto.nombre && (
                           <button
                             type="button"
                             onClick={() => handleCreateProductInline(index)}
                             title="Guardar este item al catálogo recurrente"
-                            className="p-1 text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                            className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition cursor-pointer"
                           >
                             <Sparkles className="w-3.5 h-3.5" />
                           </button>
@@ -1132,7 +1165,8 @@ export default function InvoiceForm({
                         <button
                           type="button"
                           onClick={() => removeDetailRow(index)}
-                          className="p-1 text-red-500 hover:text-red-700 cursor-pointer"
+                          className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 transition cursor-pointer"
+                          title="Eliminar fila"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

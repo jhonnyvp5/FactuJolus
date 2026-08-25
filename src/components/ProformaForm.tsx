@@ -727,7 +727,7 @@ export default function ProformaForm({
                 </div>
 
                 {/* DETAILS ROWS */}
-                <div className={`space-y-3 max-h-[520px] overflow-y-auto pr-1 transition-all duration-300 ${activeRowSearch !== null ? 'pb-56' : 'pb-4'}`}>
+                <div className={`space-y-3 max-h-[640px] overflow-y-auto pr-1 transition-all duration-200 ${activeRowSearch !== null ? 'min-h-[380px] pb-60' : 'min-h-[180px] pb-6'}`}>
                   {details.map((row, index) => (
                     <div 
                       key={row.id} 

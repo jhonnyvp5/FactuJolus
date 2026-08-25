@@ -221,6 +221,13 @@ export default function VisualLayoutBuilder({
   // Collapsed branches state for branch mode
   const [collapsedBranches, setCollapsedBranches] = useState<Record<string, boolean>>({});
 
+  // Active Role strictly bound to the authenticated user's session role
+  const activeUserRole: 'USER' | 'ADMIN' | 'SUPERADMIN' = (
+    currentUserRole || 
+    currentUser?.role || 
+    (isSuperadmin ? 'SUPERADMIN' : 'USER')
+  ).toUpperCase() as 'USER' | 'ADMIN' | 'SUPERADMIN';
+
   // Drag & Drop State
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverTarget, setDragOverTarget] = useState<{
@@ -237,6 +244,44 @@ export default function VisualLayoutBuilder({
         { id: 'group-catalogos', name: 'Catálogos', iconName: 'Package', order: 2, visible: true },
         { id: 'group-admin', name: 'Administración', iconName: 'ShieldCheck', order: 3, visible: true },
       ];
+
+  // Helper for role permissions: verifies if an item is permitted for a specific role
+  const isItemAllowedForRole = (item: CustomMenuItem, role: 'USER' | 'ADMIN' | 'SUPERADMIN') => {
+    const req = (item.requiredRole || 'ALL').toUpperCase();
+    if (role === 'USER') return req === 'ALL' || req === 'USER';
+    if (role === 'ADMIN') return req === 'ALL' || req === 'USER' || req === 'ADMIN';
+    if (role === 'SUPERADMIN') return true;
+    return true;
+  };
+
+  const getRoleBadge = (requiredRole?: string) => {
+    const role = (requiredRole || 'ALL').toUpperCase();
+    if (role === 'SUPERADMIN') {
+      return {
+        label: '👑 SUPERADMIN',
+        bg: 'bg-purple-100 dark:bg-purple-950/70 text-purple-750 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+        description: 'Exclusivo para Superadministrador'
+      };
+    }
+    if (role === 'ADMIN') {
+      return {
+        label: '🛡️ ADMIN',
+        bg: 'bg-indigo-100 dark:bg-indigo-950/70 text-indigo-750 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800',
+        description: 'Administrador de Empresa y Superadmin'
+      };
+    }
+    return {
+      label: '👤 USER (Todos)',
+      bg: 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-750 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
+      description: 'Disponible para todos los roles'
+    };
+  };
+
+  // Filter items and groups strictly for the active user's role
+  const allowedMenuItems = menuItems.filter(it => isItemAllowedForRole(it, activeUserRole));
+  const userItemsCount = menuItems.filter(it => isItemAllowedForRole(it, 'USER')).length;
+  const adminItemsCount = menuItems.filter(it => isItemAllowedForRole(it, 'ADMIN')).length;
+  const superadminItemsCount = menuItems.filter(it => isItemAllowedForRole(it, 'SUPERADMIN')).length;
 
   // Update layout mode
   const handleLayoutChange = (mode: 'topbar-classic' | 'sidebar-left' | 'sidebar-right' | 'compact-dock' | 'floating-island') => {
@@ -639,8 +684,9 @@ export default function VisualLayoutBuilder({
     }
   };
 
-  // Ungrouped items (root branch)
-  const ungroupedItems = menuItems.filter(it => !it.groupId);
+  // Ungrouped items (root branch) filtered strictly by the session user's role
+  const allUngroupedItems = menuItems.filter(it => !it.groupId || it.groupId === 'NONE');
+  const ungroupedItems = allUngroupedItems.filter(it => isItemAllowedForRole(it, activeUserRole));
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -1064,14 +1110,86 @@ export default function VisualLayoutBuilder({
           </div>
         </div>
 
+        {/* BARRA DE ROL DE USUARIO ACTIVO (RBAC ESTRICTO) */}
+        <div className="bg-slate-50 dark:bg-zinc-900/60 p-4 rounded-2xl border border-slate-200 dark:border-zinc-800 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
+                activeUserRole === 'SUPERADMIN' 
+                  ? 'bg-purple-600 text-white' 
+                  : activeUserRole === 'ADMIN' 
+                  ? 'bg-indigo-600 text-white' 
+                  : 'bg-emerald-600 text-white'
+              }`}>
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                    Nivel de Acceso de Tu Sesión
+                  </span>
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
+                    activeUserRole === 'SUPERADMIN'
+                      ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800'
+                      : activeUserRole === 'ADMIN'
+                      ? 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800'
+                      : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                  }`}>
+                    {activeUserRole === 'SUPERADMIN' ? '👑 ROL SUPERADMIN' : activeUserRole === 'ADMIN' ? '🛡️ ROL ADMIN' : '👤 ROL USER'}
+                  </span>
+                </div>
+                <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-zinc-100">
+                  {activeUserRole === 'SUPERADMIN' && 'Visualización Completa del Sistema (Superadministrador)'}
+                  {activeUserRole === 'ADMIN' && 'Opciones Autorizadas para Administrador de Empresa'}
+                  {activeUserRole === 'USER' && 'Opciones Autorizadas para Usuario Estándar / Facturador'}
+                </h4>
+              </div>
+            </div>
+
+            {/* Contador de Opciones Permitidas */}
+            <div className="flex items-center gap-2 bg-white dark:bg-zinc-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-zinc-700 shrink-0">
+              <span className="text-[11px] font-bold text-slate-600 dark:text-zinc-300">Opciones Activas:</span>
+              <span className="text-xs font-mono font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 rounded-lg">
+                {allowedMenuItems.length}
+              </span>
+            </div>
+          </div>
+
+          {/* Banner Explicativo del Rol */}
+          <div className="text-xs px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700/80 text-slate-600 dark:text-zinc-300">
+            {activeUserRole === 'USER' && (
+              <p>
+                👤 Estás autenticado como <strong>USER</strong>. El organizador te muestra únicamente las <strong>{userItemsCount} opciones</strong> asignadas a tu nivel de operación. Las opciones administrativas y de configuración avanzada están reservadas y protegidas por RBAC.
+              </p>
+            )}
+            {activeUserRole === 'ADMIN' && (
+              <p>
+                🛡️ Estás autenticado como <strong>ADMIN</strong>. El organizador despliega las <strong>{adminItemsCount} opciones</strong> de gestión de tu empresa (facturación, usuarios del inquilino y catálogos). Las opciones globales de Superadministrador no están disponibles.
+              </p>
+            )}
+            {activeUserRole === 'SUPERADMIN' && (
+              <p>
+                👑 Estás autenticado como <strong>SUPERADMIN</strong>. Tienes acceso maestro a todas las <strong>{superadminItemsCount} opciones</strong> de la plataforma, incluyendo gestión multi-empresa y configuración central.
+              </p>
+            )}
+          </div>
+        </div>
+
         {/* MODO RAMAS TREE VIEW */}
         <div className="space-y-6">
 
           {/* 1. RAMAS DE CADA GRUPO */}
           {menuGroups.map((grp, grpIndex) => {
-            const groupSubItems = menuItems
+            const allGroupSubItems = menuItems
               .filter(it => it.groupId === grp.id)
               .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+            const groupSubItems = allGroupSubItems.filter(it => isItemAllowedForRole(it, activeUserRole));
+
+            // If no items allowed in this group for this role and not superadmin, hide group
+            if (groupSubItems.length === 0 && activeUserRole !== 'SUPERADMIN') {
+              return null;
+            }
 
             const isCollapsed = !!collapsedBranches[grp.id];
             const isGroupDropTarget = dragOverTarget?.type === 'group' && dragOverTarget?.id === grp.id;
@@ -1114,7 +1232,7 @@ export default function VisualLayoutBuilder({
                         </h4>
                       </div>
                       <div className="text-[11px] text-slate-500 dark:text-zinc-400">
-                        {groupSubItems.length} {groupSubItems.length === 1 ? 'subrama / opción' : 'subramas / opciones'}
+                        {groupSubItems.length} {groupSubItems.length === 1 ? 'subrama visible' : 'subramas visibles'}
                       </div>
                     </div>
                   </div>
@@ -1226,6 +1344,20 @@ export default function VisualLayoutBuilder({
                                   <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400">
                                     key: {item.key}
                                   </span>
+
+                                  {/* Badge de Rol de Acceso */}
+                                  {(() => {
+                                    const roleBadge = getRoleBadge(item.requiredRole);
+                                    return (
+                                      <span 
+                                        className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md border ${roleBadge.bg}`}
+                                        title={`Permiso de acceso: ${roleBadge.description}`}
+                                      >
+                                        {roleBadge.label}
+                                      </span>
+                                    );
+                                  })()}
+
                                   {item.badge && (
                                     <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
                                       {item.badge}
@@ -1443,6 +1575,20 @@ export default function VisualLayoutBuilder({
                               <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400">
                                 key: {item.key}
                               </span>
+
+                              {/* Badge de Rol de Acceso */}
+                              {(() => {
+                                const roleBadge = getRoleBadge(item.requiredRole);
+                                return (
+                                  <span 
+                                    className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md border ${roleBadge.bg}`}
+                                    title={`Permiso de acceso: ${roleBadge.description}`}
+                                  >
+                                    {roleBadge.label}
+                                  </span>
+                                );
+                              })()}
+
                               {item.badge && (
                                 <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
                                   {item.badge}
@@ -1751,11 +1897,15 @@ export default function VisualLayoutBuilder({
                   <select
                     value={editingItem.requiredRole || 'ALL'}
                     onChange={(e) => setEditingItem({ ...editingItem, requiredRole: e.target.value as any })}
-                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white focus:outline-blue-500"
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white focus:outline-blue-500 font-bold"
                   >
-                    <option value="ALL">Todos los Usuarios</option>
-                    <option value="ADMIN">Solo Administradores</option>
-                    <option value="SUPERADMIN">Solo Superadmin</option>
+                    <option value="ALL">Todos los Usuarios (USER)</option>
+                    {(activeUserRole === 'ADMIN' || activeUserRole === 'SUPERADMIN') && (
+                      <option value="ADMIN">Solo Administradores (ADMIN)</option>
+                    )}
+                    {activeUserRole === 'SUPERADMIN' && (
+                      <option value="SUPERADMIN">Solo Superadmin (SUPERADMIN)</option>
+                    )}
                   </select>
                 </div>
               </div>
@@ -1887,11 +2037,15 @@ export default function VisualLayoutBuilder({
                   <select
                     value={newItemFormData.requiredRole}
                     onChange={(e) => setNewItemFormData({ ...newItemFormData, requiredRole: e.target.value as any })}
-                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white focus:outline-blue-500"
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white focus:outline-blue-500 font-bold"
                   >
-                    <option value="ALL">Todos los Usuarios</option>
-                    <option value="ADMIN">Solo Administradores</option>
-                    <option value="SUPERADMIN">Solo Superadmin</option>
+                    <option value="ALL">Todos los Usuarios (USER)</option>
+                    {(activeUserRole === 'ADMIN' || activeUserRole === 'SUPERADMIN') && (
+                      <option value="ADMIN">Solo Administradores (ADMIN)</option>
+                    )}
+                    {activeUserRole === 'SUPERADMIN' && (
+                      <option value="SUPERADMIN">Solo Superadmin (SUPERADMIN)</option>
+                    )}
                   </select>
                 </div>
               </div>
