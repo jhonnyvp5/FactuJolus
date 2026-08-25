@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PortalUser, EmitterConfig, RegimenTributario } from '../types';
 import { validateRuc, REGIMENES } from '../sri/utils';
 import { apiCheckSignature, apiTestSmtp } from '../lib/apiClient';
@@ -78,38 +78,58 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
     return !(config.ruc && config.razonSocial);
   });
 
-  // Sync internal state ONLY when external config prop deeply changes
-  const configKeyStr = JSON.stringify(config);
+  // Helper to extract clean YYYY-MM-DD date format
+  const formatCleanDate = (rawDate?: string): string => {
+    if (!rawDate) return '';
+    try {
+      if (rawDate.includes('T')) return rawDate.split('T')[0];
+      const d = new Date(rawDate);
+      if (!isNaN(d.getTime())) {
+        return d.toISOString().split('T')[0];
+      }
+    } catch (e) {
+      // ignore
+    }
+    return rawDate;
+  };
+
+  // Sync internal state from external config ONLY on initial mount or when switching company/tenant identity
+  const lastSyncedIdRef = useRef<string>('');
+  const currentTenantKey = `${config.empresaRuc || config.ruc || ''}`;
+
   useEffect(() => {
-    setRuc(config.ruc || '');
-    setRazonSocial(config.razonSocial || '');
-    setNombreComercial(config.nombreComercial || '');
-    setDirMatriz(config.dirMatriz || '');
-    setDirEstablecimiento(config.dirEstablecimiento || '');
-    setCodEstablecimiento(config.codEstablecimiento || '001');
-    setCodPuntoEmision(config.codPuntoEmision || '001');
-    setCorreo(config.correo || '');
-    setTelefono(config.telefono || '');
-    setObligadoContabilidad(config.obligadoContabilidad ?? true);
-    setContribuyenteEspecial(config.contribuyenteEspecial || '');
-    setAgenteRetencion(config.agenteRetencion || '');
-    setRegimen(config.regimen || '');
-    setAmbiente(config.ambiente || '1');
-    setIsDemoMode(config.isDemoMode ?? true);
-    setUltimoSecuencialFactura(config.ultimoSecuencialFactura || '000000001');
-    setSmtpHost(config.smtpHost || '');
-    setSmtpPort(config.smtpPort ? String(config.smtpPort) : '587');
-    setSmtpUser(config.smtpUser || '');
-    setSmtpPass(config.smtpPass || '');
-    setSmtpFrom(config.smtpFrom || '');
-    setPassword(config.p12Password || '');
-    setSignatureB64(config.p12FirmaB64 || '');
-    setSignatureName(config.p12Nombre || '');
-    setValidoDesde(config.p12ValidoDesde || config.validoDesde || '');
-    setValidoHasta(config.p12ValidoHasta || config.validoHasta || '');
-    setSigDetails(null);
-    setSigError(null);
-  }, [configKeyStr]);
+    if (lastSyncedIdRef.current !== currentTenantKey) {
+      lastSyncedIdRef.current = currentTenantKey;
+      setRuc(config.ruc || '');
+      setRazonSocial(config.razonSocial || '');
+      setNombreComercial(config.nombreComercial || '');
+      setDirMatriz(config.dirMatriz || '');
+      setDirEstablecimiento(config.dirEstablecimiento || '');
+      setCodEstablecimiento(config.codEstablecimiento || '001');
+      setCodPuntoEmision(config.codPuntoEmision || '001');
+      setCorreo(config.correo || '');
+      setTelefono(config.telefono || '');
+      setObligadoContabilidad(config.obligadoContabilidad ?? true);
+      setContribuyenteEspecial(config.contribuyenteEspecial || '');
+      setAgenteRetencion(config.agenteRetencion || '');
+      setRegimen(config.regimen || '');
+      setAmbiente(config.ambiente || '1');
+      setIsDemoMode(config.isDemoMode ?? true);
+      setUltimoSecuencialFactura(config.ultimoSecuencialFactura || '000000001');
+      setSmtpHost(config.smtpHost || '');
+      setSmtpPort(config.smtpPort ? String(config.smtpPort) : '587');
+      setSmtpUser(config.smtpUser || '');
+      setSmtpPass(config.smtpPass || '');
+      setSmtpFrom(config.smtpFrom || '');
+      setPassword(config.p12Password || '');
+      setSignatureB64(config.p12FirmaB64 || '');
+      setSignatureName(config.p12Nombre || '');
+      setValidoDesde(formatCleanDate(config.p12ValidoDesde || config.validoDesde || ''));
+      setValidoHasta(formatCleanDate(config.p12ValidoHasta || config.validoHasta || ''));
+      setSigDetails(null);
+      setSigError(null);
+    }
+  }, [currentTenantKey, config]);
 
   const handleClearExampleData = () => {
     setRuc('');
@@ -175,69 +195,20 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
 
     setIsLoadingSig(true);
     setSigError(null);
-    setSigDetails(null);
 
     try {
       const result = await apiCheckSignature(signatureB64, password);
       if (result.status === 'success' && result.info) {
         const info = result.info;
         setSigDetails(info);
-        if (info.validFrom) setValidoDesde(info.validFrom);
-        if (info.validTo) setValidoHasta(info.validTo);
-
-        // Immediate update to configuration and database
-        const updatedConfig: EmitterConfig = {
-          ...config,
-          ruc: ruc ? ruc.trim() : config.ruc,
-          razonSocial: razonSocial ? razonSocial.trim() : config.razonSocial,
-          nombreComercial: nombreComercial ? nombreComercial.trim() : config.nombreComercial,
-          dirMatriz: dirMatriz ? dirMatriz.trim() : config.dirMatriz,
-          dirEstablecimiento: dirEstablecimiento ? dirEstablecimiento.trim() : config.dirEstablecimiento,
-          codEstablecimiento: codEstablecimiento || config.codEstablecimiento || '001',
-          codPuntoEmision: codPuntoEmision || config.codPuntoEmision || '001',
-          obligadoContabilidad,
-          contribuyenteEspecial: contribuyenteEspecial ? contribuyenteEspecial.trim() : config.contribuyenteEspecial,
-          agenteRetencion: agenteRetencion ? agenteRetencion.trim() : config.agenteRetencion,
-          regimen,
-          ambiente,
-          isDemoMode,
-          p12Nombre: signatureName,
-          p12FirmaB64: signatureB64,
-          p12Password: password,
-          p12ValidoDesde: info.validFrom || validoDesde,
-          p12ValidoHasta: info.validTo || validoHasta,
-          validoDesde: info.validFrom || validoDesde,
-          validoHasta: info.validTo || validoHasta,
-          p12Subject: info.subject,
-          p12Issuer: info.issuer,
-          p12SerialNumber: info.serialNumber,
-          correo: correo ? correo.trim() : config.correo,
-          telefono: telefono ? telefono.trim() : config.telefono,
-          ultimoSecuencialFactura: ultimoSecuencialFactura || config.ultimoSecuencialFactura,
-          smtpHost: smtpHost || config.smtpHost,
-          smtpPort: smtpPort || config.smtpPort,
-          smtpUser: smtpUser || config.smtpUser,
-          smtpPass: smtpPass || config.smtpPass,
-          smtpFrom: smtpFrom || config.smtpFrom,
-          logoB64: config.logoB64,
-          empresaRuc: config.empresaRuc || (ruc ? ruc.trim() : ''),
-          empresaNombre: config.empresaNombre || (razonSocial ? razonSocial.trim() : '')
-        };
-
-        // 1. Instant App and LocalStorage save
-        onSave(updatedConfig);
-
-        // 2. Direct Cloud Database storage
-        try {
-          await saveEmitterConfigToSupabase(updatedConfig, currentUser?.correo);
-        } catch (dbErr) {
-          console.warn('Aviso guardando vigencia de firma en base de datos:', dbErr);
-        }
-
-        modalAlert.success(
-          'Firma Electrónica Verificada',
-          'La firma es válida. Los datos y fechas de vigencia han sido almacenados en la base de datos.'
-        );
+        
+        // Autocompletar únicamente los campos de fecha sin pop-ups
+        const cleanFrom = formatCleanDate(info.validFrom);
+        const cleanTo = formatCleanDate(info.validTo);
+        
+        if (cleanFrom) setValidoDesde(cleanFrom);
+        if (cleanTo) setValidoHasta(cleanTo);
+        setSigError(null);
       } else {
         setSigError(result.message || 'No se pudo validar la firma electrónica con la contraseña proporcionada.');
       }
