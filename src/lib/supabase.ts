@@ -179,13 +179,28 @@ CREATE TABLE IF NOT EXISTS public.emisor_config (
 );
 
 -- Asegurar columnas para instalaciones existentes
-ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS telefono TEXT;
-ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_host TEXT;
-ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_port TEXT;
-ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_user TEXT;
-ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_pass TEXT;
-ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_from TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS razon_social TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS nombre_comercial TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS direccion_matriz TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS dir_matriz TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS direccion_establecimiento TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS dir_establecimiento TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS establecimiento TEXT DEFAULT '001';
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS punto_emision TEXT DEFAULT '001';
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS lleva_contabilidad TEXT DEFAULT 'NO';
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS contribuyente_especial TEXT DEFAULT '';
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS agente_retencion TEXT DEFAULT '';
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS regimen TEXT DEFAULT 'GENERAL';
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS regimen_tributario TEXT DEFAULT 'GENERAL';
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS ambiente TEXT DEFAULT '1';
 ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS is_demo_mode BOOLEAN DEFAULT true;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS logo_url TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS logo_b64 TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS ultimo_secuencial_factura TEXT DEFAULT '000000001';
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS clave_firma TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS p12_nombre TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS p12_firma_b64 TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS p12_password TEXT;
 ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS p12_valido_desde TEXT;
 ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS p12_valido_hasta TEXT;
 ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS valido_desde TEXT;
@@ -193,6 +208,16 @@ ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS valido_hasta TEXT;
 ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS p12_subject TEXT;
 ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS p12_issuer TEXT;
 ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS p12_serial_number TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS correo TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS telefono TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_host TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_port TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_user TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_pass TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS smtp_from TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS empresa_ruc VARCHAR(20);
+ALTER TABLE public.emisor_config ADD COLUMN IF NOT EXISTS empresa_nombre TEXT;
 
 -- 5. TABLA DE FACTURAS
 CREATE TABLE IF NOT EXISTS public.facturas (

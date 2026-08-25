@@ -815,10 +815,13 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
 
             try {
               const toDate = new Date(activeValidTo);
+              if (isNaN(toDate.getTime())) return null;
+
               const fromDate = activeValidFrom ? new Date(activeValidFrom) : new Date(toDate.getTime() - 365 * 24 * 60 * 60 * 1000);
+              const validFromDate = !isNaN(fromDate.getTime()) ? fromDate : new Date(toDate.getTime() - 365 * 24 * 60 * 60 * 1000);
               const now = new Date();
 
-              const totalMs = Math.max(1, toDate.getTime() - fromDate.getTime());
+              const totalMs = Math.max(1, toDate.getTime() - validFromDate.getTime());
               const remainingMs = toDate.getTime() - now.getTime();
               const daysRemaining = Math.ceil(remainingMs / (1000 * 60 * 60 * 24));
               const percentRemaining = Math.max(0, Math.min(100, Math.round((remainingMs / totalMs) * 100)));
@@ -894,7 +897,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
                     </div>
                     
                     <div className="flex justify-between text-[11px] text-gray-500 dark:text-zinc-400 pt-0.5">
-                      <span>Inicio: {fromDate.toLocaleDateString('es-EC')}</span>
+                      <span>Inicio: {validFromDate.toLocaleDateString('es-EC')}</span>
                       <span>{percentRemaining}% de vigencia útil</span>
                       <span>Expiración: {toDate.toLocaleDateString('es-EC')}</span>
                     </div>
@@ -907,7 +910,7 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
                         <Calendar className="w-3.5 h-3.5 text-blue-500" /> Válido Desde
                       </span>
                       <span className="font-semibold text-gray-900 dark:text-gray-100">
-                        {fromDate.toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' })}
+                        {validFromDate.toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' })}
                       </span>
                     </div>
 
