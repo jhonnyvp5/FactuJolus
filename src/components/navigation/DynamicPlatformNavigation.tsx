@@ -111,29 +111,6 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
 }) => {
   const { settings, themeClasses } = usePlatformSettings();
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
-  const [expandedAccordions, setExpandedAccordions] = useState<Record<string, boolean>>({
-    'group-facturacion': true,
-    'group-catalogos': true,
-    'group-admin': true,
-  });
-
-  const navRef = useRef<HTMLDivElement | null>(null);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
-      if (navRef.current && !navRef.current.contains(e.target as Node)) {
-        setOpenDropdownId(null);
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    document.addEventListener('touchstart', handleOutsideClick);
-    return () => {
-      document.removeEventListener('mousedown', handleOutsideClick);
-      document.removeEventListener('touchstart', handleOutsideClick);
-    };
-  }, []);
-
   const userRole = currentUser?.role?.toUpperCase() || 'USER';
   const isSuperadmin = userRole === 'SUPERADMIN';
   const isAdmin = userRole === 'ADMIN' || isSuperadmin;
@@ -200,6 +177,51 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
     }
   });
 
+  // Find active group ID containing activeTab
+  const getActiveGroupId = (currentTab: string): string | null => {
+    for (const grp of sortedGroups) {
+      const items = itemsByGroup[grp.id] || [];
+      if (items.some(it => it.key === currentTab)) {
+        return grp.id;
+      }
+    }
+    return null;
+  };
+
+  const initialActiveGrpId = getActiveGroupId(activeTab);
+
+  // Expanded accordions: only the active group starts open
+  const [expandedAccordions, setExpandedAccordions] = useState<Record<string, boolean>>(() => {
+    return initialActiveGrpId ? { [initialActiveGrpId]: true } : {};
+  });
+
+  // When activeTab changes or menu items change, automatically open ONLY the active branch accordion
+  useEffect(() => {
+    const activeGrp = getActiveGroupId(activeTab);
+    if (activeGrp) {
+      setExpandedAccordions({ [activeGrp]: true });
+    } else {
+      setExpandedAccordions({});
+    }
+  }, [activeTab, settings.customMenuItems, settings.menuGroups]);
+
+  const navRef = useRef<HTMLDivElement | null>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
+        setOpenDropdownId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('touchstart', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+    };
+  }, []);
+
   // Combined list of display nodes: either a Group (with children) or an Ungrouped Item
   type NavNode = 
     | { type: 'group'; group: MenuGroup; children: CustomMenuItem[]; order: number }
@@ -253,10 +275,14 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
   };
 
   const toggleAccordion = (groupId: string) => {
-    setExpandedAccordions(prev => ({
-      ...prev,
-      [groupId]: !prev[groupId]
-    }));
+    setExpandedAccordions(prev => {
+      const isCurrentlyOpen = !!prev[groupId];
+      if (isCurrentlyOpen) {
+        return {};
+      } else {
+        return { [groupId]: true };
+      }
+    });
   };
 
   // 1. MOBILE DRAWER RENDER (ACCORDION STYLE)
@@ -299,7 +325,12 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
                   {item.isCustom && item.customUrl && (
                     <ExternalLink className={`w-3.5 h-3.5 opacity-60 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                   )}
-                  {isActive && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
+                  {isActive && (
+                    <span className="relative flex h-2 w-2 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                    </span>
+                  )}
                 </div>
               </button>
             );
@@ -328,8 +359,13 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
                   <span>{grp.name}</span>
                   <span className="text-[10px] font-mono font-normal opacity-60">({node.children.length})</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  {hasActiveChild && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {hasActiveChild && (
+                    <span className="relative flex h-2 w-2 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600 dark:bg-blue-400"></span>
+                    </span>
+                  )}
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                 </div>
               </button>
@@ -354,13 +390,21 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
                           </span>
                           <span className="truncate">{child.label}</span>
                         </div>
-                        {child.badge && (
-                          <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-bold uppercase ${
-                            isChildActive ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
-                          }`}>
-                            {child.badge}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {child.badge && (
+                            <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-bold uppercase ${
+                              isChildActive ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                            }`}>
+                              {child.badge}
+                            </span>
+                          )}
+                          {isChildActive && (
+                            <span className="relative flex h-2 w-2 shrink-0">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-white shadow-xs"></span>
+                            </span>
+                          )}
+                        </div>
                       </button>
                     );
                   })}
@@ -427,7 +471,7 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
 
           // GROUP ACCORDION IN SIDEBAR
           const grp = node.group;
-          const isExpanded = expandedAccordions[grp.id] !== false;
+          const isExpanded = !!expandedAccordions[grp.id];
           const hasActiveChild = node.children.some(c => c.key === activeTab);
 
           return (
@@ -447,8 +491,13 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
                   </span>
                   <span className="truncate">{grp.name}</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  {hasActiveChild && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {hasActiveChild && (
+                    <span className="relative flex h-2 w-2 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600 dark:bg-blue-400"></span>
+                    </span>
+                  )}
                   <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                 </div>
               </button>
@@ -474,13 +523,21 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
                           </span>
                           <span className="truncate">{child.label}</span>
                         </div>
-                        {child.badge && (
-                          <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase ${
-                            isChildActive ? 'bg-white/20 text-white' : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
-                          }`}>
-                            {child.badge}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {child.badge && (
+                            <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase ${
+                              isChildActive ? 'bg-white/20 text-white' : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
+                            }`}>
+                              {child.badge}
+                            </span>
+                          )}
+                          {isChildActive && (
+                            <span className="relative flex h-2 w-2 shrink-0">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                            </span>
+                          )}
+                        </div>
                       </button>
                     );
                   })}
@@ -587,13 +644,21 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
                             </span>
                             <span className="truncate">{child.label}</span>
                           </div>
-                          {child.badge && (
-                            <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase ${
-                              isChildActive ? 'bg-white/20 text-white' : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
-                            }`}>
-                              {child.badge}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {child.badge && (
+                              <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase ${
+                                isChildActive ? 'bg-white/20 text-white' : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
+                              }`}>
+                                {child.badge}
+                              </span>
+                            )}
+                            {isChildActive && (
+                              <span className="relative flex h-2 w-2 shrink-0">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                              </span>
+                            )}
+                          </div>
                         </button>
                       );
                     })}
@@ -689,13 +754,21 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
                             </span>
                             <span className="truncate">{child.label}</span>
                           </div>
-                          {child.badge && (
-                            <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase ${
-                              isChildActive ? 'bg-white/20 text-white' : 'bg-blue-900/60 text-blue-300 border border-blue-700/50'
-                            }`}>
-                              {child.badge}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {child.badge && (
+                              <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase ${
+                                isChildActive ? 'bg-white/20 text-white' : 'bg-blue-900/60 text-blue-300 border border-blue-700/50'
+                              }`}>
+                                {child.badge}
+                              </span>
+                            )}
+                            {isChildActive && (
+                              <span className="relative flex h-2 w-2 shrink-0">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                              </span>
+                            )}
+                          </div>
                         </button>
                       );
                     })}
@@ -803,13 +876,21 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
                           </span>
                           <span className="truncate">{child.label}</span>
                         </div>
-                        {child.badge && (
-                          <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase shrink-0 ${
-                            isChildActive ? 'bg-white/20 text-white' : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
-                          }`}>
-                            {child.badge}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {child.badge && (
+                            <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase shrink-0 ${
+                              isChildActive ? 'bg-white/20 text-white' : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
+                            }`}>
+                              {child.badge}
+                            </span>
+                          )}
+                          {isChildActive && (
+                            <span className="relative flex h-2 w-2 shrink-0">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                            </span>
+                          )}
+                        </div>
                       </button>
                     );
                   })}
