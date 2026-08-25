@@ -249,12 +249,83 @@ export default function VisualLayoutBuilder({
     updateSettings({ contentLayoutWidth: width });
   };
 
-  // Toggle branch collapse
+  // Move entire group (branch) UP
+  const handleMoveGroupUp = (groupId: string) => {
+    const grpIdx = menuGroups.findIndex(g => g.id === groupId);
+    if (grpIdx <= 0) return;
+    const newGroups = [...menuGroups];
+    const temp = newGroups[grpIdx];
+    newGroups[grpIdx] = newGroups[grpIdx - 1];
+    newGroups[grpIdx - 1] = temp;
+    newGroups.forEach((g, idx) => {
+      g.order = idx + 1;
+    });
+    updateSettings({ menuGroups: newGroups });
+    modalAlert.success('Rama Reordenada', `La rama "${temp.name}" se movió hacia arriba.`);
+  };
+
+  // Move entire group (branch) DOWN
+  const handleMoveGroupDown = (groupId: string) => {
+    const grpIdx = menuGroups.findIndex(g => g.id === groupId);
+    if (grpIdx === -1 || grpIdx >= menuGroups.length - 1) return;
+    const newGroups = [...menuGroups];
+    const temp = newGroups[grpIdx];
+    newGroups[grpIdx] = newGroups[grpIdx + 1];
+    newGroups[grpIdx + 1] = temp;
+    newGroups.forEach((g, idx) => {
+      g.order = idx + 1;
+    });
+    updateSettings({ menuGroups: newGroups });
+    modalAlert.success('Rama Reordenada', `La rama "${temp.name}" se movió hacia abajo.`);
+  };
+
+  // Start editing a branch/group - Auto close all other branches!
+  const handleStartEditGroup = (grp: MenuGroup) => {
+    setEditingGroup({ ...grp });
+    // Accordion behavior: Close all other branches when editing a branch
+    const newCollapsed: Record<string, boolean> = { '__root__': true };
+    menuGroups.forEach(g => {
+      if (g.id !== grp.id) {
+        newCollapsed[g.id] = true;
+      }
+    });
+    setCollapsedBranches(newCollapsed);
+  };
+
+  // Remove a sub-branch (menu item) from its group and place it into loose options (Opciones Sueltas)
+  const handleRemoveFromBranch = (itemId: string) => {
+    const targetItem = menuItems.find(it => it.id === itemId);
+    const updated = menuItems.map(it =>
+      it.id === itemId ? { ...it, groupId: undefined } : it
+    );
+    updateSettings({ customMenuItems: updated });
+    modalAlert.info('Opción Desagrupada', `"${targetItem?.label || 'Opción'}" fue retirada de la rama y ahora está en "Opciones Sueltas (Botones Directos en Barra)".`);
+  };
+
+  // Toggle branch with accordion auto-close support
   const toggleBranch = (branchId: string) => {
-    setCollapsedBranches(prev => ({
-      ...prev,
-      [branchId]: !prev[branchId]
-    }));
+    setCollapsedBranches(prev => {
+      const isCurrentlyCollapsed = !!prev[branchId];
+      if (isCurrentlyCollapsed) {
+        // When expanding this branch, collapse all OTHER branches
+        const next: Record<string, boolean> = { '__root__': true };
+        menuGroups.forEach(g => {
+          if (g.id !== branchId) {
+            next[g.id] = true;
+          }
+        });
+        if (branchId === '__root__') {
+          delete next['__root__'];
+        }
+        return next;
+      } else {
+        // Closing this branch
+        return {
+          ...prev,
+          [branchId]: true
+        };
+      }
+    });
   };
 
   const expandAllBranches = () => {
@@ -441,15 +512,11 @@ export default function VisualLayoutBuilder({
     modalAlert.success('Menú Actualizado', 'Los cambios en la opción del menú se aplicaron correctamente.');
   };
 
-  // GROUP OPERATIONS (SUPERADMIN EXCLUSIVE)
+  // GROUP OPERATIONS
   const handleCreateGroup = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isSuperadmin) {
-      modalAlert.warning('Acceso Restringido', 'Solo el SUPERADMIN puede crear nuevos grupos maestros de menú.');
-      return;
-    }
     if (!newGroupFormData.name?.trim()) {
-      modalAlert.warning('Campo Requerido', 'Ingresa un nombre para el nuevo grupo.');
+      modalAlert.warning('Campo Requerido', 'Ingresa un nombre para el nuevo grupo o rama.');
       return;
     }
 
@@ -471,28 +538,23 @@ export default function VisualLayoutBuilder({
       visible: true,
       color: 'blue'
     });
-    modalAlert.success('Grupo Creado', `Se creó el grupo "${newGroup.name}". Ahora cualquier inquilino puede distribuir opciones dentro de él.`);
+    modalAlert.success('Rama Creada', `Se creó la rama "${newGroup.name}". Ahora puedes organizar opciones dentro de ella.`);
   };
 
   const handleSaveEditedGroup = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isSuperadmin) return;
     if (!editingGroup) return;
     const updated = menuGroups.map(g => g.id === editingGroup.id ? editingGroup : g);
     updateSettings({ menuGroups: updated });
     setEditingGroup(null);
-    modalAlert.success('Grupo Actualizado', 'Los datos del grupo se guardaron.');
+    modalAlert.success('Rama Actualizada', 'Los datos de la rama se guardaron correctamente.');
   };
 
   const handleDeleteGroup = (groupId: string) => {
-    if (!isSuperadmin) {
-      modalAlert.warning('Acceso Restringido', 'Solo el SUPERADMIN puede eliminar grupos de menú.');
-      return;
-    }
     const grp = menuGroups.find(g => g.id === groupId);
     if (!grp) return;
 
-    // Unassign items in this group
+    // Unassign items in this group -> move to loose options
     const updatedItems = menuItems.map(it => it.groupId === groupId ? { ...it, groupId: undefined } : it);
     const updatedGroups = menuGroups.filter(g => g.id !== groupId);
 
@@ -500,7 +562,7 @@ export default function VisualLayoutBuilder({
       menuGroups: updatedGroups,
       customMenuItems: updatedItems
     });
-    modalAlert.info('Grupo Eliminado', `El grupo "${grp.name}" fue eliminado. Las opciones pasaron a la rama de ítems sueltos.`);
+    modalAlert.info('Rama Eliminada', `La rama "${grp.name}" fue eliminada. Sus opciones pasaron a "Opciones Sueltas (Botones Directos en Barra)".`);
   };
 
   const handleResetMenuItems = () => {
@@ -881,7 +943,7 @@ export default function VisualLayoutBuilder({
 
         {/* LISTA DE GRUPOS */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {menuGroups.map(grp => {
+          {menuGroups.map((grp, grpIdx) => {
             const count = menuItems.filter(it => it.groupId === grp.id).length;
             return (
               <div
@@ -905,9 +967,27 @@ export default function VisualLayoutBuilder({
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     type="button"
-                    onClick={() => setEditingGroup({ ...grp })}
+                    onClick={() => handleMoveGroupUp(grp.id)}
+                    disabled={grpIdx === 0}
+                    className="p-1.5 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 text-slate-500 disabled:opacity-20 cursor-pointer transition"
+                    title="Mover rama arriba"
+                  >
+                    <MoveUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMoveGroupDown(grp.id)}
+                    disabled={grpIdx === menuGroups.length - 1}
+                    className="p-1.5 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 text-slate-500 disabled:opacity-20 cursor-pointer transition"
+                    title="Mover rama abajo"
+                  >
+                    <MoveDown className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleStartEditGroup(grp)}
                     className="p-1.5 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 text-blue-600 dark:text-blue-400 transition cursor-pointer"
-                    title="Editar grupo"
+                    title="Editar grupo (Cierra las demás ramas)"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
@@ -915,7 +995,7 @@ export default function VisualLayoutBuilder({
                     type="button"
                     onClick={() => handleDeleteGroup(grp.id)}
                     className="p-1.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-500 transition cursor-pointer"
-                    title="Eliminar grupo"
+                    title="Eliminar grupo (Opciones pasan a Sueltas)"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -1015,7 +1095,7 @@ export default function VisualLayoutBuilder({
                       type="button"
                       onClick={() => toggleBranch(grp.id)}
                       className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-500 dark:text-zinc-400 transition cursor-pointer"
-                      title={isCollapsed ? 'Expandir rama' : 'Colapsar rama'}
+                      title={isCollapsed ? 'Expandir rama (cierra las demás)' : 'Colapsar rama'}
                     >
                       {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </button>
@@ -1039,10 +1119,40 @@ export default function VisualLayoutBuilder({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-mono font-bold text-slate-400 dark:text-zinc-500 hidden sm:inline">
-                      Arrastra ítems aquí para agrupar
-                    </span>
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    {/* Botones para Mover Rama de Posición */}
+                    <div className="flex items-center bg-slate-100 dark:bg-zinc-800 rounded-xl p-0.5">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleMoveGroupUp(grp.id); }}
+                        disabled={grpIndex === 0}
+                        className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-zinc-700 text-slate-600 dark:text-zinc-300 disabled:opacity-20 transition cursor-pointer"
+                        title="Mover rama arriba en la posición general"
+                      >
+                        <MoveUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleMoveGroupDown(grp.id); }}
+                        disabled={grpIndex === menuGroups.length - 1}
+                        className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-zinc-700 text-slate-600 dark:text-zinc-300 disabled:opacity-20 transition cursor-pointer"
+                        title="Mover rama abajo en la posición general"
+                      >
+                        <MoveDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Botón Editar Rama (Cierra las demás ramas) */}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleStartEditGroup(grp); }}
+                      className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                      title="Editar esta rama (las demás ramas se cerrarán automáticamente)"
+                    >
+                      <Edit2 className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                      <span className="hidden sm:inline">Editar Rama</span>
+                    </button>
+
                     <span className="px-2.5 py-1 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 text-xs font-black">
                       {groupSubItems.length}
                     </span>
@@ -1130,8 +1240,19 @@ export default function VisualLayoutBuilder({
                               </div>
                             </div>
 
-                            {/* Right: Group Selector & Actions */}
-                            <div className="flex items-center justify-between sm:justify-end gap-1.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-zinc-800">
+                            {/* Right: Group Selector, Botón Quitar de Rama & Actions */}
+                            <div className="flex items-center justify-between sm:justify-end gap-1.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-zinc-800 flex-wrap">
+                              {/* Botón dedicado para eliminar la subrama de este grupo y pasarla a Opciones Sueltas */}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveFromBranch(item.id)}
+                                className="px-2 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 text-[11px] font-bold flex items-center gap-1 transition cursor-pointer border border-amber-200/80 dark:border-amber-800/80 shadow-2xs"
+                                title="Eliminar subrama de este grupo y pasar a Opciones Sueltas (Botones Directos en Barra)"
+                              >
+                                <CornerDownRight className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                <span>Quitar de Rama</span>
+                              </button>
+
                               {/* Quick Move between Groups */}
                               <select
                                 value={item.groupId || 'NONE'}
@@ -1189,7 +1310,7 @@ export default function VisualLayoutBuilder({
                                   type="button"
                                   onClick={() => handleDeleteItem(item.id)}
                                   className="p-1 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
-                                  title="Eliminar opción"
+                                  title="Eliminar opción personalizada"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -1411,14 +1532,14 @@ export default function VisualLayoutBuilder({
         </div>
       </div>
 
-      {/* MODAL PARA CREAR NUEVO GRUPO (SUPERADMIN ONLY) */}
-      {showNewGroupModal && isSuperadmin && (
+      {/* MODAL PARA CREAR NUEVO GRUPO / RAMA */}
+      {showNewGroupModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
           <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 sm:p-8 max-w-md w-full border border-slate-200 dark:border-zinc-800 shadow-2xl space-y-5">
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-lg font-black text-slate-900 dark:text-white">
-                  Crear Nuevo Grupo de Menú
+                  Crear Nueva Rama / Grupo de Menú
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-zinc-400">
                   Aparecerá en el TopBar y al darle clic saldrán sus subramas asociadas.
@@ -1436,7 +1557,7 @@ export default function VisualLayoutBuilder({
             <form onSubmit={handleCreateGroup} className="space-y-4 text-xs">
               <div>
                 <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">
-                  Nombre del Grupo *
+                  Nombre de la Rama *
                 </label>
                 <input
                   type="text"
@@ -1450,7 +1571,7 @@ export default function VisualLayoutBuilder({
 
               <div>
                 <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1.5">
-                  Icono del Grupo (En Español con Referencia Visual)
+                  Icono de la Rama (En Español con Referencia Visual)
                 </label>
                 <SpanishIconPicker
                   value={newGroupFormData.iconName || 'Folder'}
@@ -1471,7 +1592,7 @@ export default function VisualLayoutBuilder({
                   type="submit"
                   className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-md shadow-purple-500/20 cursor-pointer"
                 >
-                  Crear Grupo
+                  Crear Rama
                 </button>
               </div>
             </form>
@@ -1479,14 +1600,14 @@ export default function VisualLayoutBuilder({
         </div>
       )}
 
-      {/* MODAL PARA EDITAR GRUPO */}
-      {editingGroup && isSuperadmin && (
+      {/* MODAL PARA EDITAR GRUPO / RAMA */}
+      {editingGroup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
           <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 sm:p-8 max-w-md w-full border border-slate-200 dark:border-zinc-800 shadow-2xl space-y-5">
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-lg font-black text-slate-900 dark:text-white">
-                  Editar Grupo
+                  Editar Rama / Grupo
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-zinc-400">
                   ID: <span className="font-mono text-purple-600">{editingGroup.id}</span>
@@ -1504,7 +1625,7 @@ export default function VisualLayoutBuilder({
             <form onSubmit={handleSaveEditedGroup} className="space-y-4 text-xs">
               <div>
                 <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">
-                  Nombre del Grupo *
+                  Nombre de la Rama *
                 </label>
                 <input
                   type="text"
@@ -1517,7 +1638,7 @@ export default function VisualLayoutBuilder({
 
               <div>
                 <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1.5">
-                  Icono del Grupo (En Español con Referencia Visual)
+                  Icono de la Rama (En Español con Referencia Visual)
                 </label>
                 <SpanishIconPicker
                   value={editingGroup.iconName || 'Folder'}

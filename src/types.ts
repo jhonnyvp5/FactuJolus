@@ -19,6 +19,11 @@ export interface EmitterConfig {
   p12Nombre?: string;
   p12FirmaB64?: string; // Firma electrónica .p12 codificada en Base64
   p12Password?: string;
+  p12ValidoDesde?: string; // Fecha ISO de inicio de vigencia del certificado
+  p12ValidoHasta?: string; // Fecha ISO de expiración del certificado
+  p12Subject?: string;     // Titular / Propietario del certificado
+  p12Issuer?: string;      // Entidad emisora certificada
+  p12SerialNumber?: string;// Número de serie del certificado digital
   isDemoMode: boolean; // Si está activo el simulador interactivo
   logoB64?: string; // Logotipo de la empresa en Base64
   correo?: string; // Correo electrónico del emisor

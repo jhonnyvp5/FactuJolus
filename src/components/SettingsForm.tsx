@@ -2,7 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { PortalUser, EmitterConfig, RegimenTributario } from '../types';
 import { validateRuc, REGIMENES } from '../sri/utils';
 import { apiCheckSignature, apiTestSmtp } from '../lib/apiClient';
-import { CheckCircle2, AlertCircle, Key, FileCode, Shield, RefreshCw, Trash2, Sparkles, Lock, Edit3, Mail, Send } from 'lucide-react';
+import { 
+  CheckCircle2, 
+  AlertCircle, 
+  Key, 
+  FileCode, 
+  Shield, 
+  RefreshCw, 
+  Trash2, 
+  Sparkles, 
+  Lock, 
+  Edit3, 
+  Mail, 
+  Send,
+  Calendar,
+  Clock,
+  ShieldCheck,
+  Award,
+  AlertTriangle,
+  Database
+} from 'lucide-react';
 import { saveEmitterConfigToSupabase } from '../lib/supabase';
 import { modalAlert } from '../context/ModalAlertContext';
 
@@ -155,7 +174,60 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
     try {
       const result = await apiCheckSignature(signatureB64, password);
       if (result.status === 'success' && result.info) {
-        setSigDetails(result.info);
+        const info = result.info;
+        setSigDetails(info);
+
+        // Immediate update to configuration and database
+        const updatedConfig: EmitterConfig = {
+          ...config,
+          ruc: ruc ? ruc.trim() : config.ruc,
+          razonSocial: razonSocial ? razonSocial.trim() : config.razonSocial,
+          nombreComercial: nombreComercial ? nombreComercial.trim() : config.nombreComercial,
+          dirMatriz: dirMatriz ? dirMatriz.trim() : config.dirMatriz,
+          dirEstablecimiento: dirEstablecimiento ? dirEstablecimiento.trim() : config.dirEstablecimiento,
+          codEstablecimiento: codEstablecimiento || config.codEstablecimiento || '001',
+          codPuntoEmision: codPuntoEmision || config.codPuntoEmision || '001',
+          obligadoContabilidad,
+          contribuyenteEspecial: contribuyenteEspecial ? contribuyenteEspecial.trim() : config.contribuyenteEspecial,
+          agenteRetencion: agenteRetencion ? agenteRetencion.trim() : config.agenteRetencion,
+          regimen,
+          ambiente,
+          isDemoMode,
+          p12Nombre: signatureName,
+          p12FirmaB64: signatureB64,
+          p12Password: password,
+          p12ValidoDesde: info.validFrom,
+          p12ValidoHasta: info.validTo,
+          p12Subject: info.subject,
+          p12Issuer: info.issuer,
+          p12SerialNumber: info.serialNumber,
+          correo: correo ? correo.trim() : config.correo,
+          telefono: telefono ? telefono.trim() : config.telefono,
+          ultimoSecuencialFactura: ultimoSecuencialFactura || config.ultimoSecuencialFactura,
+          smtpHost: smtpHost || config.smtpHost,
+          smtpPort: smtpPort || config.smtpPort,
+          smtpUser: smtpUser || config.smtpUser,
+          smtpPass: smtpPass || config.smtpPass,
+          smtpFrom: smtpFrom || config.smtpFrom,
+          logoB64: config.logoB64,
+          empresaRuc: config.empresaRuc || (ruc ? ruc.trim() : ''),
+          empresaNombre: config.empresaNombre || (razonSocial ? razonSocial.trim() : '')
+        };
+
+        // 1. Instant App and LocalStorage save
+        onSave(updatedConfig);
+
+        // 2. Direct Cloud Database storage
+        try {
+          await saveEmitterConfigToSupabase(updatedConfig, currentUser?.correo);
+        } catch (dbErr) {
+          console.warn('Aviso guardando vigencia de firma en base de datos:', dbErr);
+        }
+
+        modalAlert.success(
+          'Firma Electrónica Verificada',
+          'La firma es válida. Los datos y fechas de vigencia han sido almacenados en la base de datos.'
+        );
       } else {
         setSigError(result.message || 'No se pudo validar la firma electrónica con la contraseña proporcionada.');
       }
@@ -227,6 +299,11 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
       p12Nombre: signatureName,
       p12FirmaB64: signatureB64,
       p12Password: password,
+      p12ValidoDesde: sigDetails?.validFrom || config.p12ValidoDesde,
+      p12ValidoHasta: sigDetails?.validTo || config.p12ValidoHasta,
+      p12Subject: sigDetails?.subject || config.p12Subject,
+      p12Issuer: sigDetails?.issuer || config.p12Issuer,
+      p12SerialNumber: sigDetails?.serialNumber || config.p12SerialNumber,
       correo: correo ? correo.trim() : '',
       telefono: telefono ? telefono.trim() : '',
       ultimoSecuencialFactura: ultimoSecuencialFactura ? ultimoSecuencialFactura.replace(/\D/g, '').padStart(9, '0') : '000000001',
@@ -704,20 +781,162 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             </div>
           )}
 
-          {sigDetails && (
-            <div className="bg-green-50 text-green-800 p-4 rounded-xl border border-green-100 text-sm space-y-2 dark:bg-green-950/20 dark:border-green-900/30">
-              <h4 className="font-bold flex items-center gap-1">
-                <CheckCircle2 className="w-5 h-5 text-green-500" /> Firma Electrónica Descifrada y Válida
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono pt-1">
-                <div><strong>Propietario (Sujeto):</strong> {sigDetails.subject}</div>
-                <div><strong>Emisor (Autoridad):</strong> {sigDetails.issuer}</div>
-                <div><strong>Válido Desde:</strong> {new Date(sigDetails.validFrom).toLocaleDateString()}</div>
-                <div><strong>Válido Hasta (Expiración):</strong> {new Date(sigDetails.validTo).toLocaleDateString()}</div>
-                <div className="sm:col-span-2"><strong>Número Serial:</strong> {sigDetails.serialNumber}</div>
-              </div>
-            </div>
-          )}
+          {/* TARJETA DE VIGENCIA DE LA FIRMA ELECTRÓNICA */}
+          {(() => {
+            const activeValidFrom = sigDetails?.validFrom || config.p12ValidoDesde;
+            const activeValidTo = sigDetails?.validTo || config.p12ValidoHasta;
+            const activeSubject = sigDetails?.subject || config.p12Subject;
+            const activeIssuer = sigDetails?.issuer || config.p12Issuer;
+            const activeSerialNumber = sigDetails?.serialNumber || config.p12SerialNumber;
+
+            if (!activeValidTo) return null;
+
+            try {
+              const toDate = new Date(activeValidTo);
+              const fromDate = activeValidFrom ? new Date(activeValidFrom) : new Date(toDate.getTime() - 365 * 24 * 60 * 60 * 1000);
+              const now = new Date();
+
+              const totalMs = Math.max(1, toDate.getTime() - fromDate.getTime());
+              const remainingMs = toDate.getTime() - now.getTime();
+              const daysRemaining = Math.ceil(remainingMs / (1000 * 60 * 60 * 24));
+              const percentRemaining = Math.max(0, Math.min(100, Math.round((remainingMs / totalMs) * 100)));
+              const isExpired = daysRemaining <= 0;
+              const isExpiringSoon = daysRemaining > 0 && daysRemaining <= 30;
+
+              return (
+                <div className={`p-5 rounded-2xl border transition-all shadow-sm ${
+                  isExpired 
+                    ? 'bg-rose-50/70 border-rose-200 dark:bg-rose-950/30 dark:border-rose-900/50' 
+                    : isExpiringSoon 
+                    ? 'bg-amber-50/70 border-amber-200 dark:bg-amber-950/30 dark:border-amber-900/50'
+                    : 'bg-emerald-50/70 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-900/50'
+                }`}>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-gray-200/60 dark:border-zinc-800">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`p-2 rounded-xl text-white ${
+                        isExpired ? 'bg-rose-600' : isExpiringSoon ? 'bg-amber-500' : 'bg-emerald-600'
+                      }`}>
+                        <ShieldCheck className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-base flex items-center gap-2">
+                          Vigencia de Firma Electrónica (.p12)
+                        </h4>
+                        <p className="text-xs text-gray-500 dark:text-zinc-400">
+                          Información del certificado digital registrada y validada en base de datos
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
+                        isExpired
+                          ? 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900/60 dark:text-rose-200 dark:border-rose-700'
+                          : isExpiringSoon
+                          ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/60 dark:text-amber-200 dark:border-amber-700'
+                          : 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-200 dark:border-emerald-700'
+                      }`}>
+                        {isExpired ? <AlertTriangle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                        {isExpired ? 'EXPIRADA / VENCIDA' : isExpiringSoon ? 'PRÓXIMA A VENCER' : 'ACTIVA Y VIGENTE'}
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800">
+                        <Database className="w-3 h-3" /> Guardado en BD
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* VIGENCIA COUNTDOWN & PROGRESS BAR */}
+                  <div className="my-4 bg-white dark:bg-zinc-900/90 p-4 rounded-xl border border-gray-100 dark:border-zinc-800 space-y-2.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 font-medium text-gray-800 dark:text-gray-200">
+                        <Clock className="w-4 h-4 text-indigo-500" />
+                        <span>Tiempo Restante:</span>
+                      </div>
+                      <div className={`font-bold text-sm sm:text-base ${
+                        isExpired ? 'text-rose-600 dark:text-rose-400' : isExpiringSoon ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
+                      }`}>
+                        {isExpired 
+                          ? `Expiró hace ${Math.abs(daysRemaining)} días` 
+                          : `${daysRemaining} días restantes (${Math.max(1, Math.round(daysRemaining / 30))} meses aprox.)`}
+                      </div>
+                    </div>
+
+                    {/* Barra de progreso */}
+                    <div className="w-full bg-gray-100 dark:bg-zinc-800 h-2.5 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-500 rounded-full ${
+                          isExpired ? 'bg-rose-500' : isExpiringSoon ? 'bg-amber-500' : 'bg-emerald-500'
+                        }`}
+                        style={{ width: `${percentRemaining}%` }}
+                      />
+                    </div>
+                    
+                    <div className="flex justify-between text-[11px] text-gray-500 dark:text-zinc-400 pt-0.5">
+                      <span>Inicio: {fromDate.toLocaleDateString('es-EC')}</span>
+                      <span>{percentRemaining}% de vigencia útil</span>
+                      <span>Expiración: {toDate.toLocaleDateString('es-EC')}</span>
+                    </div>
+                  </div>
+
+                  {/* METADATA DETALLADA */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
+                    <div className="bg-white/80 dark:bg-zinc-900/60 p-2.5 rounded-xl border border-gray-100 dark:border-zinc-800">
+                      <span className="text-gray-500 dark:text-zinc-400 block mb-0.5 font-medium flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-blue-500" /> Válido Desde
+                      </span>
+                      <span className="font-semibold text-gray-900 dark:text-gray-100">
+                        {fromDate.toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' })}
+                      </span>
+                    </div>
+
+                    <div className="bg-white/80 dark:bg-zinc-900/60 p-2.5 rounded-xl border border-gray-100 dark:border-zinc-800">
+                      <span className="text-gray-500 dark:text-zinc-400 block mb-0.5 font-medium flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-rose-500" /> Válido Hasta (Fecha de Expiración)
+                      </span>
+                      <span className={`font-semibold ${isExpired ? 'text-rose-600 dark:text-rose-400' : 'text-gray-900 dark:text-gray-100'}`}>
+                        {toDate.toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' })}
+                      </span>
+                    </div>
+
+                    {activeSubject && (
+                      <div className="bg-white/80 dark:bg-zinc-900/60 p-2.5 rounded-xl border border-gray-100 dark:border-zinc-800">
+                        <span className="text-gray-500 dark:text-zinc-400 block mb-0.5 font-medium flex items-center gap-1">
+                          <Award className="w-3.5 h-3.5 text-amber-500" /> Propietario / Sujeto
+                        </span>
+                        <span className="font-semibold text-gray-900 dark:text-gray-100 truncate block">
+                          {activeSubject}
+                        </span>
+                      </div>
+                    )}
+
+                    {activeIssuer && (
+                      <div className="bg-white/80 dark:bg-zinc-900/60 p-2.5 rounded-xl border border-gray-100 dark:border-zinc-800">
+                        <span className="text-gray-500 dark:text-zinc-400 block mb-0.5 font-medium flex items-center gap-1">
+                          <Shield className="w-3.5 h-3.5 text-indigo-500" /> Entidad Certificadora (Emisor)
+                        </span>
+                        <span className="font-semibold text-gray-900 dark:text-gray-100 truncate block">
+                          {activeIssuer}
+                        </span>
+                      </div>
+                    )}
+
+                    {activeSerialNumber && (
+                      <div className="sm:col-span-2 bg-white/80 dark:bg-zinc-900/60 p-2.5 rounded-xl border border-gray-100 dark:border-zinc-800">
+                        <span className="text-gray-500 dark:text-zinc-400 block mb-0.5 font-medium">
+                          Número Serial del Certificado
+                        </span>
+                        <span className="font-mono text-[11px] text-gray-700 dark:text-zinc-300 break-all select-all">
+                          {activeSerialNumber}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            } catch (e) {
+              return null;
+            }
+          })()}
         </div>
 
       </div>
