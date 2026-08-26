@@ -1166,9 +1166,13 @@ export default function App() {
               config={config}
               clients={clients}
               products={products}
+              invoices={invoices}
               onAddInvoice={handleAddInvoice}
               onAddClient={handleAddClient}
               onAddProduct={handleAddProduct}
+              onUpdateInvoice={handleUpdateInvoice}
+              onDeleteInvoice={handleDeleteInvoice}
+              onOpenRide={(doc) => setActiveRideDoc(doc)}
               onNavigateToHistory={() => setActiveTab('history')}
             />
           )}
@@ -1178,7 +1182,11 @@ export default function App() {
               config={config}
               clients={clients}
               invoices={invoices}
+              creditNotes={creditNotes}
               onAddCreditNote={handleAddCreditNote}
+              onUpdateCreditNote={handleUpdateCreditNote}
+              onDeleteCreditNote={handleDeleteCreditNote}
+              onOpenRide={(doc) => setActiveRideDoc(doc)}
               onNavigateToHistory={() => setActiveTab('history')}
               currentUser={currentUser}
             />

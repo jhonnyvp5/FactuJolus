@@ -125,61 +125,9 @@ export default function DynamicContainerRenderer({
                     : 'bg-slate-900'
                 }`}
               >
-                <div className="relative z-10 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-6">
+                <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
                   
-                  {/* PARTE IZQUIERDA: MÉTRICAS RÁPIDAS COMPACTAS (EXCELENTE EXPERIENCIA DE USUARIO) */}
-                  <div className="w-full lg:w-[350px] shrink-0 bg-white/10 dark:bg-black/35 backdrop-blur-md rounded-2xl p-3.5 border border-white/15 shadow-inner">
-                    <div className="flex items-center justify-between mb-2 px-1">
-                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
-                        <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                        {fastKpisWidget?.title || 'Métricas Rápidas'}
-                      </span>
-                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                        SRI Operativo
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      {activeMetrics.map((m) => {
-                        const IconComp = ICON_MAP[m.iconName || 'FileText'] || FileText;
-                        return (
-                          <div
-                            key={m.id}
-                            className="p-2.5 rounded-xl bg-white/10 hover:bg-white/15 dark:bg-white/5 dark:hover:bg-white/10 border border-white/10 transition flex flex-col justify-between gap-1 shadow-2xs"
-                          >
-                            <div className="flex items-center justify-between gap-1">
-                              <span className="text-[10px] font-semibold text-slate-300 truncate" title={m.label}>
-                                {m.label}
-                              </span>
-                              <div
-                                className="p-1 rounded-md shrink-0 flex items-center justify-center"
-                                style={{ backgroundColor: `${m.color || '#3b82f6'}30`, color: m.color || '#3b82f6' }}
-                              >
-                                <IconComp className="w-3 h-3" />
-                              </div>
-                            </div>
-
-                            <div>
-                              <div className="text-xs sm:text-sm font-black text-white font-mono tracking-tight truncate">
-                                {m.value}
-                              </div>
-                              {m.trend ? (
-                                <div className="text-[9px] font-bold text-emerald-400 truncate mt-0.5">
-                                  {m.trend}
-                                </div>
-                              ) : m.subtext ? (
-                                <div className="text-[9px] text-slate-400 truncate mt-0.5">
-                                  {m.subtext}
-                                </div>
-                              ) : null}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* PARTE DERECHA: CENTRO DE CONTROL DE FACTURACIÓN ELECTRÓNICA */}
+                  {/* PARTE IZQUIERDA: CENTRO DE CONTROL DE FACTURACIÓN ELECTRÓNICA */}
                   <div className="flex-1 space-y-3">
                     {container.content?.heroBadge && (
                       <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider">
@@ -220,6 +168,59 @@ export default function DynamicContainerRenderer({
                       </div>
                     )}
                   </div>
+
+                  {/* PARTE DERECHA: MÉTRICAS RÁPIDAS ULTRA-COMPACTAS EN LA ESQUINA */}
+                  <div className="w-full sm:w-auto lg:w-[260px] shrink-0 self-stretch lg:self-start bg-white/10 dark:bg-black/30 backdrop-blur-md rounded-2xl p-2.5 border border-white/15 shadow-sm">
+                    <div className="flex items-center justify-between mb-1.5 px-1">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-200 flex items-center gap-1">
+                        <Zap className="w-3 h-3 text-amber-400 fill-amber-400" />
+                        {fastKpisWidget?.title || 'Métricas Rápidas'}
+                      </span>
+                      <span className="text-[8px] font-extrabold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        SRI OK
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {activeMetrics.map((m) => {
+                        const IconComp = ICON_MAP[m.iconName || 'FileText'] || FileText;
+                        return (
+                          <div
+                            key={m.id}
+                            className="p-1.5 rounded-xl bg-white/10 hover:bg-white/15 dark:bg-white/5 border border-white/10 transition flex flex-col justify-between"
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-[9px] font-semibold text-slate-300 truncate" title={m.label}>
+                                {m.label}
+                              </span>
+                              <div
+                                className="p-0.5 rounded shrink-0 flex items-center justify-center"
+                                style={{ backgroundColor: `${m.color || '#3b82f6'}30`, color: m.color || '#3b82f6' }}
+                              >
+                                <IconComp className="w-2.5 h-2.5" />
+                              </div>
+                            </div>
+
+                            <div className="mt-0.5">
+                              <div className="text-[11px] font-black text-white font-mono tracking-tight truncate">
+                                {m.value}
+                              </div>
+                              {m.trend ? (
+                                <div className="text-[8px] font-bold text-emerald-400 truncate">
+                                  {m.trend}
+                                </div>
+                              ) : m.subtext ? (
+                                <div className="text-[8px] text-slate-400 truncate">
+                                  {m.subtext}
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                 </div>
 
                 {/* Decorative background ambient glow */}

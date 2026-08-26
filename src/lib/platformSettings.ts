@@ -685,3 +685,31 @@ export async function savePlatformSettings(
     return { success: true, message: 'Configuración guardada localmente con éxito.' };
   }
 }
+
+/**
+ * Export settings to JSON string
+ */
+export function exportPlatformSettingsJson(settings: PlatformCustomizationSettings): string {
+  return JSON.stringify(settings, null, 2);
+}
+
+/**
+ * Import and validate platform settings JSON string
+ */
+export function importPlatformSettingsJson(jsonString: string): PlatformCustomizationSettings | null {
+  try {
+    const parsed = JSON.parse(jsonString);
+    if (parsed && typeof parsed === 'object') {
+      return {
+        ...DEFAULT_PLATFORM_SETTINGS,
+        ...parsed,
+        id: 'global_platform_settings',
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+

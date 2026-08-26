@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { EmitterConfig, CreditNote, Invoice, Client, Product, CreditNoteDetail, AdicionalInfo, PortalUser } from '../types';
 import { generateClaveAcceso, formatSequential, IVA_TARIFAS, IDENTIFICACIONES } from '../sri/utils';
-import { Plus, Trash2, ArrowLeftRight, HelpCircle, FileText, Sparkles } from 'lucide-react';
+import { Plus, Trash2, ArrowLeftRight, HelpCircle, FileText, Sparkles, Search, RefreshCw, Eye, FileCode, CheckCircle2, Clock, AlertCircle, ShoppingBag, User, Receipt } from 'lucide-react';
 import { modalAlert } from '../context/ModalAlertContext';
+import RideViewer from './RideViewer';
 
 interface CreditNoteFormProps {
   config: EmitterConfig;
   clients: Client[];
   invoices: Invoice[];
+  creditNotes?: CreditNote[];
   onAddCreditNote: (creditNote: CreditNote) => void;
-  onNavigateToHistory: () => void;
+  onUpdateCreditNote?: (id: string, updatedParams: Partial<CreditNote>) => void;
+  onDeleteCreditNote?: (id: string, secuencial?: string, claveAcceso?: string) => void;
+  onOpenRide?: (doc: any) => void;
+  onNavigateToHistory?: () => void;
   currentUser?: PortalUser | null;
 }
 
@@ -17,10 +22,20 @@ export default function CreditNoteForm({
   config,
   clients,
   invoices,
+  creditNotes = [],
   onAddCreditNote,
+  onUpdateCreditNote,
+  onDeleteCreditNote,
+  onOpenRide,
   onNavigateToHistory,
   currentUser
 }: CreditNoteFormProps) {
+  // Tab state
+  const [viewTab, setViewTab] = useState<'emit' | 'history'>('emit');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterEstado, setFilterEstado] = useState('TODOS');
+  const [viewingRideDoc, setViewingRideDoc] = useState<CreditNote | null>(null);
+
   // 1. Header and sequences
   const [secuencialVal, setSecuencialVal] = useState('000000001');
   const [fechaEmision, setFechaEmision] = useState(() => {
@@ -315,25 +330,123 @@ export default function CreditNoteForm({
     localStorage.setItem('sri_highest_secuencial_nc', String(seqNum));
 
     onAddCreditNote(newCreditNote);
-    onNavigateToHistory();
+    setViewTab('history');
     modalAlert.success('Nota de Crédito Creada', `¡Nota de Crédito #${secuencialVal} creada con éxito!`);
   };
 
+  // Filtered Credit Notes for History
+  const filteredCreditNotes = (creditNotes || []).filter(nc => {
+    const cleanSearch = searchQuery.toLowerCase().trim();
+    const matchesSearch = 
+      (nc.secuencial || '').includes(cleanSearch) ||
+      (nc.cliente?.nombre || '').toLowerCase().includes(cleanSearch) ||
+      (nc.cliente?.identificacion || '').includes(cleanSearch) ||
+      (nc.claveAcceso || '').includes(cleanSearch) ||
+      (nc.facturaModificadaSecuencial || '').includes(cleanSearch);
+
+    const matchesEstado = filterEstado === 'TODOS' || (nc.estado || 'BORRADOR').toUpperCase() === filterEstado.toUpperCase();
+    return matchesSearch && matchesEstado;
+  });
+
+  const downloadCreditNoteXml = (nc: CreditNote) => {
+    const xmlContent = nc.xmlFirmado || nc.xml;
+    if (!xmlContent) {
+      modalAlert.warning('XML No Disponible', 'El XML firmado aún no está generado para este comprobante.');
+      return;
+    }
+    const blob = new Blob([xmlContent], { type: 'text/xml' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `NOTA_CREDITO_${nc.secuencial}.xml`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDeleteCreditNoteItem = (nc: CreditNote) => {
+    modalAlert.confirm(
+      '¿Eliminar Nota de Crédito?',
+      `¿Está seguro de eliminar la Nota de Crédito #${nc.secuencial} asociada a la factura ${nc.facturaModificadaSecuencial}?\nEsta acción borrará el registro de la base de datos.`,
+      () => {
+        if (onDeleteCreditNote) {
+          onDeleteCreditNote(nc.id, nc.secuencial, nc.claveAcceso);
+          modalAlert.success('Nota de Crédito Eliminada', `La Nota de Crédito #${nc.secuencial} ha sido eliminada con éxito.`);
+        }
+      },
+      true,
+      'Eliminar Nota de Crédito',
+      'Cancelar'
+    );
+  };
+
   return (
-    <form onSubmit={handleSubmitCreditNote} className="space-y-8 max-w-6xl mx-auto pb-12">
-      {/* SECCIÓN CABECERA */}
-      <div className="bg-white p-6 rounded-2xl shadow-xs border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 flex flex-col md:flex-row justify-between gap-6">
-        <div className="space-y-2">
-          <h2 className="text-xl font-bold text-gray-950 dark:text-gray-50 flex items-center gap-2">
-            <ArrowLeftRight className="text-indigo-600 w-5.5 h-5.5" />
-            Emisión de Nota de Crédito
-          </h2>
-          <p className="text-xs text-gray-500">
-            Punto de Emisión Actual: <span className="font-mono text-indigo-600">{config.codEstablecimiento}-{config.codPuntoEmision}</span> | Nota de Crédito modifica Facturas previamente autorizadas por el SRI.
+    <div className="space-y-6 max-w-6xl mx-auto pb-12 animate-fade-in">
+      {/* HEADER BANNER - EXACT IMAGE DESIGN */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-slate-200/80 dark:border-zinc-800 shadow-sm">
+        <div>
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-sky-500/20">
+              <ArrowLeftRight className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">
+                Notas de Crédito (SRI Tipo 04)
+              </h1>
+              <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
+                Modificación o anulación de comprobantes autorizados, cálculo automático de impuestos y almacenamiento seguro en Storage.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Tab Toggle Buttons - FIXED DIMENSIONS PREVENTS CONTAINER OVERFLOW */}
+        <div className="flex items-center bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl border border-slate-200 dark:border-zinc-700 shrink-0">
+          <button
+            id="tab-emit-nc"
+            type="button"
+            onClick={() => setViewTab('emit')}
+            className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg text-xs font-black transition-all whitespace-nowrap shrink-0 min-w-[140px] ${
+              viewTab === 'emit'
+                ? 'bg-white dark:bg-zinc-900 text-sky-700 dark:text-sky-400 shadow-sm border border-slate-200/60 dark:border-zinc-700'
+                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Plus className="w-4 h-4 shrink-0" />
+            <span>Emitir Nota de Crédito</span>
+          </button>
+          <button
+            id="tab-history-nc"
+            type="button"
+            onClick={() => setViewTab('history')}
+            className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg text-xs font-black transition-all whitespace-nowrap shrink-0 min-w-[140px] ${
+              viewTab === 'history'
+                ? 'bg-white dark:bg-zinc-900 text-sky-700 dark:text-sky-400 shadow-sm border border-slate-200/60 dark:border-zinc-700'
+                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <FileText className="w-4 h-4 shrink-0" />
+            <span>Historial ({(creditNotes || []).length})</span>
+          </button>
+        </div>
+      </div>
+
+      {/* TAB 1: EMITIR NOTA DE CRÉDITO */}
+      {viewTab === 'emit' && (
+        <form onSubmit={handleSubmitCreditNote} className="space-y-6">
+
+      {/* SECCIÓN CONFIGURACIÓN DE EMISIÓN */}
+      <div className="bg-white p-5 rounded-2xl shadow-xs border border-gray-150 dark:bg-zinc-900 dark:border-zinc-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="space-y-1">
+          <div className="text-xs font-bold text-gray-700 dark:text-zinc-300">
+            Punto de Emisión Actual: <span className="font-mono font-black text-indigo-600 dark:text-indigo-400">{config.codEstablecimiento}-{config.codPuntoEmision}</span>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-zinc-400">
+            Nota de Crédito modifica Facturas previamente autorizadas por el SRI.
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-4 items-center">
+        <div className="flex flex-wrap gap-4 items-center w-full md:w-auto">
           <div>
             <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1 font-mono">SECUENCIAL (Nota NC)</label>
             <input
@@ -727,5 +840,185 @@ export default function CreditNoteForm({
         </button>
       </div>
     </form>
-  );
+  )}
+
+  {/* TAB 2: HISTORIAL DE NOTAS DE CRÉDITO */}
+  {viewTab === 'history' && (
+    <div className="space-y-4">
+      {/* Search & Filter Bar */}
+      <div className="flex flex-col sm:flex-row gap-3 bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm">
+        <div className="flex-1 relative">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar por número, factura modificada, cliente, RUC o clave..."
+            className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-100 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none"
+          />
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <span className="text-xs font-bold text-slate-500 dark:text-zinc-400 shrink-0">Estado:</span>
+          <select
+            value={filterEstado}
+            onChange={(e) => setFilterEstado(e.target.value)}
+            className="px-3 py-2 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-100"
+          >
+            <option value="TODOS">Todos los Estados</option>
+            <option value="AUTORIZADO">AUTORIZADO</option>
+            <option value="ENVIADO">ENVIADO / PENDIENTE</option>
+            <option value="DEVUELTO">DEVUELTO</option>
+            <option value="NO AUTORIZADO">NO AUTORIZADO</option>
+            <option value="BORRADOR">BORRADOR</option>
+          </select>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSearchQuery('');
+              setFilterEstado('TODOS');
+            }}
+            className="p-2 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 rounded-xl transition-all cursor-pointer shrink-0"
+            title="Limpiar filtros"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Credit Notes List */}
+      {filteredCreditNotes.length === 0 ? (
+        <div className="bg-white dark:bg-zinc-900 p-12 rounded-2xl border border-slate-200 dark:border-zinc-800 text-center space-y-3">
+          <Receipt className="w-12 h-12 text-slate-300 dark:text-zinc-700 mx-auto" />
+          <h3 className="text-sm font-black text-slate-800 dark:text-zinc-200">No hay notas de crédito registradas</h3>
+          <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-md mx-auto">
+            No se encontraron comprobantes con los filtros actuales. Haga clic en "Emitir Nota de Crédito" para crear un nuevo registro.
+          </p>
+          <button
+            type="button"
+            onClick={() => setViewTab('emit')}
+            className="px-4 py-2 bg-sky-600 text-white rounded-xl text-xs font-black shadow-sm hover:bg-sky-700 transition-all inline-flex items-center space-x-1.5 cursor-pointer shrink-0"
+          >
+            <Plus className="w-4 h-4 shrink-0" />
+            <span>Emitir Primera Nota de Crédito</span>
+          </button>
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-zinc-950 border-b border-slate-200 dark:border-zinc-800 text-[11px] font-black text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
+                  <th className="p-3.5">Secuencial NC</th>
+                  <th className="p-3.5">Fecha</th>
+                  <th className="p-3.5">Doc. Modificado</th>
+                  <th className="p-3.5">Cliente / Beneficiario</th>
+                  <th className="p-3.5 text-right">Total Modificado</th>
+                  <th className="p-3.5 text-center">Estado SRI</th>
+                  <th className="p-3.5 text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                {filteredCreditNotes.map((nc) => {
+                  const estado = (nc.estado || 'BORRADOR').toUpperCase();
+                  const isAuth = estado === 'AUTORIZADO';
+                  const isPend = estado === 'ENVIADO' || estado === 'PENDIENTE';
+                  const isDev = estado === 'DEVUELTO' || estado === 'NO AUTORIZADO';
+
+                  return (
+                    <tr key={nc.id} className="hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 transition-colors">
+                      <td className="p-3.5 font-mono font-bold text-slate-900 dark:text-zinc-100">
+                        {config.codEstablecimiento || '001'}-{config.codPuntoEmision || '001'}-{nc.secuencial}
+                      </td>
+                      <td className="p-3.5 text-slate-600 dark:text-zinc-400 font-medium">
+                        {nc.fechaEmision}
+                      </td>
+                      <td className="p-3.5 font-mono text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                        {nc.facturaModificadaSecuencial || 'Factura'}
+                        <div className="text-[10px] text-slate-500 dark:text-zinc-400 font-sans font-normal truncate max-w-[150px]" title={nc.razonModificacion}>
+                          {nc.razonModificacion}
+                        </div>
+                      </td>
+                      <td className="p-3.5">
+                        <div className="font-bold text-slate-900 dark:text-zinc-100">{nc.cliente?.nombre}</div>
+                        <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono">{nc.cliente?.identificacion}</div>
+                      </td>
+                      <td className="p-3.5 text-right font-mono font-black text-slate-900 dark:text-zinc-100 text-sm">
+                        ${Number(nc.resumenImpuestos?.total || 0).toFixed(2)}
+                      </td>
+                      <td className="p-3.5 text-center">
+                        <span
+                          className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider ${
+                            isAuth
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
+                              : isPend
+                              ? 'bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800'
+                              : isDev
+                              ? 'bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-900'
+                              : 'bg-slate-100 text-slate-700 border border-slate-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700'
+                          }`}
+                        >
+                          {isAuth && <CheckCircle2 className="w-3 h-3" />}
+                          {isPend && <Clock className="w-3 h-3" />}
+                          {isDev && <AlertCircle className="w-3 h-3" />}
+                          <span>{estado}</span>
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-center">
+                        <div className="flex items-center justify-center space-x-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (onOpenRide) {
+                                onOpenRide(nc);
+                              } else {
+                                setViewingRideDoc(nc);
+                              }
+                            }}
+                            className="p-1.5 text-slate-500 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-zinc-800 rounded-lg transition cursor-pointer"
+                            title="Ver RIDE / Comprobante"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => downloadCreditNoteXml(nc)}
+                            className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-zinc-800 rounded-lg transition cursor-pointer"
+                            title="Descargar XML"
+                          >
+                            <FileCode className="w-4 h-4" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCreditNoteItem(nc)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-zinc-800 rounded-lg transition cursor-pointer"
+                            title="Eliminar Nota de Crédito"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  )}
+
+  {viewingRideDoc && (
+    <RideViewer
+      document={viewingRideDoc}
+      config={config}
+      onClose={() => setViewingRideDoc(null)}
+    />
+  )}
+</div>
+);
 }

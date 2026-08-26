@@ -781,31 +781,31 @@ export default function RetentionManager({
         </div>
 
         {/* Tab Toggle Buttons */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+        <div className="flex items-center bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl border border-slate-200 dark:border-zinc-700 shrink-0">
           <button
             id="tab-emit-retention"
             type="button"
             onClick={() => setViewTab('emit')}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-xs font-black transition-all ${
+            className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg text-xs font-black transition-all whitespace-nowrap shrink-0 min-w-[140px] ${
               viewTab === 'emit'
-                ? 'bg-white text-sky-700 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white dark:bg-zinc-900 text-sky-700 dark:text-sky-400 shadow-sm border border-slate-200/60 dark:border-zinc-700'
+                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 shrink-0" />
             <span>Emitir Retención</span>
           </button>
           <button
             id="tab-history-retention"
             type="button"
             onClick={() => setViewTab('history')}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-xs font-black transition-all ${
+            className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg text-xs font-black transition-all whitespace-nowrap shrink-0 min-w-[140px] ${
               viewTab === 'history'
-                ? 'bg-white text-sky-700 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white dark:bg-zinc-900 text-sky-700 dark:text-sky-400 shadow-sm border border-slate-200/60 dark:border-zinc-700'
+                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            <FileText className="w-4 h-4" />
+            <FileText className="w-4 h-4 shrink-0" />
             <span>Historial ({retenciones.length})</span>
           </button>
         </div>

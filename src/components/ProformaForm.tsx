@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { EmitterConfig, Client, Product, Proforma, ProformaDetail } from '../types';
-import { Plus, Trash2, Printer, CheckCircle, FileText, Download, Eye, RotateCcw, Copy, Pencil, X, Mail, Phone, MapPin, Palette, Layout, Award, Briefcase } from 'lucide-react';
+import { Plus, Trash2, Printer, CheckCircle, FileText, Download, Eye, RotateCcw, Copy, Pencil, X, Mail, Phone, MapPin, Palette, Layout, Award, Briefcase, ChevronDown, ChevronUp, Check, Search, RefreshCw } from 'lucide-react';
 import { fetchProformasFromSupabase, saveProformaToSupabase, deleteProformaFromSupabase } from '../lib/supabase';
 import { modalAlert } from '../context/ModalAlertContext';
 
@@ -13,6 +13,16 @@ interface ProformaFormProps {
   onAddProduct?: (product: Product) => void;
   currentUserEmail?: string;
 }
+
+const PROFORMA_DESIGN_TEMPLATES = [
+  { id: 'modern_purple', name: 'Swoop Creativo', desc: 'Curvas fluidas moradas y turquesas', color: '#703bb0' },
+  { id: 'navy_corporate', name: 'Corporativo Clásico', desc: 'Líneas sólidas azul marino y acero', color: '#1d4ed8' },
+  { id: 'slate_minimalist', name: 'Slate Minimalista', desc: 'Esquema sobrio de grises y plata', color: '#3f3f46' },
+  { id: 'emerald_premium', name: 'Esmeralda & Oro', desc: 'Líneas en verde esmeralda y oro', color: '#047857' },
+  { id: 'crimson_luxury', name: 'Carmesí Ejecutivo', desc: 'Estilo elegante en vino y oro fino', color: '#991b1b' },
+  { id: 'modern_dark_gold', name: 'Gris & Oro Premium', desc: 'Fondo oscuro, acentos oro y ámbar', color: '#d97706' },
+  { id: 'orange_tech', name: 'Naranja Tecnológico', desc: 'Estilo moderno de start-up digital', color: '#ea580c' },
+];
 
 export default function ProformaForm({
   config,
@@ -31,6 +41,8 @@ export default function ProformaForm({
   // --- STATE ---
   const [proformas, setProformas] = useState<Proforma[]>([]);
   const [activeTab, setActiveTab2] = useState<'create' | 'list'>('create');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isDesignAccordionOpen, setIsDesignAccordionOpen] = useState(false);
   
   // Client Selection
   const [selectedClientId, setSelectedClientId] = useState('');
@@ -530,37 +542,63 @@ export default function ProformaForm({
         </div>
       )}
 
-      {/* COMPONENT NAVIGATION HEADER */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-gray-150 dark:border-zinc-850 gap-4">
+      {/* COMPONENT NAVIGATION HEADER - EXACT IMAGE DESIGN */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-slate-200/80 dark:border-zinc-800 shadow-sm">
         <div>
-          <h2 className="text-md font-extrabold text-gray-900 dark:text-white uppercase tracking-wider">
-            Generador de Proformas
-          </h2>
-          <p className="text-xs text-gray-500">
-            Genera documentos de cotización formal con diseño corporativo premium.
-          </p>
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-sky-500/20">
+              <FileText className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">
+                Cotizaciones & Proformas Comerciales
+              </h1>
+              <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
+                Generación de cotizaciones formales, cálculo comercial de precios, plantillas de diseño y exportación a PDF.
+              </p>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+
+        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap shrink-0">
           <button
+            type="button"
             onClick={() => handleLoadDemoThemeData()}
-            className="flex-1 sm:flex-none px-3.5 py-1.5 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/20 dark:hover:bg-indigo-950/40 rounded-xl border border-indigo-150 transition cursor-pointer"
-            title="Carga de inmediato el ejemplo de la captura"
+            className="px-3 py-2 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/60 dark:text-indigo-300 rounded-xl border border-indigo-200 dark:border-indigo-800 transition cursor-pointer whitespace-nowrap shrink-0"
+            title="Carga de inmediato el ejemplo corporativo"
           >
             Cargar Demo
           </button>
-          <div className="h-6 w-px bg-gray-200 dark:bg-zinc-800" />
-          <button
-            onClick={() => setActiveTab2('create')}
-            className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${activeTab === 'create' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 hover:bg-gray-155 text-gray-700 dark:bg-zinc-805 dark:text-zinc-300'}`}
-          >
-            Nueva Proforma {isEditing && '(Editando)'}
-          </button>
-          <button
-            onClick={() => setActiveTab2('list')}
-            className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${activeTab === 'list' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 hover:bg-gray-155 text-gray-700 dark:bg-zinc-805 dark:text-zinc-300'}`}
-          >
-            Historial ({proformas.length})
-          </button>
+
+          {/* Tab Toggle Buttons - FIXED DIMENSIONS PREVENTS CONTAINER OVERFLOW */}
+          <div className="flex items-center bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl border border-slate-200 dark:border-zinc-700 shrink-0">
+            <button
+              id="tab-emit-proforma"
+              type="button"
+              onClick={() => setActiveTab2('create')}
+              className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg text-xs font-black transition-all whitespace-nowrap shrink-0 min-w-[140px] ${
+                activeTab === 'create'
+                  ? 'bg-white dark:bg-zinc-900 text-sky-700 dark:text-sky-400 shadow-sm border border-slate-200/60 dark:border-zinc-700'
+                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Plus className="w-4 h-4 shrink-0" />
+              <span>Emitir Proforma {isEditing ? '(Editando)' : ''}</span>
+            </button>
+            <button
+              id="tab-history-proforma"
+              type="button"
+              onClick={() => setActiveTab2('list')}
+              className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg text-xs font-black transition-all whitespace-nowrap shrink-0 min-w-[140px] ${
+                activeTab === 'list'
+                  ? 'bg-white dark:bg-zinc-900 text-sky-700 dark:text-sky-400 shadow-sm border border-slate-200/60 dark:border-zinc-700'
+                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <FileText className="w-4 h-4 shrink-0" />
+              <span>Historial ({proformas.length})</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1011,138 +1049,120 @@ export default function ProformaForm({
                 </div>
               </div>
 
-              {/* MODELOS DE DISEÑO PROFESIONAL (PLANTILLAS) - Redesigned & Compacted */}
+              {/* MODELOS DE DISEÑO PROFESIONAL (PLANTILLAS) - MODELO ACORDEÓN */}
               <div className="bg-white dark:bg-zinc-900 rounded-2xl p-5 border border-gray-150 dark:border-zinc-850 shadow-xs space-y-3">
-                <div className="flex justify-between items-center border-b border-gray-100 dark:border-zinc-800 pb-2">
-                  <h3 className="font-extrabold text-xs uppercase text-gray-800 dark:text-zinc-200 tracking-wider flex items-center gap-2">
+                <div 
+                  onClick={() => setIsDesignAccordionOpen(!isDesignAccordionOpen)}
+                  className="flex justify-between items-center border-b border-gray-100 dark:border-zinc-800 pb-2.5 cursor-pointer select-none"
+                >
+                  <div className="flex items-center gap-2">
                     <Palette className="w-4 h-4 text-purple-600" />
-                    Modelo de Diseño
-                  </h3>
-                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">7 Plantillas</span>
+                    <h3 className="font-extrabold text-xs uppercase text-gray-800 dark:text-zinc-200 tracking-wider">
+                      Modelo de Diseño
+                    </h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400">
+                      {PROFORMA_DESIGN_TEMPLATES.length} Plantillas
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsDesignAccordionOpen(!isDesignAccordionOpen);
+                      }}
+                      className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 transition"
+                    >
+                      {isDesignAccordionOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
-                
-                <div className="grid grid-cols-1 gap-2 max-h-[280px] overflow-y-auto pr-1">
-                  
-                  {/* Template 1 */}
-                  <button
-                    type="button"
-                    onClick={() => setTemplateId('modern_purple')}
-                    className={`flex items-center gap-2.5 text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
-                      templateId === 'modern_purple'
-                        ? 'border-[#703bb0] bg-purple-50/40 dark:bg-purple-950/10 ring-1 ring-purple-150'
-                        : 'border-gray-150 dark:border-zinc-800 hover:bg-gray-55 dark:hover:bg-zinc-850'
-                    }`}
-                  >
-                    <div className="w-5 h-5 rounded-full bg-[#703bb0] shrink-0 border border-purple-200" />
-                    <div>
-                      <div className="text-[11px] font-black text-gray-850 dark:text-zinc-200 leading-tight">Swoop Creativo</div>
-                      <div className="text-[9px] text-gray-450">Curvas fluidas moradas y turquesas</div>
-                    </div>
-                  </button>
 
-                  {/* Template 2 */}
-                  <button
-                    type="button"
-                    onClick={() => setTemplateId('navy_corporate')}
-                    className={`flex items-center gap-2.5 text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
-                      templateId === 'navy_corporate'
-                        ? 'border-blue-600 bg-blue-50/40 dark:bg-blue-950/10 ring-1 ring-blue-150'
-                        : 'border-gray-150 dark:border-zinc-800 hover:bg-gray-55 dark:hover:bg-zinc-850'
-                    }`}
-                  >
-                    <div className="w-5 h-5 rounded-full bg-blue-700 shrink-0 border border-blue-200" />
-                    <div>
-                      <div className="text-[11px] font-black text-gray-850 dark:text-zinc-200 leading-tight">Corporativo Clásico</div>
-                      <div className="text-[9px] text-gray-450">Líneas sólidas azul marino y acero</div>
-                    </div>
-                  </button>
+                {/* VISTA PRINCIPAL: DISEÑO SELECCIONADO ACTUAL */}
+                {(() => {
+                  const current = PROFORMA_DESIGN_TEMPLATES.find(t => t.id === templateId) || PROFORMA_DESIGN_TEMPLATES[0];
+                  return (
+                    <div className="p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-850/70 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <div 
+                          className="w-5 h-5 rounded-full shrink-0 shadow-xs border border-white/40"
+                          style={{ backgroundColor: current.color }}
+                        />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white">
+                              {current.name}
+                            </span>
+                            <span className="px-2 py-0.2 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                              <Check className="w-2.5 h-2.5 text-emerald-600" />
+                              <span>Seleccionado</span>
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-500 dark:text-zinc-400 leading-tight">
+                            {current.desc}
+                          </p>
+                        </div>
+                      </div>
 
-                  {/* Template 3 */}
-                  <button
-                    type="button"
-                    onClick={() => setTemplateId('slate_minimalist')}
-                    className={`flex items-center gap-2.5 text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
-                      templateId === 'slate_minimalist'
-                        ? 'border-gray-700 bg-gray-50 dark:bg-zinc-800 ring-1 ring-gray-300'
-                        : 'border-gray-150 dark:border-zinc-800 hover:bg-gray-55 dark:hover:bg-zinc-850'
-                    }`}
-                  >
-                    <div className="w-5 h-5 rounded-full bg-zinc-700 shrink-0 border border-zinc-200" />
-                    <div>
-                      <div className="text-[11px] font-black text-gray-850 dark:text-zinc-200 leading-tight">Slate Minimalista</div>
-                      <div className="text-[9px] text-gray-450">Esquema sobrio de grises y plata</div>
+                      <button
+                        type="button"
+                        onClick={() => setIsDesignAccordionOpen(!isDesignAccordionOpen)}
+                        className="px-2.5 py-1 text-[11px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 rounded-lg transition whitespace-nowrap"
+                      >
+                        {isDesignAccordionOpen ? 'Cerrar' : 'Cambiar'}
+                      </button>
                     </div>
-                  </button>
+                  );
+                })()}
 
-                  {/* Template 4 */}
-                  <button
-                    type="button"
-                    onClick={() => setTemplateId('emerald_premium')}
-                    className={`flex items-center gap-2.5 text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
-                      templateId === 'emerald_premium'
-                        ? 'border-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/10 ring-1 ring-emerald-150'
-                        : 'border-gray-150 dark:border-zinc-800 hover:bg-gray-55 dark:hover:bg-zinc-850'
-                    }`}
-                  >
-                    <div className="w-5 h-5 rounded-full bg-emerald-700 shrink-0 border border-emerald-200" />
-                    <div>
-                      <div className="text-[11px] font-black text-gray-850 dark:text-zinc-200 leading-tight">Esmeralda & Oro</div>
-                      <div className="text-[9px] text-gray-450">Líneas en verde esmeralda y oro</div>
-                    </div>
-                  </button>
+                {/* CATÁLOGO COMPLETO DESPLEGABLE EN ACORDEÓN */}
+                {isDesignAccordionOpen && (
+                  <div className="grid grid-cols-1 gap-2 max-h-[280px] overflow-y-auto pr-1 pt-2 border-t border-slate-100 dark:border-zinc-800 animate-in fade-in-50 duration-200">
+                    {PROFORMA_DESIGN_TEMPLATES.map((tmpl) => {
+                      const isSelected = templateId === tmpl.id;
+                      return (
+                        <button
+                          key={tmpl.id}
+                          type="button"
+                          onClick={() => {
+                            setTemplateId(tmpl.id);
+                          }}
+                          className={`flex items-center justify-between gap-2.5 text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-slate-300 dark:border-zinc-700 bg-slate-50/90 dark:bg-zinc-800/80 shadow-xs'
+                              : 'border-gray-150 dark:border-zinc-800 hover:bg-gray-55 dark:hover:bg-zinc-850'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div 
+                              className="w-5 h-5 rounded-full shrink-0 border border-white/40 shadow-xs"
+                              style={{ backgroundColor: tmpl.color }}
+                            />
+                            <div>
+                              <div className="text-[11px] font-black text-gray-850 dark:text-zinc-200 leading-tight">
+                                {tmpl.name}
+                              </div>
+                              <div className="text-[9px] text-gray-450">
+                                {tmpl.desc}
+                              </div>
+                            </div>
+                          </div>
 
-                  {/* Template 5 */}
-                  <button
-                    type="button"
-                    onClick={() => setTemplateId('crimson_luxury')}
-                    className={`flex items-center gap-2.5 text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
-                      templateId === 'crimson_luxury'
-                        ? 'border-red-750 bg-red-50/40 dark:bg-red-950/10 ring-1 ring-red-150'
-                        : 'border-gray-150 dark:border-zinc-800 hover:bg-gray-55 dark:hover:bg-zinc-850'
-                    }`}
-                  >
-                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-red-800 to-rose-950 shrink-0 border border-red-200" />
-                    <div>
-                      <div className="text-[11px] font-black text-gray-850 dark:text-zinc-200 leading-tight">Carmesí Ejecutivo</div>
-                      <div className="text-[9px] text-gray-450">Estilo elegante en vino y oro fino</div>
-                    </div>
-                  </button>
-
-                  {/* Template 6 */}
-                  <button
-                    type="button"
-                    onClick={() => setTemplateId('modern_dark_gold')}
-                    className={`flex items-center gap-2.5 text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
-                      templateId === 'modern_dark_gold'
-                        ? 'border-amber-450 bg-zinc-950 text-white ring-1 ring-amber-300/40'
-                        : 'border-gray-150 dark:border-zinc-800 hover:bg-gray-55 dark:hover:bg-zinc-850'
-                    }`}
-                  >
-                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-zinc-950 via-zinc-850 to-amber-500 shrink-0 border border-amber-350" />
-                    <div>
-                      <div className="text-[11px] font-black text-gray-850 dark:text-zinc-200 leading-tight">Gris & Oro Premium</div>
-                      <div className="text-[9px] text-gray-450">Fondo oscuro, acentos oro y ámbar</div>
-                    </div>
-                  </button>
-
-                  {/* Template 7 */}
-                  <button
-                    type="button"
-                    onClick={() => setTemplateId('orange_tech')}
-                    className={`flex items-center gap-2.5 text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
-                      templateId === 'orange_tech'
-                        ? 'border-orange-550 bg-orange-50/30 dark:bg-orange-950/10 ring-1 ring-orange-200'
-                        : 'border-gray-150 dark:border-zinc-800 hover:bg-gray-55 dark:hover:bg-zinc-850'
-                    }`}
-                  >
-                    <div className="w-5 h-5 rounded-full bg-orange-650 shrink-0 border border-orange-200" />
-                    <div>
-                      <div className="text-[11px] font-black text-gray-850 dark:text-zinc-200 leading-tight">Naranja Tecnológico</div>
-                      <div className="text-[9px] text-gray-450">Estilo moderno de start-up digital</div>
-                    </div>
-                  </button>
-
-                </div>
+                          {isSelected ? (
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                              <Check className="w-2.5 h-2.5 text-emerald-600" />
+                              <span>Seleccionado</span>
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500">
+                              Elegir
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
             </div>
@@ -1152,110 +1172,164 @@ export default function ProformaForm({
         </form>
       ) : (
         /* PROFORMA HISTORY TAB LIST */
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-150 dark:border-zinc-850 p-5 shadow-2xs space-y-4">
-          <div className="flex justify-between items-center border-b border-gray-100 dark:border-zinc-800 pb-3 flex-wrap gap-2">
-            <div>
-              <h3 className="font-extrabold text-xs uppercase text-gray-800 dark:text-zinc-200 tracking-wider">
-                Listado de Proformas Registradas
-              </h3>
-              <p className="text-[10px] text-gray-500 grid">Verifique, edite o imprima sus proformas pendientes en su formato original de forma offline.</p>
+        <div className="space-y-4">
+          {/* Search & Filter Bar */}
+          <div className="flex flex-col sm:flex-row gap-3 bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm">
+            <div className="flex-1 relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar por número, cliente, RUC/cédula, teléfono o correo..."
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-100 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none"
+              />
             </div>
-            {proformas.length > 0 && (
+
+            <div className="flex items-center space-x-2 shrink-0">
               <button
-                onClick={() => {
-                  modalAlert.confirm(
-                    '¿Limpiar historial?',
-                    '¿Desea limpiar el historial completo de proformas?',
-                    () => {
-                      setProformas([]);
-                      localStorage.removeItem(getUserStorageKey('sri_proformas'));
-                      modalAlert.success('Historial Limpiado', 'Se ha vaciado el historial local de proformas.');
-                    },
-                    true,
-                    'Limpiar Historial',
-                    'Cancelar'
-                  );
-                }}
-                className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-655 text-[10px] uppercase font-bold rounded-lg border border-red-200 transition cursor-pointer"
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="p-2 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 rounded-xl transition-all cursor-pointer shrink-0"
+                title="Limpiar búsqueda"
               >
-                Limpiar Historial
+                <RefreshCw className="w-4 h-4" />
               </button>
-            )}
+
+              {proformas.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    modalAlert.confirm(
+                      '¿Limpiar historial?',
+                      '¿Desea limpiar el historial completo de proformas?',
+                      () => {
+                        setProformas([]);
+                        localStorage.removeItem(getUserStorageKey('sri_proformas'));
+                        modalAlert.success('Historial Limpiado', 'Se ha vaciado el historial local de proformas.');
+                      },
+                      true,
+                      'Limpiar Historial',
+                      'Cancelar'
+                    );
+                  }}
+                  className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 text-xs font-bold rounded-xl border border-rose-200 dark:border-rose-800 transition cursor-pointer whitespace-nowrap shrink-0"
+                >
+                  Limpiar Historial
+                </button>
+              )}
+            </div>
           </div>
 
-          {proformas.length === 0 ? (
-            <div className="py-12 text-center text-gray-400 space-y-2 dark:text-zinc-550 border border-dashed border-gray-200 dark:border-zinc-800 rounded-2xl bg-gray-50/50 dark:bg-zinc-950/20 max-w-xl mx-auto">
-              <FileText className="w-10 h-10 mx-auto text-gray-300 dark:text-zinc-700" />
-              <div className="font-extrabold text-xs uppercase text-gray-600 dark:text-zinc-400">No hay proformas registradas</div>
-              <p className="text-[11px]">Genere su primera cotización desde la pestaña "Nueva Proforma" para visualizarla aquí.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-zinc-800">
-              <table className="w-full text-left font-sans text-xs whitespace-nowrap">
-                <thead className="bg-gray-50 dark:bg-zinc-950 font-bold text-gray-400 dark:text-zinc-500 uppercase text-[10px] border-b border-gray-100 dark:border-zinc-800">
-                  <tr>
-                    <th className="p-4">Cotización #</th>
-                    <th className="p-4">Fecha Emisión</th>
-                    <th className="p-4">Cliente</th>
-                    <th className="p-4">Teléfono / Correo</th>
-                    <th className="p-4 text-center">Ítems</th>
-                    <th className="p-4 text-right">Monto Total</th>
-                    <th className="p-4 text-center">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-zinc-850">
-                  {proformas.map((p) => (
-                    <tr key={p.id} className="hover:bg-gray-50/50 dark:hover:bg-zinc-900/40">
-                      <td className="p-4 font-mono font-black text-gray-900 dark:text-white">
-                        PROFORMA #{p.secuencial}
-                      </td>
-                      <td className="p-4 text-gray-500 font-medium">
-                        {p.fechaEmision}
-                      </td>
-                      <td className="p-4 font-bold text-gray-800 dark:text-zinc-300">
-                        {p.cliente.nombre}
-                      </td>
-                      <td className="p-4 text-gray-500">
-                        <div className="font-mono text-[10.5px]">{p.cliente.telefono}</div>
-                        <div className="text-[10px] text-gray-400">{p.cliente.correo}</div>
-                      </td>
-                      <td className="p-4 text-center font-bold text-gray-600 dark:text-zinc-400">
-                        {p.detalles.length}
-                      </td>
-                      <td className="p-4 text-right font-black text-[#703bb0] font-mono text-xs">
-                        ${p.resumenImpuestos.total.toFixed(2)}
-                      </td>
-                      <td className="p-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => setSelectedProforma(p)}
-                            className="p-1 px-2.5 bg-purple-50 hover:bg-purple-100 text-[#703bb0] font-bold text-[10.5px] rounded-lg transition cursor-pointer flex items-center gap-1 border border-purple-150"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            Visualizar
-                          </button>
-                          <button
-                            onClick={(e) => handleEditProforma(p, e)}
-                            className="p-1 px-2.5 bg-gray-50 hover:bg-gray-100 text-gray-700 dark:bg-zinc-800 dark:text-zinc-200 font-bold text-[10.5px] rounded-lg transition cursor-pointer flex items-center gap-1 border border-gray-200 dark:border-zinc-700"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                            Editar
-                          </button>
-                          <button
-                            onClick={(e) => handleDeleteProforma(p.id, e)}
-                            className="p-1 hover:bg-red-50 hover:text-red-600 text-gray-400 rounded-lg transition cursor-pointer"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {(() => {
+            const filtered = proformas.filter(p => {
+              const clean = searchQuery.toLowerCase().trim();
+              if (!clean) return true;
+              return (
+                (p.secuencial || '').includes(clean) ||
+                (p.cliente?.nombre || '').toLowerCase().includes(clean) ||
+                (p.cliente?.identificacion || '').includes(clean) ||
+                (p.cliente?.telefono || '').includes(clean) ||
+                (p.cliente?.correo || '').toLowerCase().includes(clean)
+              );
+            });
+
+            if (filtered.length === 0) {
+              return (
+                <div className="bg-white dark:bg-zinc-900 p-12 rounded-2xl border border-slate-200 dark:border-zinc-800 text-center space-y-3">
+                  <FileText className="w-12 h-12 text-slate-300 dark:text-zinc-700 mx-auto" />
+                  <h3 className="text-sm font-black text-slate-800 dark:text-zinc-200">No hay proformas encontradas</h3>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-md mx-auto">
+                    {searchQuery ? 'No se encontraron cotizaciones con los criterios de búsqueda.' : 'Genere su primera cotización desde la pestaña "Emitir Proforma" para visualizarla aquí.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab2('create')}
+                    className="px-4 py-2 bg-sky-600 text-white rounded-xl text-xs font-black shadow-sm hover:bg-sky-700 transition-all inline-flex items-center space-x-1.5 cursor-pointer shrink-0"
+                  >
+                    <Plus className="w-4 h-4 shrink-0" />
+                    <span>Emitir Primera Proforma</span>
+                  </button>
+                </div>
+              );
+            }
+
+            return (
+              <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-zinc-950 border-b border-slate-200 dark:border-zinc-800 text-[11px] font-black text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
+                        <th className="p-3.5">Cotización #</th>
+                        <th className="p-3.5">Fecha Emisión</th>
+                        <th className="p-3.5">Cliente</th>
+                        <th className="p-3.5">Contacto</th>
+                        <th className="p-3.5 text-center">Ítems</th>
+                        <th className="p-3.5 text-right">Monto Total</th>
+                        <th className="p-3.5 text-center">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                      {filtered.map((p) => (
+                        <tr key={p.id} className="hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 transition-colors">
+                          <td className="p-3.5 font-mono font-bold text-slate-900 dark:text-zinc-100">
+                            PROFORMA #{p.secuencial}
+                          </td>
+                          <td className="p-3.5 text-slate-600 dark:text-zinc-400 font-medium">
+                            {p.fechaEmision}
+                          </td>
+                          <td className="p-3.5">
+                            <div className="font-bold text-slate-900 dark:text-zinc-100">{p.cliente?.nombre}</div>
+                            {p.cliente?.identificacion && (
+                              <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono">{p.cliente.identificacion}</div>
+                            )}
+                          </td>
+                          <td className="p-3.5 text-slate-500 dark:text-zinc-400">
+                            <div className="font-mono text-[11px] text-slate-700 dark:text-zinc-300 font-semibold">{p.cliente?.telefono || 'S/N'}</div>
+                            <div className="text-[10px] text-slate-400">{p.cliente?.correo}</div>
+                          </td>
+                          <td className="p-3.5 text-center font-bold text-slate-700 dark:text-zinc-300 font-mono">
+                            {p.detalles.length}
+                          </td>
+                          <td className="p-3.5 text-right font-mono font-black text-slate-900 dark:text-zinc-100 text-sm">
+                            ${p.resumenImpuestos.total.toFixed(2)}
+                          </td>
+                          <td className="p-3.5 text-center">
+                            <div className="flex items-center justify-center space-x-1">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedProforma(p)}
+                                className="p-1.5 text-slate-500 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-zinc-800 rounded-lg transition cursor-pointer"
+                                title="Visualizar Proforma / PDF"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => handleEditProforma(p, e)}
+                                className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-zinc-800 rounded-lg transition cursor-pointer"
+                                title="Editar Proforma"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => handleDeleteProforma(p.id, e)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-zinc-800 rounded-lg transition cursor-pointer"
+                                title="Eliminar Proforma"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 

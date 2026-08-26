@@ -1246,18 +1246,16 @@ export default function CompanyProfile({
           {(() => {
             const currentTmpl = TEMPLATES.find(t => t.id === activeTemplate) || TEMPLATES[0];
             return (
-              <div className="p-4 sm:p-5 rounded-2xl border-2 border-indigo-600 bg-gradient-to-r from-indigo-50/40 via-white to-indigo-50/20 dark:from-indigo-950/30 dark:via-zinc-900 dark:to-zinc-900/60 transition shadow-xs">
+              <div className="p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-850/70 transition shadow-xs">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="space-y-1.5 flex-1">
                     <div className="flex items-center gap-2.5 flex-wrap">
-                      <span className="bg-indigo-600 text-white p-1 rounded-full text-xs flex items-center justify-center w-5 h-5 shadow-xs">
-                        <Check className="w-3.5 h-3.5 font-bold" />
-                      </span>
                       <h4 className="font-extrabold text-sm text-gray-950 dark:text-gray-50 uppercase tracking-wide">
                         {currentTmpl.name}
                       </h4>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">
-                        ✓ Activo Actualmente
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1">
+                        <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                        <span>Seleccionado</span>
                       </span>
                     </div>
                     <p className="text-xs text-gray-600 dark:text-zinc-300 leading-relaxed max-w-2xl">
@@ -1281,7 +1279,7 @@ export default function CompanyProfile({
                     <button
                       type="button"
                       onClick={() => setIsDesignAccordionOpen(!isDesignAccordionOpen)}
-                      className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 font-bold rounded-xl transition text-xs flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+                      className="px-3.5 py-2 bg-white hover:bg-gray-100 text-gray-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 font-bold rounded-xl border border-gray-200 dark:border-zinc-700 transition text-xs flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
                     >
                       {isDesignAccordionOpen ? 'Cerrar' : 'Cambiar'}
                     </button>
@@ -1312,10 +1310,10 @@ export default function CompanyProfile({
                       onClick={() => {
                         handleSelectTemplate(tmpl.id);
                       }}
-                      className={`group relative p-4 rounded-xl border-2 transition cursor-pointer flex flex-col justify-between h-36 ${
+                      className={`group relative p-4 rounded-xl border transition cursor-pointer flex flex-col justify-between h-36 ${
                         isSelected
-                          ? 'border-indigo-600 bg-indigo-50/25 dark:bg-indigo-950/35 shadow-xs'
-                          : 'border-gray-200/80 bg-white hover:bg-gray-50 hover:border-indigo-300 dark:border-zinc-800 dark:bg-zinc-950/25 dark:hover:bg-zinc-900'
+                          ? 'border-slate-300 dark:border-zinc-700 bg-slate-50/90 dark:bg-zinc-800/80 shadow-xs'
+                          : 'border-gray-200/80 bg-white hover:bg-gray-50 hover:border-slate-300 dark:border-zinc-800 dark:bg-zinc-950/25 dark:hover:bg-zinc-900'
                       }`}
                     >
                       {/* Visual palette indicators */}
@@ -1325,11 +1323,12 @@ export default function CompanyProfile({
                             {tmpl.name}
                           </span>
                           {isSelected ? (
-                            <span className="bg-indigo-600 text-white p-1 rounded-full text-xs flex items-center justify-center w-5 h-5 shadow-xs">
-                              <Check className="w-3.5 h-3.5 font-bold" />
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                              <Check className="w-3 h-3 text-emerald-600" />
+                              <span>Seleccionado</span>
                             </span>
                           ) : (
-                            <div className="w-4 h-4 rounded-full border border-gray-300 dark:border-zinc-700 group-hover:border-indigo-400 transition" />
+                            <div className="w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-zinc-700 group-hover:border-indigo-400 transition" />
                           )}
                         </div>
                         <p className="text-[11px] text-gray-400 dark:text-zinc-400 leading-snug text-left line-clamp-2">
@@ -1343,7 +1342,7 @@ export default function CompanyProfile({
                           <span className="w-3 h-3 rounded-full bg-gray-200 dark:bg-zinc-700" />
                         </div>
                         <span className={`text-[10px] font-black uppercase tracking-wider ${
-                          isSelected ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-zinc-500 group-hover:text-indigo-600'
+                          isSelected ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-gray-400 dark:text-zinc-500 group-hover:text-indigo-600'
                         }`}>
                           {isSelected ? '✓ Activo' : 'Seleccionar'}
                         </span>
