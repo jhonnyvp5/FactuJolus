@@ -603,10 +603,20 @@ export interface ScreenCustomizationConfig {
   customBlocks?: ScreenCustomBlock[];
 }
 
+export interface SriWsEndpointsConfig {
+  recepcionPruebas: string;
+  autorizacionPruebas: string;
+  recepcionProduccion: string;
+  autorizacionProduccion: string;
+}
+
 export interface PlatformCustomizationSettings {
   id: string;
   updatedAt: string;
   updatedBy: string;
+
+  // SRI Web Service Dynamic Endpoints (Configurable exclusively by SUPERADMIN)
+  sriWsEndpoints?: SriWsEndpointsConfig;
 
   // Visual Identity & Branding
   platformName: string;

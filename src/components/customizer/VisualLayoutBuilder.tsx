@@ -218,8 +218,21 @@ export default function VisualLayoutBuilder({
     color: 'blue'
   });
 
-  // Collapsed branches state for branch mode
-  const [collapsedBranches, setCollapsedBranches] = useState<Record<string, boolean>>({});
+  // Collapsed branches state for branch mode - Starts with ALL branches collapsed by default
+  const [collapsedBranches, setCollapsedBranches] = useState<Record<string, boolean>>(() => {
+    const init: Record<string, boolean> = { '__root__': true };
+    const groups = settings.menuGroups && settings.menuGroups.length > 0
+      ? settings.menuGroups
+      : [
+          { id: 'group-facturacion' },
+          { id: 'group-catalogos' },
+          { id: 'group-admin' },
+        ];
+    groups.forEach(g => {
+      init[g.id] = true;
+    });
+    return init;
+  });
 
   // Active Role strictly bound to the authenticated user's session role
   const activeUserRole: 'USER' | 'ADMIN' | 'SUPERADMIN' = (

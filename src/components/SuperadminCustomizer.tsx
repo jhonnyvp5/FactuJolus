@@ -46,6 +46,7 @@ import CustomCodeEditor from './customizer/CustomCodeEditor';
 import { ScreenPageBuilder } from './customizer/ScreenPageBuilder';
 import { TextDictionaryEditor } from './customizer/TextDictionaryEditor';
 import { ThemeColorsBuilder } from './customizer/ThemeColorsBuilder';
+import { SriWebServiceEditor } from './customizer/SriWebServiceEditor';
 
 interface SuperadminCustomizerProps {
   currentUserEmail?: string;
@@ -55,7 +56,7 @@ interface SuperadminCustomizerProps {
   currentEmpresa?: EmpresaTenant | null;
 }
 
-type SubTab = 'layout' | 'screens' | 'texts' | 'theme' | 'containers' | 'plans' | 'code' | 'identity' | 'banners' | 'slides' | 'news' | 'social' | 'modules';
+type SubTab = 'layout' | 'screens' | 'texts' | 'theme' | 'containers' | 'plans' | 'code' | 'sri-ws' | 'identity' | 'banners' | 'slides' | 'news' | 'social' | 'modules';
 
 interface SubTabDef {
   key: SubTab;
@@ -75,12 +76,13 @@ const ALL_SUBTAB_DEFINITIONS: SubTabDef[] = [
   { key: 'containers', number: '5', name: '5. Lienzo & Ancho de Contenedores', shortName: '5. Lienzo & Ancho', icon: Layers, iconColor: 'text-emerald-400', activeBg: 'bg-emerald-600' },
   { key: 'plans', number: '6', name: '6. Planes de Facturación SRI', shortName: '6. Planes SRI', icon: CreditCard, iconColor: 'text-amber-400', activeBg: 'bg-amber-600' },
   { key: 'code', number: '7', name: '7. Inyección de Código (CSS / JS)', shortName: '7. Inyección CSS/JS', icon: Code, iconColor: 'text-indigo-400', activeBg: 'bg-indigo-600' },
-  { key: 'identity', number: '8', name: '8. Identidad & Logos', shortName: '8. Logos', icon: ImageIcon, iconColor: 'text-indigo-400', activeBg: 'bg-white text-slate-900' },
-  { key: 'banners', number: '9', name: '9. Banners & Anuncios', shortName: '9. Banners', icon: Megaphone, iconColor: 'text-sky-400', activeBg: 'bg-white text-slate-900' },
-  { key: 'slides', number: '10', name: '10. Carrusel de Login', shortName: '10. Login', icon: Sliders, iconColor: 'text-purple-400', activeBg: 'bg-white text-slate-900' },
-  { key: 'news', number: '11', name: '11. Novedades SRI', shortName: '11. Noticias', icon: Newspaper, iconColor: 'text-emerald-400', activeBg: 'bg-white text-slate-900' },
-  { key: 'social', number: '12', name: '12. Redes Sociales & Canales', shortName: '12. Redes', icon: Share2, iconColor: 'text-pink-400', activeBg: 'bg-white text-slate-900' },
-  { key: 'modules', number: '13', name: '13. Interruptores & Módulos Globales', shortName: '13. Módulos', icon: Layers, iconColor: 'text-teal-400', activeBg: 'bg-white text-slate-900' },
+  { key: 'sri-ws', number: '8', name: '8. Web Services SRI (URLs Pruebas & Producción)', shortName: '8. Web Services SRI', icon: Globe, iconColor: 'text-emerald-400', activeBg: 'bg-emerald-600' },
+  { key: 'identity', number: '9', name: '9. Identidad & Logos', shortName: '9. Logos', icon: ImageIcon, iconColor: 'text-indigo-400', activeBg: 'bg-white text-slate-900' },
+  { key: 'banners', number: '10', name: '10. Banners & Anuncios', shortName: '10. Banners', icon: Megaphone, iconColor: 'text-sky-400', activeBg: 'bg-white text-slate-900' },
+  { key: 'slides', number: '11', name: '11. Carrusel de Login', shortName: '11. Login', icon: Sliders, iconColor: 'text-purple-400', activeBg: 'bg-white text-slate-900' },
+  { key: 'news', number: '12', name: '12. Novedades SRI', shortName: '12. Noticias', icon: Newspaper, iconColor: 'text-emerald-400', activeBg: 'bg-white text-slate-900' },
+  { key: 'social', number: '13', name: '13. Redes Sociales & Canales', shortName: '13. Redes', icon: Share2, iconColor: 'text-pink-400', activeBg: 'bg-white text-slate-900' },
+  { key: 'modules', number: '14', name: '14. Interruptores & Módulos Globales', shortName: '14. Módulos', icon: Layers, iconColor: 'text-teal-400', activeBg: 'bg-white text-slate-900' },
 ];
 
 export default function SuperadminCustomizer({ 
@@ -99,7 +101,7 @@ export default function SuperadminCustomizer({
 
   // Allowed subtabs calculation based on Superadmin permissions for this tenant
   const allowedSubTabsList: SubTab[] = isSuperadmin 
-    ? (['layout', 'screens', 'texts', 'theme', 'containers', 'plans', 'code', 'identity', 'banners', 'slides', 'news', 'social', 'modules'] as SubTab[])
+    ? (['layout', 'screens', 'texts', 'theme', 'containers', 'plans', 'code', 'sri-ws', 'identity', 'banners', 'slides', 'news', 'social', 'modules'] as SubTab[])
     : (currentEmpresa?.featurePermissions?.allowedCustomizerSubtabs && currentEmpresa.featurePermissions.allowedCustomizerSubtabs.length > 0
         ? (currentEmpresa.featurePermissions.allowedCustomizerSubtabs as SubTab[])
         : (['layout'] as SubTab[]));
@@ -572,6 +574,17 @@ export default function SuperadminCustomizer({
       {/* SUB-TAB: INYECCIÓN DE CÓDIGO (CSS / JS / HTML) */}
       {/* ========================================================================= */}
       {effectiveActiveSubTab === 'code' && <CustomCodeEditor />}
+
+      {/* ========================================================================= */}
+      {/* SUB-TAB: WEB SERVICES SRI (URLs Pruebas & Producción) */}
+      {/* ========================================================================= */}
+      {effectiveActiveSubTab === 'sri-ws' && (
+        <SriWebServiceEditor 
+          isSuperadmin={isSuperadmin}
+          currentUserRole={currentUserRole}
+          currentUser={currentUser}
+        />
+      )}
 
       {/* ========================================================================= */}
       {/* SUB-TAB 2: IDENTIDAD & LOGOTIPOS */}

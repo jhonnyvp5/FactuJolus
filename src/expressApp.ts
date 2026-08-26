@@ -1,6 +1,6 @@
 import express from 'express';
 import { getCertificateInfo, signXmlDocument } from './sri/signer';
-import { enviarComprobanteSri, consultarAutorizacionSri } from './sri/soap';
+import { enviarComprobanteSri, consultarAutorizacionSri, testSriWsUrl, setGlobalSriWsEndpoints } from './sri/soap';
 import { sendInvoiceEmail, testSmtpConnection } from './sri/emailService';
 import { generateInvoicePdfBuffer, generateRetentionPdfBuffer } from './sri/pdfGenerator';
 
@@ -56,12 +56,16 @@ apiRouter.post(['/sign-xml', '/api/sign-xml'], (req, res) => {
 // Proxy: Transmit signed XML to SRI reception soap endpoint
 apiRouter.post(['/send-sri', '/api/send-sri'], async (req, res) => {
   try {
-    const { signedXml, claveAcceso, ambiente, isDemo } = req.body;
+    const { signedXml, claveAcceso, ambiente, isDemo, customEndpoints } = req.body;
     if (!signedXml || !claveAcceso || !ambiente) {
       return res.status(400).json({ status: 'error', message: 'Faltan parámetros requridos: signedXml, claveAcceso, ambiente.' });
     }
 
-    const result = await enviarComprobanteSri(signedXml, claveAcceso, ambiente, isDemo === true);
+    if (customEndpoints) {
+      setGlobalSriWsEndpoints(customEndpoints);
+    }
+
+    const result = await enviarComprobanteSri(signedXml, claveAcceso, ambiente, isDemo === true, customEndpoints);
     res.json({ status: 'success', data: result });
   } catch (err: any) {
     res.status(400).json({ status: 'error', message: err.message || String(err) });
@@ -71,15 +75,34 @@ apiRouter.post(['/send-sri', '/api/send-sri'], async (req, res) => {
 // Proxy: Query status from SRI authorization soap endpoint
 apiRouter.post(['/authorize-sri', '/api/authorize-sri'], async (req, res) => {
   try {
-    const { claveAcceso, ambiente, isDemo } = req.body;
+    const { claveAcceso, ambiente, isDemo, customEndpoints } = req.body;
     if (!claveAcceso || !ambiente) {
       return res.status(400).json({ status: 'error', message: 'Faltan parámetros requeridos: claveAcceso, ambiente.' });
     }
 
-    const result = await consultarAutorizacionSri(claveAcceso, ambiente, isDemo === true);
+    if (customEndpoints) {
+      setGlobalSriWsEndpoints(customEndpoints);
+    }
+
+    const result = await consultarAutorizacionSri(claveAcceso, ambiente, isDemo === true, customEndpoints);
     res.json({ status: 'success', data: result });
   } catch (err: any) {
     res.status(400).json({ status: 'error', message: err.message || String(err) });
+  }
+});
+
+// Diagnostic / Test SRI Web Service Connectivity endpoint for SUPERADMIN
+apiRouter.post(['/test-sri-ws', '/api/test-sri-ws'], async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) {
+      return res.status(400).json({ status: 'error', message: 'Se requiere el parámetro "url" del Web Service SRI.' });
+    }
+
+    const result = await testSriWsUrl(url);
+    res.json({ status: 'success', ...result });
+  } catch (err: any) {
+    res.status(500).json({ status: 'error', message: err.message || String(err) });
   }
 });
 

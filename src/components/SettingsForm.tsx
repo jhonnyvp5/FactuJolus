@@ -680,6 +680,13 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
                 2 - Producción (CEL)
               </button>
             </div>
+            <p className="text-[11px] text-gray-500 dark:text-zinc-400 mt-1.5 flex items-center gap-1">
+              <span>Host activo:</span>
+              <code className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-zinc-800 font-mono text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">
+                {ambiente === '1' ? 'celcer.sri.gob.ec' : 'cel.sri.gob.ec'}
+              </code>
+              <span className="text-[10px] text-gray-400 ml-1">(Rutas WSDL administradas por SUPERADMIN)</span>
+            </p>
           </div>
         </div>
 

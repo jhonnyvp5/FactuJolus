@@ -1,12 +1,22 @@
-import { PlatformCustomizationSettings, CustomMenuItem, MenuGroup } from '../types';
+import { PlatformCustomizationSettings, CustomMenuItem, MenuGroup, SriWsEndpointsConfig } from '../types';
 import { getSupabase } from './supabase';
 
 export const PLATFORM_SETTINGS_STORAGE_KEY = 'sri_platform_custom_settings';
+
+export const DEFAULT_SRI_WS_ENDPOINTS: SriWsEndpointsConfig = {
+  recepcionPruebas: 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl',
+  autorizacionPruebas: 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl',
+  recepcionProduccion: 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl',
+  autorizacionProduccion: 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl',
+};
 
 export const DEFAULT_PLATFORM_SETTINGS: PlatformCustomizationSettings = {
   id: 'global_platform_settings',
   updatedAt: new Date().toISOString(),
   updatedBy: 'SUPERADMIN',
+
+  // SRI Web Service Dynamic Endpoints (Configurable exclusively by SUPERADMIN)
+  sriWsEndpoints: { ...DEFAULT_SRI_WS_ENDPOINTS },
 
   // Visual Identity & Branding
   platformName: 'ORIONNX SERVICES',

@@ -1,5 +1,26 @@
 import https from 'https';
-import { SriMessage } from '../types';
+import { SriMessage, SriWsEndpointsConfig } from '../types';
+
+export const DEFAULT_SRI_WS_ENDPOINTS: SriWsEndpointsConfig = {
+  recepcionPruebas: 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl',
+  autorizacionPruebas: 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl',
+  recepcionProduccion: 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl',
+  autorizacionProduccion: 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl',
+};
+
+// Mutable runtime endpoints cache for server processes
+let currentWsEndpoints: SriWsEndpointsConfig = { ...DEFAULT_SRI_WS_ENDPOINTS };
+
+export function setGlobalSriWsEndpoints(endpoints: Partial<SriWsEndpointsConfig>) {
+  currentWsEndpoints = {
+    ...currentWsEndpoints,
+    ...endpoints
+  };
+}
+
+export function getGlobalSriWsEndpoints(): SriWsEndpointsConfig {
+  return { ...currentWsEndpoints };
+}
 
 // SSL options for supporting legacy renegotiation on the SRI servers (required with OpenSSL 3 / Node.js 18+)
 const SSL_OP_LEGACY_SERVER_CONNECT = 0x00000004;
@@ -9,7 +30,7 @@ const SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION = 0x00040000;
  * Realiza una petición SOAP al SRI utilizando TLS v1.0/1.2 compatible con sus servidores legacy (resuelve ECONNRESET y fallos de fetch).
  * Incluye reintentos automáticos para lidiar con la inestabilidad de los servidores del SRI.
  */
-async function soapRequest(urlStr: string, xmlBody: string, retriesRemaining = 2): Promise<string> {
+export async function soapRequest(urlStr: string, xmlBody: string, retriesRemaining = 2): Promise<string> {
   // If running in browser client environment without Node https module
   if (typeof window !== 'undefined' || !(https as any)?.request) {
     try {
@@ -23,8 +44,6 @@ async function soapRequest(urlStr: string, xmlBody: string, retriesRemaining = 2
       }
       return await response.text();
     } catch (err: any) {
-      // In browser, direct fetch to celcer.sri.gob.ec fails because SRI doesn't send CORS headers.
-      // We produce a clear, friendly diagnostic message instead of raw "Failed to fetch".
       const isCorsOrNetwork = String(err.message || err).toLowerCase().includes('failed to fetch') || 
                               String(err.message || err).toLowerCase().includes('networkerror') ||
                               String(err.message || err).toLowerCase().includes('cors');
@@ -96,6 +115,99 @@ async function soapRequest(urlStr: string, xmlBody: string, retriesRemaining = 2
 }
 
 /**
+ * Tests connectivity and response from an SRI Web Service URL
+ */
+export async function testSriWsUrl(urlStr: string): Promise<{
+  success: boolean;
+  httpStatus?: number;
+  message: string;
+  latencyMs: number;
+  isWsdl?: boolean;
+}> {
+  const startTime = Date.now();
+  try {
+    const parsed = new URL(urlStr);
+    
+    // Test GET / WSDL or HEAD
+    if (typeof window !== 'undefined' || !(https as any)?.request) {
+      const resp = await fetch(urlStr, { method: 'GET' });
+      const latency = Date.now() - startTime;
+      const text = await resp.text();
+      const isWsdl = text.includes('wsdl:definitions') || text.includes('definitions') || text.includes('schema');
+      return {
+        success: resp.ok || isWsdl || resp.status === 405 || resp.status === 500, // SOAP endpoints may return 405 on GET if no ?wsdl
+        httpStatus: resp.status,
+        message: resp.ok || isWsdl ? 'Servidor SRI accesible y respondiendo correctamente.' : `Servidor respondió con código HTTP ${resp.status}`,
+        latencyMs: latency,
+        isWsdl
+      };
+    }
+
+    return await new Promise((resolve) => {
+      const options: https.RequestOptions = {
+        method: 'GET',
+        hostname: parsed.hostname,
+        port: parsed.port || 443,
+        path: parsed.pathname + parsed.search,
+        agent: new https.Agent({
+          rejectUnauthorized: false,
+          keepAlive: false,
+          minVersion: 'TLSv1',
+          ciphers: 'DEFAULT:@SECLEVEL=1',
+          secureOptions: SSL_OP_LEGACY_SERVER_CONNECT | SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION
+        }),
+        timeout: 10000
+      };
+
+      const req = https.request(options, (res) => {
+        let body = '';
+        res.on('data', (chunk) => {
+          body += chunk;
+        });
+        res.on('end', () => {
+          const latency = Date.now() - startTime;
+          const isWsdl = body.includes('wsdl:definitions') || body.includes('definitions') || body.includes('schema');
+          const isOk = res.statusCode ? (res.statusCode >= 200 && res.statusCode < 400) || isWsdl : false;
+          resolve({
+            success: isOk,
+            httpStatus: res.statusCode,
+            message: isOk ? `Servidor SRI accesible (${res.statusCode} OK). WSDL verificado.` : `El servidor respondió con código HTTP ${res.statusCode}.`,
+            latencyMs: latency,
+            isWsdl
+          });
+        });
+      });
+
+      req.on('error', (err) => {
+        const latency = Date.now() - startTime;
+        resolve({
+          success: false,
+          message: `Fallo de conexión de red al endpoint: ${err.message || String(err)}`,
+          latencyMs: latency
+        });
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        resolve({
+          success: false,
+          message: 'Timeout al conectar con el servidor SRI (10s superado).',
+          latencyMs: 10000
+        });
+      });
+
+      req.end();
+    });
+  } catch (err: any) {
+    return {
+      success: false,
+      message: `URL inválida o error: ${err.message || String(err)}`,
+      latencyMs: Date.now() - startTime
+    };
+  }
+}
+
+/**
  * SRI SOAP Client for communicating with Ecuador's tax authority web services.
  * Features both fully simulated mode (Demo) and real SOAP requests to SRI testing / production environments.
  */
@@ -147,7 +259,8 @@ export async function enviarComprobanteSri(
   signedXml: string,
   claveAcceso: string,
   ambiente: '1' | '2',
-  isDemo: boolean = true
+  isDemo: boolean = true,
+  customEndpoints?: Partial<SriWsEndpointsConfig>
 ): Promise<RecepcionResponse> {
   if (isDemo) {
     // Simular recepción exitosa o lanzar un error controlado si falta algún campo crítico
@@ -175,8 +288,12 @@ export async function enviarComprobanteSri(
     };
   }
 
-  // Real SOAP Request to SRI
-  const url = ambiente === '1' ? RECEPCION_URL_SANDBOX : RECEPCION_URL_PRODUCTION;
+  // Real SOAP Request to SRI with dynamic URL support
+  const endpoints = { ...currentWsEndpoints, ...customEndpoints };
+  const url = ambiente === '1' 
+    ? (endpoints.recepcionPruebas || DEFAULT_SRI_WS_ENDPOINTS.recepcionPruebas) 
+    : (endpoints.recepcionProduccion || DEFAULT_SRI_WS_ENDPOINTS.recepcionProduccion);
+
   const base64Xml = Buffer.from(signedXml, 'utf-8').toString('base64');
   
   const soapEnvelope = `<?xml version="1.0" encoding="utf-8"?>
@@ -232,7 +349,8 @@ export async function enviarComprobanteSri(
 export async function consultarAutorizacionSri(
   claveAcceso: string,
   ambiente: '1' | '2',
-  isDemo: boolean = true
+  isDemo: boolean = true,
+  customEndpoints?: Partial<SriWsEndpointsConfig>
 ): Promise<AutorizacionResponse> {
   if (isDemo) {
     // Simular autorización exitosa
@@ -256,8 +374,11 @@ export async function consultarAutorizacionSri(
     };
   }
 
-  // Real SOAP Request to SRI
-  const url = ambiente === '1' ? AUTORIZACION_URL_SANDBOX : AUTORIZACION_URL_PRODUCTION;
+  // Real SOAP Request to SRI with dynamic URL support
+  const endpoints = { ...currentWsEndpoints, ...customEndpoints };
+  const url = ambiente === '1' 
+    ? (endpoints.autorizacionPruebas || DEFAULT_SRI_WS_ENDPOINTS.autorizacionPruebas) 
+    : (endpoints.autorizacionProduccion || DEFAULT_SRI_WS_ENDPOINTS.autorizacionProduccion);
   
   const soapEnvelope = `<?xml version="1.0" encoding="utf-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ec="http://ec.gob.sri.ws.autorizacion">

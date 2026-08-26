@@ -1,6 +1,18 @@
 import { signXmlDocument, getCertificateInfo, SignatureInfo } from '../sri/signer';
-import { enviarComprobanteSri, consultarAutorizacionSri, RecepcionResponse, AutorizacionResponse } from '../sri/soap';
-import { Invoice, EmitterConfig } from '../types';
+import { enviarComprobanteSri, consultarAutorizacionSri, testSriWsUrl, RecepcionResponse, AutorizacionResponse } from '../sri/soap';
+import { Invoice, EmitterConfig, SriWsEndpointsConfig } from '../types';
+import { PLATFORM_SETTINGS_STORAGE_KEY } from './platformSettings';
+
+function getStoredSriWsEndpoints(): SriWsEndpointsConfig | undefined {
+  try {
+    const raw = localStorage.getItem(PLATFORM_SETTINGS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.sriWsEndpoints) return parsed.sriWsEndpoints;
+    }
+  } catch {}
+  return undefined;
+}
 
 /**
  * Safely fetches an API route. If the response is not valid JSON (e.g., HTML 404/500 from Vercel or static host),
@@ -60,12 +72,14 @@ export async function apiSendSri(
   signedXml: string,
   claveAcceso: string,
   ambiente: string,
-  isDemo: boolean = true
+  isDemo: boolean = true,
+  customEndpoints?: Partial<SriWsEndpointsConfig>
 ): Promise<{ status: string; data?: RecepcionResponse; message?: string }> {
+  const endpoints = customEndpoints || getStoredSriWsEndpoints();
   const serverRes = await safeFetchJson<{ status: string; data?: RecepcionResponse; message?: string }>('/api/send-sri', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ signedXml, claveAcceso, ambiente, isDemo })
+    body: JSON.stringify({ signedXml, claveAcceso, ambiente, isDemo, customEndpoints: endpoints })
   });
 
   if (serverRes.ok && serverRes.data && serverRes.data.status === 'success' && serverRes.data.data) {
@@ -75,7 +89,7 @@ export async function apiSendSri(
   // Fallback to client-side SOAP request or mock response in demo
   try {
     const envVal: '1' | '2' = ambiente === '2' ? '2' : '1';
-    const data = await enviarComprobanteSri(signedXml, claveAcceso, envVal, isDemo);
+    const data = await enviarComprobanteSri(signedXml, claveAcceso, envVal, isDemo, endpoints);
     return { status: 'success', data };
   } catch (err: any) {
     // Graceful fallback response if network fails
@@ -95,12 +109,14 @@ export async function apiSendSri(
 export async function apiAuthorizeSri(
   claveAcceso: string,
   ambiente: string,
-  isDemo: boolean = true
+  isDemo: boolean = true,
+  customEndpoints?: Partial<SriWsEndpointsConfig>
 ): Promise<{ status: string; data?: AutorizacionResponse; message?: string }> {
+  const endpoints = customEndpoints || getStoredSriWsEndpoints();
   const serverRes = await safeFetchJson<{ status: string; data?: AutorizacionResponse; message?: string }>('/api/authorize-sri', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ claveAcceso, ambiente, isDemo })
+    body: JSON.stringify({ claveAcceso, ambiente, isDemo, customEndpoints: endpoints })
   });
 
   if (serverRes.ok && serverRes.data && serverRes.data.status === 'success' && serverRes.data.data) {
@@ -110,7 +126,7 @@ export async function apiAuthorizeSri(
   // Fallback to client-side SOAP query or mock authorization in demo
   try {
     const envVal: '1' | '2' = ambiente === '2' ? '2' : '1';
-    const data = await consultarAutorizacionSri(claveAcceso, envVal, isDemo);
+    const data = await consultarAutorizacionSri(claveAcceso, envVal, isDemo, endpoints);
     return { status: 'success', data };
   } catch (err: any) {
     const fechaFormatted = new Date().toISOString().replace('T', ' ').substring(0, 19);
@@ -124,6 +140,30 @@ export async function apiAuthorizeSri(
       }
     };
   }
+}
+
+/**
+ * Test SRI Web Service endpoint connectivity
+ */
+export async function apiTestSriWs(url: string): Promise<{
+  success: boolean;
+  httpStatus?: number;
+  message: string;
+  latencyMs?: number;
+  isWsdl?: boolean;
+}> {
+  const serverRes = await safeFetchJson<{ status: string; success: boolean; message: string; httpStatus?: number; latencyMs?: number; isWsdl?: boolean }>('/api/test-sri-ws', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url })
+  });
+
+  if (serverRes.ok && serverRes.data && serverRes.data.status === 'success') {
+    return serverRes.data;
+  }
+
+  // Fallback to client-side test if backend route unreached
+  return await testSriWsUrl(url);
 }
 
 /**
