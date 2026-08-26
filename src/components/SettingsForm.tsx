@@ -20,10 +20,14 @@ import {
   ShieldCheck,
   Award,
   AlertTriangle,
-  Database
+  Database,
+  ChevronDown,
+  ChevronUp,
+  Globe
 } from 'lucide-react';
 import { saveEmitterConfigToSupabase } from '../lib/supabase';
 import { modalAlert } from '../context/ModalAlertContext';
+import { SriWebServiceEditor } from './customizer/SriWebServiceEditor';
 
 interface SettingsFormProps {
   config: EmitterConfig;
@@ -32,6 +36,24 @@ interface SettingsFormProps {
 }
 
 export default function SettingsForm({ config, onSave, currentUser }: SettingsFormProps) {
+  const isSuperAdmin = (currentUser?.role || '').toUpperCase() === 'SUPERADMIN' || 
+                       currentUser?.correo?.toLowerCase() === 'jhonnyvp5@gmail.com';
+
+  // Collapsible Accordion sections for Configuration (All start collapsed)
+  const [collapsedSections, setCollapsedSections] = useState<{ [key: string]: boolean }>({
+    emisor: true,
+    firma: true,
+    smtp: true,
+    sriWs: true,
+  });
+
+  const toggleSection = (key: 'emisor' | 'firma' | 'smtp' | 'sriWs') => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
   const [ruc, setRuc] = useState(config.ruc || '');
   const [razonSocial, setRazonSocial] = useState(config.razonSocial || '');
   const [nombreComercial, setNombreComercial] = useState(config.nombreComercial || '');
@@ -323,29 +345,39 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
   const rucValido = validateRuc(ruc);
 
   return (
-    <form onSubmit={handleSubmit} id="settings-form" className="space-y-8 max-w-4xl mx-auto">
+    <form onSubmit={handleSubmit} id="settings-form" className="space-y-6 max-w-4xl mx-auto">
       
-      {/* UNIFIED CONTAINER: CONFIGURACIÓN DEL EMISOR + CERTIFICADO DIGITAL DE FIRMA (.P12) */}
-      <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 space-y-6">
+      {/* 1. SECCIÓN: CONFIGURACIÓN DEL EMISOR Y FIRMA ELECTRÓNICA */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 overflow-hidden">
         
-        {/* UNIFIED HEADER WITH SINGLE EDIT BUTTON */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-2 border-b border-gray-100 dark:border-zinc-800">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50 flex items-center gap-2">
-              <Shield className="w-5 h-5 text-indigo-600" />
-              Configuración del Emisor y Firma Electrónica
-            </h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Configure sus datos fiscales, parámetros de facturación y cargue su certificado de firma electrónica (.p12) en un solo lugar.
-            </p>
+        {/* Accordion Header */}
+        <div 
+          onClick={() => toggleSection('emisor')}
+          className="p-5 sm:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-800/60 transition select-none border-b border-gray-100 dark:border-zinc-800"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-900/50 shrink-0">
+              <Shield className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-50 flex items-center gap-2">
+                Configuración del Emisor y Firma Electrónica
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
+                Datos fiscales del emisor, establecimiento, punto de emisión, ambiente y modo de facturación.
+              </p>
+            </div>
           </div>
           
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0 self-end sm:self-center">
             {/* SINGLE UNIFIED EDIT FORM BUTTON */}
             <button
               type="button"
-              onClick={() => setIsEditingForm(!isEditingForm)}
-              className={`px-4 py-2 text-xs font-semibold rounded-xl border transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsEditingForm(!isEditingForm);
+              }}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl border transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
                 isEditingForm 
                   ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 ring-2 ring-amber-400/30' 
                   : 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-700'
@@ -354,44 +386,56 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             >
               {isEditingForm ? (
                 <>
-                  <Lock className="w-4 h-4" /> Bloquear Formulario
+                  <Lock className="w-3.5 h-3.5" /> Bloquear Formulario
                 </>
               ) : (
                 <>
-                  <Edit3 className="w-4 h-4" /> Editar Formulario
+                  <Edit3 className="w-3.5 h-3.5" /> Editar Formulario
                 </>
               )}
             </button>
 
             <button
               type="button"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 handleClearExampleData();
                 setIsEditingForm(true);
               }}
               disabled={!isEditingForm}
-              className="px-3.5 py-2 text-xs font-medium text-red-650 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-900/50 dark:text-red-300 rounded-xl border border-red-200 dark:border-red-800/40 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-xs font-medium text-red-650 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-900/50 dark:text-red-300 rounded-xl border border-red-200 dark:border-red-800/40 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               title="Borra todos los datos del formulario para ingresar nueva información"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              Borrar Datos
+              Borrar
             </button>
 
             <button
               type="button"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 handleLoadExampleData();
                 setIsEditingForm(true);
               }}
               disabled={!isEditingForm}
-              className="px-3.5 py-2 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:hover:bg-indigo-900/50 dark:text-indigo-300 rounded-xl border border-indigo-200 dark:border-indigo-800/40 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:hover:bg-indigo-900/50 dark:text-indigo-300 rounded-xl border border-indigo-200 dark:border-indigo-800/40 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               title="Cargar datos de prueba de ejemplo"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              Cargar Ejemplo
+              Ejemplo
+            </button>
+
+            <button 
+              type="button" 
+              className="p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 transition ml-1"
+            >
+              {collapsedSections.emisor ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
             </button>
           </div>
         </div>
+
+        {!collapsedSections.emisor && (
+          <div className="p-6 sm:p-8 space-y-6 animate-in fade-in-50 duration-200">
 
         {/* LOCKED FIELDS NOTICE */}
         {!isEditingForm && (
@@ -680,38 +724,76 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
                 2 - Producción (CEL)
               </button>
             </div>
-            <p className="text-[11px] text-gray-500 dark:text-zinc-400 mt-1.5 flex items-center gap-1">
-              <span>Host activo:</span>
-              <code className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-zinc-800 font-mono text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">
-                {ambiente === '1' ? 'celcer.sri.gob.ec' : 'cel.sri.gob.ec'}
-              </code>
-              <span className="text-[10px] text-gray-400 ml-1">(Rutas WSDL administradas por SUPERADMIN)</span>
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mt-1.5">
+              <p className="text-[11px] text-gray-500 dark:text-zinc-400 flex items-center gap-1">
+                <span>Host activo:</span>
+                <code className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-zinc-800 font-mono text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">
+                  {ambiente === '1' ? 'celcer.sri.gob.ec' : 'cel.sri.gob.ec'}
+                </code>
+              </p>
+              {isSuperAdmin && (
+                <button
+                  type="button"
+                  onClick={() => toggleSection('sriWs')}
+                  className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-semibold flex items-center gap-1 underline underline-offset-2 cursor-pointer transition text-left"
+                >
+                  <Globe className="w-3 h-3" />
+                  {collapsedSections.sriWs ? 'Editar Enlaces Web Service SRI' : 'Ocultar Enlaces Web Service'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* SECTION: CERTIFICADO DIGITAL DE FIRMA ELECTRÓNICA (.P12) INSIDE SAME CONTAINER */}
-        <div className="pt-6 border-t-2 border-indigo-50 dark:border-zinc-800/80 space-y-5">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-amber-50 dark:bg-amber-950/40 rounded-xl text-amber-500 border border-amber-200/60 dark:border-amber-900/50">
+          </div>
+        )}
+      </div>
+
+      {/* 2. SECCIÓN: CERTIFICADO DIGITAL DE FIRMA ELECTRÓNICA (.P12) */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 overflow-hidden">
+        
+        {/* Accordion Header */}
+        <div 
+          onClick={() => toggleSection('firma')}
+          className="p-5 sm:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-800/60 transition select-none border-b border-gray-100 dark:border-zinc-800"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-amber-50 dark:bg-amber-950/40 rounded-xl text-amber-500 border border-amber-200/60 dark:border-amber-900/50 shrink-0">
               <Key className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-50 flex items-center gap-2">
                 Certificado Digital de Firma Electrónica (.p12)
                 {signatureName && (
                   <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-green-100 text-green-800 dark:bg-green-950/50 dark:text-green-300 border border-green-300 dark:border-green-800">
                     Archivo cargado
                   </span>
                 )}
-              </h3>
+              </h2>
               <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
-                Cargue su firma .p12 otorgada por entidades acreditadas en Ecuador (Uanataca, Security Data, BCE, etc.) para firmar comprobantes autorizados.
+                Cargue su firma .p12 otorgada por entidades acreditadas (Uanataca, Security Data, BCE, etc.) para firmar comprobantes autorizados.
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
+            {validoHasta && (
+              <span className="text-xs font-semibold text-gray-600 dark:text-zinc-300 bg-gray-50 dark:bg-zinc-800 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-zinc-700 shadow-xs">
+                Vence: <strong className="text-indigo-600 dark:text-indigo-400">{validoHasta}</strong>
+              </span>
+            )}
+            <button 
+              type="button" 
+              className="p-1.5 rounded-lg text-gray-500 hover:text-amber-600 dark:text-zinc-400 dark:hover:text-amber-400 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 transition"
+            >
+              {collapsedSections.firma ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+
+        {!collapsedSections.firma && (
+          <div className="p-6 sm:p-8 space-y-6 animate-in fade-in-50 duration-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Cargar Archivo de Firma (.p12 / .pfx)</label>
               <div className="flex items-center justify-center w-full">
@@ -871,9 +953,6 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
                         {isExpired ? <AlertTriangle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                         {isExpired ? 'EXPIRADA / VENCIDA' : isExpiringSoon ? 'PRÓXIMA A VENCER' : 'ACTIVA Y VIGENTE'}
                       </span>
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800">
-                        <Database className="w-3 h-3" /> Guardado en BD
-                      </span>
                     </div>
                   </div>
 
@@ -970,25 +1049,35 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             }
           })()}
         </div>
+      )}
+    </div>
 
-      </div>
-
-      {/* SECCIÓN SERVIDOR DE CORREO SMTP */}
-      <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50 flex items-center gap-2">
-              <Mail className="w-5 h-5 text-blue-600" />
-              Servidor de Correo para Notificaciones a Clientes (SMTP)
-            </h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Configure las credenciales de su correo (Gmail, Outlook, Yahoo, cPanel o SendGrid) para despachar automáticamente las facturas autorizadas (XML y PDF RIDE) directamente al correo del cliente.
-            </p>
+      {/* 3. SECCIÓN: SERVIDOR DE CORREO SMTP */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 dark:bg-zinc-900 dark:border-zinc-800 overflow-hidden">
+        
+        {/* Accordion Header */}
+        <div 
+          onClick={() => toggleSection('smtp')}
+          className="p-5 sm:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-800/60 transition select-none border-b border-gray-100 dark:border-zinc-800"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-blue-600 border border-blue-200/60 dark:border-blue-900/50 shrink-0">
+              <Mail className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-50 flex items-center gap-2">
+                Servidor de Correo para Notificaciones a Clientes (SMTP)
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
+                Configure las credenciales de su correo (Gmail, Outlook, Yahoo, cPanel o SendGrid) para despachar automáticamente las facturas autorizadas (XML y PDF RIDE) directamente al correo del cliente.
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
             <button
               type="button"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setSmtpHost('smtp.gmail.com');
                 setSmtpPort('587');
                 setSmtpUser(correo || 'mi_cuenta@gmail.com');
@@ -1001,7 +1090,8 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             </button>
             <button
               type="button"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setSmtpHost('smtp.office365.com');
                 setSmtpPort('587');
                 setSmtpUser(correo || 'mi_cuenta@outlook.com');
@@ -1012,10 +1102,18 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             >
               Outlook
             </button>
+            <button 
+              type="button" 
+              className="p-1.5 rounded-lg text-gray-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 transition ml-1"
+            >
+              {collapsedSections.smtp ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {!collapsedSections.smtp && (
+          <div className="p-6 sm:p-8 space-y-6 animate-in fade-in-50 duration-200">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="md:col-span-2">
             <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">Servidor SMTP Host</label>
             <input
@@ -1115,7 +1213,59 @@ export default function SettingsForm({ config, onSave, currentUser }: SettingsFo
             </div>
           </div>
         )}
+          </div>
+        )}
       </div>
+
+      {/* 4. SECCIÓN EXCLUSIVA SUPERADMIN: ENLACES DEL WEB SERVICE DEL SRI */}
+      {isSuperAdmin && (
+        <div className="bg-white rounded-2xl shadow-sm border border-emerald-200/80 dark:bg-zinc-900 dark:border-emerald-900/60 overflow-hidden">
+          {/* Accordion Header */}
+          <div 
+            onClick={() => toggleSection('sriWs')}
+            className="p-5 sm:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 cursor-pointer hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 transition select-none border-b border-emerald-100 dark:border-zinc-800"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/50 rounded-xl text-emerald-600 border border-emerald-200 dark:border-emerald-800 shrink-0">
+                <Globe className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-50 flex items-center gap-2 flex-wrap">
+                  Enlaces del Web Service del SRI (Pruebas y Producción)
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                    Exclusivo SUPERADMIN
+                  </span>
+                </h2>
+                <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
+                  Actualice las URLs y WSDL de los servidores de recepción y autorización de comprobantes del SRI en caso de modificaciones oficiales del SRI Ecuador.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+              <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                4 Endpoints WSDL
+              </span>
+              <button 
+                type="button" 
+                className="p-1.5 rounded-lg text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-zinc-800 border border-emerald-200 dark:border-zinc-700 transition"
+              >
+                {collapsedSections.sriWs ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {!collapsedSections.sriWs && (
+            <div className="p-6 sm:p-8 animate-in fade-in-50 duration-200">
+              <SriWebServiceEditor
+                isSuperadmin={isSuperAdmin}
+                currentUser={currentUser}
+                currentUserRole={currentUser?.role}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* SAVING FEEDBACK & SUBMIT ACTION BAR */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-zinc-900 p-4 sm:p-5 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm">

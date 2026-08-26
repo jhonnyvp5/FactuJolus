@@ -1095,16 +1095,21 @@ export default function HistoryList({
                 <th className="px-4 py-3.5 w-10 text-center">
                   <input
                     type="checkbox"
-                    checked={deletableDocs.length > 0 && deletableDocs.every(d => selectedIds.includes(d.id))}
+                    checked={filteredDocuments.length > 0 && filteredDocuments.every(d => selectedIds.includes(d.id))}
+                    ref={(el) => {
+                      if (el) {
+                        el.indeterminate = selectedIds.length > 0 && !filteredDocuments.every(d => selectedIds.includes(d.id));
+                      }
+                    }}
                     onChange={(e) => {
                       if (e.target.checked) {
-                        setSelectedIds(deletableDocs.map(d => d.id));
+                        setSelectedIds(filteredDocuments.map(d => d.id));
                       } else {
                         setSelectedIds([]);
                       }
                     }}
                     className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 border-gray-300 dark:border-zinc-700 dark:bg-zinc-800 cursor-pointer"
-                    title="Seleccionar todos los comprobantes eliminables"
+                    title="Seleccionar / deseleccionar todos los comprobantes"
                   />
                 </th>
                 <th 

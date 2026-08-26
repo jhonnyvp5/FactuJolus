@@ -73,6 +73,20 @@ export default function CompanyProfile({
   });
   const [isDesignAccordionOpen, setIsDesignAccordionOpen] = useState(false);
 
+  // Accordion state for main sections - always start collapsed
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
+    contabilidad: true,
+    usuarios: true,
+    ficha: true,
+  });
+
+  const toggleSection = (key: string) => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
   // Sync state if config changes
   useEffect(() => {
     setLogoPreview(config.logoB64 || null);
@@ -470,20 +484,43 @@ export default function CompanyProfile({
         </div>
 
         {/* 3. SECCIÓN DE CONTABILIDAD CON GRÁFICO DE ANILLO (DONUT) Y TARJETAS MÉTRICAS */}
-        <div className="p-6 space-y-6 bg-slate-50/40 dark:bg-zinc-900/50">
+        <div className="bg-slate-50/40 dark:bg-zinc-900/50 border-b border-gray-100 dark:border-zinc-800">
           
-          {/* Section Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <FileCheck2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide">
-                Contabilidad de Comprobantes Emitidos ({displayNombreComercial})
-              </h4>
+          {/* Accordion Header */}
+          <div 
+            onClick={() => toggleSection('contabilidad')}
+            className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-slate-100/60 dark:hover:bg-zinc-800/60 transition select-none"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-900/50">
+                <FileCheck2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide flex items-center gap-2">
+                  Contabilidad de Comprobantes Emitidos
+                  <span className="text-xs font-normal text-gray-500 dark:text-zinc-400">({displayNombreComercial})</span>
+                </h4>
+                <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
+                  Métricas de cupo contratado, facturas autorizadas, notas de crédito y proformas.
+                </p>
+              </div>
             </div>
-            <span className="text-xs font-semibold text-gray-600 dark:text-zinc-300">
-              Consumo: <strong className="font-bold text-indigo-600 dark:text-indigo-400">{totalComprobantesEmitidos}</strong> de <strong className="font-bold">{limiteComprobantes}</strong> comprobantes contratados ({percentComprobantes}%)
-            </span>
+
+            <div className="flex items-center gap-2.5 self-end sm:self-center">
+              <span className="text-xs font-semibold text-gray-600 dark:text-zinc-300 bg-white dark:bg-zinc-800 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-zinc-700 shadow-xs">
+                Consumo: <strong className="font-bold text-indigo-600 dark:text-indigo-400">{totalComprobantesEmitidos}</strong> de <strong className="font-bold">{limiteComprobantes}</strong> ({percentComprobantes}%)
+              </span>
+              <button 
+                type="button" 
+                className="p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 transition"
+              >
+                {collapsedSections.contabilidad ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
+
+          {!collapsedSections.contabilidad && (
+            <div className="px-6 pb-6 pt-2 space-y-6 animate-in fade-in-50 duration-200">
 
           {/* Quota Progress Bar */}
           <div className="w-full bg-gray-200 dark:bg-zinc-800 h-2.5 rounded-full overflow-hidden p-0.5 border border-gray-200 dark:border-zinc-700">
@@ -683,24 +720,50 @@ export default function CompanyProfile({
               </div>
 
             </div>
-
           </div>
+            </div>
+          )}
 
         </div>
 
         {/* 4. SECCIÓN DE USUARIOS REGISTRADOS DE LA EMPRESA */}
-        <div className="p-6 space-y-4 bg-white dark:bg-zinc-900">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide">
-                Usuarios Registrados para {displayNombreComercial}
-              </h4>
+        <div className="bg-white dark:bg-zinc-900 border-b border-gray-100 dark:border-zinc-800">
+          
+          {/* Accordion Header */}
+          <div 
+            onClick={() => toggleSection('usuarios')}
+            className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-800/60 transition select-none"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-900/50">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide flex items-center gap-2">
+                  Usuarios Registrados
+                  <span className="text-xs font-normal text-gray-500 dark:text-zinc-400">para {displayNombreComercial}</span>
+                </h4>
+                <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
+                  Cuentas activas, roles y asignaciones autorizadas para este emisor.
+                </p>
+              </div>
             </div>
-            <span className="text-xs font-semibold text-gray-600 dark:text-zinc-300">
-              Ocupación: <strong className="font-bold text-indigo-600 dark:text-indigo-400">{totalUsuariosRegistrados}</strong> de <strong className="font-bold">{limiteUsuarios}</strong> usuarios permitidos ({percentUsuarios}%)
-            </span>
+
+            <div className="flex items-center gap-2.5 self-end sm:self-center">
+              <span className="text-xs font-semibold text-gray-600 dark:text-zinc-300 bg-gray-50 dark:bg-zinc-800 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-zinc-700 shadow-xs">
+                Ocupación: <strong className="font-bold text-indigo-600 dark:text-indigo-400">{totalUsuariosRegistrados}</strong> de <strong className="font-bold">{limiteUsuarios}</strong> ({percentUsuarios}%)
+              </span>
+              <button 
+                type="button" 
+                className="p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 transition"
+              >
+                {collapsedSections.usuarios ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
+
+          {!collapsedSections.usuarios && (
+            <div className="px-6 pb-6 pt-2 space-y-4 animate-in fade-in-50 duration-200">
 
           {/* Registered Users Badges / List */}
           {companyUsers.length === 0 ? (
@@ -739,28 +802,58 @@ export default function CompanyProfile({
               ))}
             </div>
           )}
+            </div>
+          )}
         </div>
 
         {/* 5. SECCIÓN DEL EMISOR TRIBUTARIO Y LOGOTIPO */}
-        <div className="p-6 bg-slate-50/40 dark:bg-zinc-900/50 space-y-6">
-          <div className="flex items-center justify-between border-b border-gray-200/70 dark:border-zinc-800 pb-3">
-            <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm flex items-center gap-2">
-              <Landmark className="w-5 h-5 text-indigo-600" />
-              Ficha del Emisor SRI & Logotipo Comercial
-            </h3>
-            {onNavigateToSettings && (currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN') && (
-              <button
-                type="button"
-                onClick={onNavigateToSettings}
-                className="px-3 py-1.5 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/40 dark:text-indigo-400 rounded-xl transition flex items-center gap-1.5 cursor-pointer border border-indigo-200/50 dark:border-indigo-800/50"
+        <div className="bg-slate-50/40 dark:bg-zinc-900/50 border-b border-gray-100 dark:border-zinc-800">
+          
+          {/* Accordion Header */}
+          <div 
+            onClick={() => toggleSection('ficha')}
+            className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-slate-100/60 dark:hover:bg-zinc-800/60 transition select-none"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-900/50">
+                <Landmark className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm flex items-center gap-2">
+                  Ficha del Emisor SRI & Logotipo Comercial
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
+                  RUC, razón social, régimen tributario, estado de firma electrónica y logo comercial.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 self-end sm:self-center">
+              {onNavigateToSettings && (currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN') && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onNavigateToSettings();
+                  }}
+                  className="px-3 py-1.5 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/40 dark:text-indigo-400 rounded-xl transition flex items-center gap-1.5 cursor-pointer border border-indigo-200/50 dark:border-indigo-800/50"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  Editar en Configuración
+                </button>
+              )}
+              <button 
+                type="button" 
+                className="p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 transition"
               >
-                <Settings className="w-3.5 h-3.5" />
-                Editar en Configuración
+                {collapsedSections.ficha ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
               </button>
-            )}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {!collapsedSections.ficha && (
+            <div className="px-6 pb-6 pt-2 space-y-6 animate-in fade-in-50 duration-200">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
             {/* LOGO ACTIONS BOX */}
             <div className="lg:col-span-4 bg-white dark:bg-zinc-850 p-5 rounded-2xl border border-gray-200/80 dark:border-zinc-800 flex flex-col justify-between space-y-4">
@@ -1101,7 +1194,9 @@ export default function CompanyProfile({
               </div>
             </div>
 
-          </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 6. SECCIÓN DE CONFIGURACIÓN Y SELECCIÓN DE DISEÑO RIDE */}
