@@ -1103,10 +1103,10 @@ export default function App() {
           {settings.menuLayout !== 'sidebar-left' && settings.menuLayout !== 'sidebar-right' && (
             <div className={`hidden lg:block sticky top-[64px] sm:top-[68px] z-30 transition-all ${
               settings.menuLayout === 'topbar-classic'
-                ? 'bg-slate-100/90 dark:bg-zinc-950/90 backdrop-blur-md py-2.5 border-b border-slate-200/50 dark:border-zinc-800/50 shadow-xs'
+                ? 'py-2.5 bg-transparent'
                 : settings.menuLayout === 'floating-island'
                 ? 'py-3 pointer-events-none'
-                : 'py-2'
+                : 'py-2 bg-transparent'
             } ${
               settings.contentLayoutWidth === 'fluid'
                 ? 'w-full px-2 sm:px-4'

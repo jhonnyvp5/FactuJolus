@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Sparkles, 
   RotateCcw, 
@@ -264,15 +264,39 @@ export default function SuperadminCustomizer({
 
   const isSuperadmin = currentUserRole === 'superadmin' || currentUserRole === 'SUPERADMIN' || currentUserEmail?.toLowerCase() === 'jhonnyvp5@gmail.com';
 
+  // Tenants only have access to 'layout' (Estructura & Menú) by default, unless SUPERADMIN has explicitly enabled more sections in currentEmpresa.featurePermissions.allowedCustomizerSubtabs
+  const tenantAllowedSubtabs: SubTab[] = (currentEmpresa?.featurePermissions?.allowedCustomizerSubtabs && currentEmpresa.featurePermissions.allowedCustomizerSubtabs.length > 0)
+    ? (currentEmpresa.featurePermissions.allowedCustomizerSubtabs as SubTab[])
+    : ['layout'];
+
   const allowedSubTabsList: SubTab[] = isSuperadmin 
     ? ALL_SUBTAB_DEFINITIONS.map(d => d.key)
-    : ['layout', 'screens', 'texts', 'theme', 'containers', 'identity', 'banners', 'slides', 'news', 'social', 'modules'];
+    : tenantAllowedSubtabs;
 
   const visibleSubTabDefs = ALL_SUBTAB_DEFINITIONS.filter(def => allowedSubTabsList.includes(def.key));
 
-  // Accordion state: Starts collapsed by default for a clean, non-overwhelming user experience
-  const [openAccordions, setOpenAccordions] = useState<Set<SubTab>>(new Set());
+  // Accordion state: In tenant mode, open 'layout' by default for immediate convenience
+  const [openAccordions, setOpenAccordions] = useState<Set<SubTab>>(() => {
+    if (!isSuperadmin) {
+      return new Set(['layout']);
+    }
+    return new Set();
+  });
+
   const [searchFilter, setSearchFilter] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const toggleAccordion = (key: SubTab) => {
     setOpenAccordions(prev => {
@@ -296,12 +320,13 @@ export default function SuperadminCustomizer({
 
   const handleQuickJump = (key: SubTab) => {
     setOpenAccordions(prev => new Set(prev).add(key));
+    setIsDropdownOpen(false);
     setTimeout(() => {
       const el = document.getElementById(`customizer-accordion-${key}`);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-    }, 50);
+    }, 60);
   };
 
   const isSubTabVisible = (key: SubTab) => {
@@ -492,33 +517,142 @@ export default function SuperadminCustomizer({
           </div>
         </div>
 
-        {/* QUICK JUMP PILLS */}
-        <div className="mt-6 pt-4 border-t border-slate-800/80">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Acceso Rápido a Secciones:
+        {/* QUICK JUMP DROPDOWN SELECTOR (GROUPED) */}
+        <div className="mt-6 pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">
+              Acceso Rápido:
             </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {visibleSubTabDefs.map((subTab) => {
-              const IconComp = subTab.icon;
-              const isOpen = openAccordions.has(subTab.key);
 
-              return (
-                <button
-                  key={subTab.key}
-                  onClick={() => handleQuickJump(subTab.key)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 border ${
-                    isOpen
-                      ? 'bg-indigo-600/90 text-white border-indigo-400 shadow-xs'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/70 border-slate-800/80 hover:border-slate-700'
-                  }`}
-                >
-                  <IconComp className={`w-3.5 h-3.5 ${isOpen ? 'text-white' : subTab.iconColor}`} />
-                  <span>{subTab.shortName}</span>
-                </button>
-              );
-            })}
+            {/* GROUPED DROPDOWN MENU */}
+            <div className="relative" ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2.5 cursor-pointer border shadow-sm backdrop-blur-md ${
+                  isDropdownOpen
+                    ? 'bg-indigo-600 text-white border-indigo-400 ring-2 ring-indigo-400/30'
+                    : 'bg-slate-800/90 hover:bg-slate-700/90 text-slate-200 border-slate-700/90 hover:border-slate-600'
+                }`}
+              >
+                <Layers className="w-4 h-4 text-indigo-400" />
+                <span>
+                  {visibleSubTabDefs.length === 1
+                    ? '1. Estructura & Menú (Organizador de Ramas)'
+                    : `Explorar Secciones (${visibleSubTabDefs.length} disponibles)`}
+                </span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180 text-white' : 'text-slate-400'}`} />
+              </button>
+
+              {/* DROPDOWN POPOVER */}
+              {isDropdownOpen && (
+                <div className="absolute top-full mt-2 left-0 z-50 w-[310px] sm:w-[420px] bg-slate-900/98 backdrop-blur-2xl border border-slate-700/90 rounded-2xl shadow-2xl p-2.5 max-h-[75vh] overflow-y-auto ring-1 ring-white/10 animate-fade-in divide-y divide-slate-800/80">
+                  <div className="px-3 py-2 text-[10px] font-black text-indigo-300 uppercase tracking-wider flex items-center justify-between">
+                    <span>SECCIONES DE PERSONALIZACIÓN</span>
+                    <span className="bg-indigo-950/80 px-2 py-0.5 rounded-full border border-indigo-700/50 text-[9px] text-indigo-300">
+                      {visibleSubTabDefs.length} disponibles
+                    </span>
+                  </div>
+
+                  {/* CATEGORIZED ITEMS */}
+                  {Array.from(new Set(visibleSubTabDefs.map(d => d.category))).map(category => {
+                    const categoryItems = visibleSubTabDefs.filter(d => d.category === category);
+                    return (
+                      <div key={category} className="py-2 first:pt-1 last:pb-1">
+                        <div className="px-3 py-1 text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">
+                          {category}
+                        </div>
+                        <div className="space-y-1 mt-1">
+                          {categoryItems.map(subTab => {
+                            const IconComp = subTab.icon;
+                            const isOpen = openAccordions.has(subTab.key);
+
+                            return (
+                              <button
+                                key={subTab.key}
+                                type="button"
+                                onClick={() => handleQuickJump(subTab.key)}
+                                className={`w-full p-2.5 rounded-xl text-left transition flex items-center justify-between gap-3 cursor-pointer group ${
+                                  isOpen
+                                    ? 'bg-indigo-600/30 text-white border border-indigo-500/40'
+                                    : 'hover:bg-slate-800/80 text-slate-300 hover:text-white border border-transparent'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                                    isOpen ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 group-hover:text-white'
+                                  }`}>
+                                    <IconComp className={`w-3.5 h-3.5 ${isOpen ? 'text-white' : subTab.iconColor}`} />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="text-xs font-bold truncate">
+                                      {subTab.name}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 truncate">
+                                      {subTab.description}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-extrabold uppercase ${
+                                    isOpen
+                                      ? 'bg-indigo-500/30 text-indigo-200 border border-indigo-400/40'
+                                      : 'bg-slate-800 text-slate-400 group-hover:text-slate-200'
+                                  }`}>
+                                    {subTab.badge}
+                                  </span>
+                                  {isOpen && (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* PERMISSION BADGE & EXPAND / COLLAPSE BUTTONS */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {isSuperadmin ? (
+              <span className="px-2.5 py-1 rounded-lg bg-indigo-950/70 border border-indigo-500/30 text-indigo-300 text-[10.5px] font-bold flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Superadmin (14 Secciones)</span>
+              </span>
+            ) : (
+              <span className="px-2.5 py-1 rounded-lg bg-amber-950/70 border border-amber-500/30 text-amber-300 text-[10.5px] font-bold flex items-center gap-1.5">
+                <FolderTree className="w-3.5 h-3.5 text-amber-400" />
+                <span>
+                  {visibleSubTabDefs.length === 1 
+                    ? 'Inquilino: Estructura & Menú' 
+                    : `Inquilino (${visibleSubTabDefs.length} Habilitadas)`}
+                </span>
+              </span>
+            )}
+
+            <button
+              onClick={expandAll}
+              className="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+              title="Abrir todos los acordeones"
+            >
+              <Maximize2 className="w-3 h-3 text-indigo-400" />
+              <span>Expandir</span>
+            </button>
+
+            <button
+              onClick={collapseAll}
+              className="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+              title="Cerrar todos los acordeones"
+            >
+              <Minimize2 className="w-3 h-3 text-slate-400" />
+              <span>Colapsar</span>
+            </button>
           </div>
         </div>
       </div>
