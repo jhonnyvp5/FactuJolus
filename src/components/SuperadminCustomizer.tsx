@@ -24,7 +24,8 @@ import {
   ChevronDown,
   ChevronUp,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Lock
 } from 'lucide-react';
 import { usePlatformSettings } from '../context/PlatformSettingsContext';
 import { modalAlert } from '../context/ModalAlertContext';
@@ -460,9 +461,11 @@ export default function SuperadminCustomizer({
       {/* ========================================================================= */}
       {/* HEADER BANNER */}
       {/* ========================================================================= */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-indigo-900/50 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-indigo-900/50 relative">
+        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+        </div>
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="space-y-2 max-w-3xl">
@@ -518,7 +521,7 @@ export default function SuperadminCustomizer({
         </div>
 
         {/* QUICK JUMP DROPDOWN SELECTOR (GROUPED) */}
-        <div className="mt-6 pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="mt-6 pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-20">
           <div className="flex items-center gap-3">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">
               Acceso Rápido:
@@ -526,94 +529,107 @@ export default function SuperadminCustomizer({
 
             {/* GROUPED DROPDOWN MENU */}
             <div className="relative" ref={dropdownRef}>
-              <button
-                type="button"
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2.5 cursor-pointer border shadow-sm backdrop-blur-md ${
-                  isDropdownOpen
-                    ? 'bg-indigo-600 text-white border-indigo-400 ring-2 ring-indigo-400/30'
-                    : 'bg-slate-800/90 hover:bg-slate-700/90 text-slate-200 border-slate-700/90 hover:border-slate-600'
-                }`}
-              >
-                <Layers className="w-4 h-4 text-indigo-400" />
-                <span>
-                  {visibleSubTabDefs.length === 1
-                    ? '1. Estructura & Menú (Organizador de Ramas)'
-                    : `Explorar Secciones (${visibleSubTabDefs.length} disponibles)`}
-                </span>
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180 text-white' : 'text-slate-400'}`} />
-              </button>
+              {visibleSubTabDefs.length <= 1 ? (
+                /* INQUILINO CON SOLO 1 OPCIÓN HABILITADA: BOTÓN BLOQUEADO / READ-ONLY */
+                <button
+                  type="button"
+                  disabled
+                  className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2.5 bg-slate-800/70 text-slate-300 border border-slate-700/70 cursor-not-allowed select-none shadow-sm opacity-90"
+                  title="Sección única asignada a tu perfil de inquilino"
+                >
+                  <FolderTree className="w-4 h-4 text-amber-400" />
+                  <span>1. Estructura & Menú (Organizador de Ramas)</span>
+                  <Lock className="w-3.5 h-3.5 text-slate-400 ml-1" />
+                </button>
+              ) : (
+                /* SUPERADMIN O MÚLTIPLES OPCIONES HABILITADAS: DESPLEGABLE INTERACTIVO */
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2.5 cursor-pointer border shadow-md backdrop-blur-md ${
+                      isDropdownOpen
+                        ? 'bg-indigo-600 text-white border-indigo-400 ring-2 ring-indigo-400/40'
+                        : 'bg-slate-800 hover:bg-slate-750 text-slate-100 border-slate-600 hover:border-slate-500'
+                    }`}
+                  >
+                    <Layers className="w-4 h-4 text-indigo-400" />
+                    <span>Explorar Secciones ({visibleSubTabDefs.length} disponibles)</span>
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180 text-white' : 'text-slate-300'}`} />
+                  </button>
 
-              {/* DROPDOWN POPOVER */}
-              {isDropdownOpen && (
-                <div className="absolute top-full mt-2 left-0 z-50 w-[310px] sm:w-[420px] bg-slate-900/98 backdrop-blur-2xl border border-slate-700/90 rounded-2xl shadow-2xl p-2.5 max-h-[75vh] overflow-y-auto ring-1 ring-white/10 animate-fade-in divide-y divide-slate-800/80">
-                  <div className="px-3 py-2 text-[10px] font-black text-indigo-300 uppercase tracking-wider flex items-center justify-between">
-                    <span>SECCIONES DE PERSONALIZACIÓN</span>
-                    <span className="bg-indigo-950/80 px-2 py-0.5 rounded-full border border-indigo-700/50 text-[9px] text-indigo-300">
-                      {visibleSubTabDefs.length} disponibles
-                    </span>
-                  </div>
-
-                  {/* CATEGORIZED ITEMS */}
-                  {Array.from(new Set(visibleSubTabDefs.map(d => d.category))).map(category => {
-                    const categoryItems = visibleSubTabDefs.filter(d => d.category === category);
-                    return (
-                      <div key={category} className="py-2 first:pt-1 last:pb-1">
-                        <div className="px-3 py-1 text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">
-                          {category}
-                        </div>
-                        <div className="space-y-1 mt-1">
-                          {categoryItems.map(subTab => {
-                            const IconComp = subTab.icon;
-                            const isOpen = openAccordions.has(subTab.key);
-
-                            return (
-                              <button
-                                key={subTab.key}
-                                type="button"
-                                onClick={() => handleQuickJump(subTab.key)}
-                                className={`w-full p-2.5 rounded-xl text-left transition flex items-center justify-between gap-3 cursor-pointer group ${
-                                  isOpen
-                                    ? 'bg-indigo-600/30 text-white border border-indigo-500/40'
-                                    : 'hover:bg-slate-800/80 text-slate-300 hover:text-white border border-transparent'
-                                }`}
-                              >
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                                    isOpen ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 group-hover:text-white'
-                                  }`}>
-                                    <IconComp className={`w-3.5 h-3.5 ${isOpen ? 'text-white' : subTab.iconColor}`} />
-                                  </div>
-                                  <div className="min-w-0">
-                                    <div className="text-xs font-bold truncate">
-                                      {subTab.name}
-                                    </div>
-                                    <div className="text-[10px] text-slate-400 truncate">
-                                      {subTab.description}
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-extrabold uppercase ${
-                                    isOpen
-                                      ? 'bg-indigo-500/30 text-indigo-200 border border-indigo-400/40'
-                                      : 'bg-slate-800 text-slate-400 group-hover:text-slate-200'
-                                  }`}>
-                                    {subTab.badge}
-                                  </span>
-                                  {isOpen && (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                  )}
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
+                  {/* DROPDOWN POPOVER */}
+                  {isDropdownOpen && (
+                    <div className="absolute top-full mt-2 left-0 z-50 w-[320px] sm:w-[440px] bg-slate-900/98 backdrop-blur-2xl border border-slate-700 rounded-2xl shadow-2xl p-2.5 max-h-[75vh] overflow-y-auto ring-1 ring-white/15 divide-y divide-slate-800">
+                      <div className="px-3 py-2 text-[10px] font-black text-indigo-300 uppercase tracking-wider flex items-center justify-between">
+                        <span>SECCIONES DE PERSONALIZACIÓN</span>
+                        <span className="bg-indigo-950 px-2 py-0.5 rounded-full border border-indigo-700/60 text-[9.5px] text-indigo-300 font-bold">
+                          {visibleSubTabDefs.length} disponibles
+                        </span>
                       </div>
-                    );
-                  })}
-                </div>
+
+                      {/* CATEGORIZED ITEMS */}
+                      {Array.from(new Set(visibleSubTabDefs.map(d => d.category))).map(category => {
+                        const categoryItems = visibleSubTabDefs.filter(d => d.category === category);
+                        return (
+                          <div key={category} className="py-2 first:pt-1 last:pb-1">
+                            <div className="px-3 py-1 text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">
+                              {category}
+                            </div>
+                            <div className="space-y-1 mt-1">
+                              {categoryItems.map(subTab => {
+                                const IconComp = subTab.icon;
+                                const isOpen = openAccordions.has(subTab.key);
+
+                                return (
+                                  <button
+                                    key={subTab.key}
+                                    type="button"
+                                    onClick={() => handleQuickJump(subTab.key)}
+                                    className={`w-full p-2.5 rounded-xl text-left transition flex items-center justify-between gap-3 cursor-pointer group ${
+                                      isOpen
+                                        ? 'bg-indigo-600/30 text-white border border-indigo-500/40'
+                                        : 'hover:bg-slate-800/80 text-slate-300 hover:text-white border border-transparent'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                                        isOpen ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 group-hover:text-white'
+                                      }`}>
+                                        <IconComp className={`w-3.5 h-3.5 ${isOpen ? 'text-white' : subTab.iconColor}`} />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="text-xs font-bold truncate">
+                                          {subTab.name}
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 truncate">
+                                          {subTab.description}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-extrabold uppercase ${
+                                        isOpen
+                                          ? 'bg-indigo-500/30 text-indigo-200 border border-indigo-400/40'
+                                          : 'bg-slate-800 text-slate-400 group-hover:text-slate-200'
+                                      }`}>
+                                        {subTab.badge}
+                                      </span>
+                                      {isOpen && (
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                      )}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

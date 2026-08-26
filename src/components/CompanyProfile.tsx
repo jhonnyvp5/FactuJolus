@@ -1219,137 +1219,127 @@ export default function CompanyProfile({
               </div>
             </div>
 
-            {/* Accordion Toggle Button */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsDesignAccordionOpen(!isDesignAccordionOpen);
-              }}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shrink-0 shadow-xs border ${
-                isDesignAccordionOpen
-                  ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/40 dark:border-indigo-800 dark:text-indigo-300'
-                  : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-750'
-              }`}
-            >
-              <Palette className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-              <span>{isDesignAccordionOpen ? 'Ocultar Catálogo de Diseños' : 'Cambiar Diseño RIDE'}</span>
-              {isDesignAccordionOpen ? (
-                <ChevronUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-gray-400" />
-              )}
-            </button>
+            {/* Right side status badge and chevron toggle */}
+            <div className="flex items-center gap-2.5 self-end sm:self-center">
+              <span className="text-xs font-semibold text-gray-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-zinc-700 shadow-xs flex items-center gap-1.5">
+                <Palette className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span className="font-bold text-gray-900 dark:text-zinc-100 uppercase tracking-wide text-[11px]">
+                  {TEMPLATES.find(t => t.id === activeTemplate)?.name || 'Azul Ejecutivo'}
+                </span>
+              </span>
+              <button 
+                type="button" 
+                className="p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 transition cursor-pointer"
+              >
+                {isDesignAccordionOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
-          {/* VISTA PRINCIPAL: SOLO EL DISEÑO SELECCIONADO */}
-          {(() => {
-            const currentTmpl = TEMPLATES.find(t => t.id === activeTemplate) || TEMPLATES[0];
-            return (
-              <div className="p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-850/70 transition shadow-xs">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="space-y-1.5 flex-1">
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                      <h4 className="font-extrabold text-sm text-gray-950 dark:text-gray-50 uppercase tracking-wide">
-                        {currentTmpl.name}
-                      </h4>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1">
-                        <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                        <span>Seleccionado</span>
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-600 dark:text-zinc-300 leading-relaxed max-w-2xl">
-                      {currentTmpl.desc}
-                    </p>
-                    <div className="flex items-center gap-2 pt-1">
-                      <span className="text-[11px] text-gray-400 dark:text-zinc-500 font-medium">Paleta visual:</span>
-                      <span className={`w-3.5 h-3.5 rounded-full bg-gradient-to-r ${currentTmpl.color} shadow-xs`} />
-                      <span className="w-3.5 h-3.5 rounded-full bg-gray-200 dark:bg-zinc-700" />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2.5 shrink-0 self-start md:self-center">
-                    <button
-                      type="button"
-                      onClick={() => setShowModelPreview(true)}
-                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-xs transition text-xs flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
-                    >
-                      <FileText className="w-3.5 h-3.5" /> Ver Ejemplo RIDE
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsDesignAccordionOpen(!isDesignAccordionOpen)}
-                      className="px-3.5 py-2 bg-white hover:bg-gray-100 text-gray-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 font-bold rounded-xl border border-gray-200 dark:border-zinc-700 transition text-xs flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
-                    >
-                      {isDesignAccordionOpen ? 'Cerrar' : 'Cambiar'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* MODO ACORDEÓN DESPLEGABLE: CATÁLOGO COMPLETO DE DISEÑOS */}
+          {/* MODO ACORDEÓN DESPLEGABLE: INFORMACIÓN Y CATÁLOGO COMPLETO */}
           {isDesignAccordionOpen && (
-            <div className="pt-3 border-t border-gray-100 dark:border-zinc-800 space-y-3 animate-in fade-in-50 slide-in-from-top-2 duration-200">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-gray-700 dark:text-zinc-300 uppercase tracking-wide">
-                  Selecciona otro diseño para activar:
-                </span>
-                <span className="text-[11px] text-gray-400 dark:text-zinc-500 font-medium">
-                  {TEMPLATES.length} estilos disponibles
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                {TEMPLATES.map((tmpl) => {
-                  const isSelected = activeTemplate === tmpl.id;
-                  return (
-                    <div
-                      key={tmpl.id}
-                      onClick={() => {
-                        handleSelectTemplate(tmpl.id);
-                      }}
-                      className={`group relative p-4 rounded-xl border transition cursor-pointer flex flex-col justify-between h-36 ${
-                        isSelected
-                          ? 'border-slate-300 dark:border-zinc-700 bg-slate-50/90 dark:bg-zinc-800/80 shadow-xs'
-                          : 'border-gray-200/80 bg-white hover:bg-gray-50 hover:border-slate-300 dark:border-zinc-800 dark:bg-zinc-950/25 dark:hover:bg-zinc-900'
-                      }`}
-                    >
-                      {/* Visual palette indicators */}
-                      <div className="space-y-1.5">
-                        <div className="flex justify-between items-start">
-                          <span className="font-extrabold text-xs text-gray-950 dark:text-gray-50 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition uppercase tracking-wide text-left">
-                            {tmpl.name}
+            <div className="pt-2 border-t border-gray-100 dark:border-zinc-800 space-y-4 animate-in fade-in-50 slide-in-from-top-2 duration-200">
+              {/* VISTA PRINCIPAL: DETALLE DEL DISEÑO SELECCIONADO */}
+              {(() => {
+                const currentTmpl = TEMPLATES.find(t => t.id === activeTemplate) || TEMPLATES[0];
+                return (
+                  <div className="p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-850/70 transition shadow-xs">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="space-y-1.5 flex-1">
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <h4 className="font-extrabold text-sm text-gray-950 dark:text-gray-50 uppercase tracking-wide">
+                            {currentTmpl.name}
+                          </h4>
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1">
+                            <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                            <span>Activo en Emisión</span>
                           </span>
-                          {isSelected ? (
-                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
-                              <Check className="w-3 h-3 text-emerald-600" />
-                              <span>Seleccionado</span>
-                            </span>
-                          ) : (
-                            <div className="w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-zinc-700 group-hover:border-indigo-400 transition" />
-                          )}
                         </div>
-                        <p className="text-[11px] text-gray-400 dark:text-zinc-400 leading-snug text-left line-clamp-2">
-                          {tmpl.desc}
+                        <p className="text-xs text-gray-600 dark:text-zinc-300 leading-relaxed max-w-2xl">
+                          {currentTmpl.desc}
                         </p>
+                        <div className="flex items-center gap-2 pt-1">
+                          <span className="text-[11px] text-gray-400 dark:text-zinc-500 font-medium">Paleta visual:</span>
+                          <span className={`w-3.5 h-3.5 rounded-full bg-gradient-to-r ${currentTmpl.color} shadow-xs`} />
+                          <span className="w-3.5 h-3.5 rounded-full bg-gray-200 dark:bg-zinc-700" />
+                        </div>
                       </div>
 
-                      <div className="flex justify-between items-center pt-2 border-t border-gray-100/60 dark:border-zinc-800/60">
-                        <div className="flex gap-1.5">
-                          <span className={`w-3 h-3 rounded-full bg-gradient-to-r ${tmpl.color}`} />
-                          <span className="w-3 h-3 rounded-full bg-gray-200 dark:bg-zinc-700" />
-                        </div>
-                        <span className={`text-[10px] font-black uppercase tracking-wider ${
-                          isSelected ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-gray-400 dark:text-zinc-500 group-hover:text-indigo-600'
-                        }`}>
-                          {isSelected ? '✓ Activo' : 'Seleccionar'}
-                        </span>
+                      <div className="flex items-center gap-2.5 shrink-0 self-start md:self-center">
+                        <button
+                          type="button"
+                          onClick={() => setShowModelPreview(true)}
+                          className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-xs transition text-xs flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+                        >
+                          <FileText className="w-3.5 h-3.5" /> Ver Ejemplo RIDE
+                        </button>
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                );
+              })()}
+
+              {/* CATÁLOGO COMPLETO DE DISEÑOS */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-gray-700 dark:text-zinc-300 uppercase tracking-wide">
+                    Catálogo de Plantillas PDF Disponibles:
+                  </span>
+                  <span className="text-[11px] text-gray-400 dark:text-zinc-500 font-medium">
+                    {TEMPLATES.length} estilos disponibles
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                  {TEMPLATES.map((tmpl) => {
+                    const isSelected = activeTemplate === tmpl.id;
+                    return (
+                      <div
+                        key={tmpl.id}
+                        onClick={() => {
+                          handleSelectTemplate(tmpl.id);
+                        }}
+                        className={`group relative p-4 rounded-xl border transition cursor-pointer flex flex-col justify-between h-36 ${
+                          isSelected
+                            ? 'border-indigo-400 dark:border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 shadow-xs'
+                            : 'border-gray-200/80 bg-white hover:bg-gray-50 hover:border-slate-300 dark:border-zinc-800 dark:bg-zinc-950/25 dark:hover:bg-zinc-900'
+                        }`}
+                      >
+                        {/* Visual palette indicators */}
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between items-start">
+                            <span className="font-extrabold text-xs text-gray-950 dark:text-gray-50 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition uppercase tracking-wide text-left">
+                              {tmpl.name}
+                            </span>
+                            {isSelected ? (
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                <span>Activo</span>
+                              </span>
+                            ) : (
+                              <div className="w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-zinc-700 group-hover:border-indigo-400 transition" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-gray-400 dark:text-zinc-400 leading-snug text-left line-clamp-2">
+                            {tmpl.desc}
+                          </p>
+                        </div>
+
+                        <div className="flex justify-between items-center pt-2 border-t border-gray-100/60 dark:border-zinc-800/60">
+                          <div className="flex gap-1.5">
+                            <span className={`w-3 h-3 rounded-full bg-gradient-to-r ${tmpl.color}`} />
+                            <span className="w-3 h-3 rounded-full bg-gray-200 dark:bg-zinc-700" />
+                          </div>
+                          <span className={`text-[10px] font-black uppercase tracking-wider ${
+                            isSelected ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-gray-400 dark:text-zinc-500 group-hover:text-indigo-600'
+                          }`}>
+                            {isSelected ? '✓ Seleccionado' : 'Activar plantilla'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
