@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Users, UserPlus, Trash2, Key, Check, ShieldCheck, Mail, Clipboard, AlertCircle, FileText, History, RefreshCw, User, Lock, Unlock, Settings, Package, ArrowLeftRight, Plus, GripVertical, ArrowRight, ArrowLeft, Sliders, CheckSquare, Building2, Search, Filter, Palette } from 'lucide-react';
+import { Users, UserPlus, Trash2, Key, Check, ShieldCheck, Mail, Clipboard, AlertCircle, FileText, History, RefreshCw, User, Lock, Unlock, Settings, Package, ArrowLeftRight, Plus, GripVertical, ArrowRight, ArrowLeft, Sliders, CheckSquare, Building2, Search, Filter, Palette, ChevronDown, ChevronUp } from 'lucide-react';
 import { PortalUser, Invitation, UserRole, ActivityLog, EmpresaTenant } from '../types';
 import { getLogs, logActivity } from '../lib/activityLogger';
 import { modalAlert } from '../context/ModalAlertContext';
@@ -37,6 +37,19 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
   const [selectedEmpresaRuc, setSelectedEmpresaRuc] = useState<string>(currentUser.empresaRuc || '');
   const [generatedInvite, setGeneratedInvite] = useState<Invitation | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Accordion collapsed state (collapsed by default for secondary sections)
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
+    permisos: true,
+    auditoria: true
+  });
+
+  const toggleSection = (key: string) => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
 
   const isSuperAdmin = currentUser.role?.toUpperCase() === 'SUPERADMIN';
 
@@ -826,7 +839,10 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
 
       {/* PANEL DE CONFIGURACIÓN DE PERMISOS DINÁMICOS PARA EL ROL "USER" */}
       <div className="bg-white rounded-2xl border border-gray-100 dark:bg-zinc-900 dark:border-zinc-850 shadow-xs overflow-hidden">
-        <div className="p-5 border-b border-gray-100 dark:border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div 
+          onClick={() => toggleSection('permisos')}
+          className="p-5 border-b border-gray-100 dark:border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer hover:bg-slate-50/70 dark:hover:bg-zinc-850/60 transition select-none"
+        >
           <div className="flex items-center gap-2">
             <Sliders className="w-5 h-5 text-indigo-600" />
             <div className="text-left">
@@ -839,25 +855,40 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
             </div>
           </div>
           
-          <div className="flex bg-gray-50 dark:bg-zinc-950/40 p-1 rounded-xl border border-gray-200/50 dark:border-zinc-800 w-fit self-start md:self-auto">
-            <button
-              onClick={() => setPermissionMode('marking')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${permissionMode === 'marking' ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-white shadow-xs' : 'text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-300'}`}
+          <div className="flex items-center gap-3 self-start md:self-auto">
+            {!collapsedSections.permisos && (
+              <div 
+                onClick={(e) => e.stopPropagation()}
+                className="flex bg-gray-50 dark:bg-zinc-950/40 p-1 rounded-xl border border-gray-200/50 dark:border-zinc-800 w-fit"
+              >
+                <button
+                  onClick={() => setPermissionMode('marking')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${permissionMode === 'marking' ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-white shadow-xs' : 'text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-300'}`}
+                >
+                  <CheckSquare className="w-3.5 h-3.5" />
+                  Marcando Casillas
+                </button>
+                <button
+                  onClick={() => setPermissionMode('moving')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${permissionMode === 'moving' ? 'bg-white dark:bg-zinc-850 text-indigo-600 dark:text-white shadow-xs' : 'text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-300'}`}
+                >
+                  <GripVertical className="w-3.5 h-3.5" />
+                  Moviendo Bloques
+                </button>
+              </div>
+            )}
+
+            <button 
+              type="button" 
+              className="p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 transition shrink-0"
             >
-              <CheckSquare className="w-3.5 h-3.5" />
-              Marcando Casillas
-            </button>
-            <button
-              onClick={() => setPermissionMode('moving')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${permissionMode === 'moving' ? 'bg-white dark:bg-zinc-850 text-indigo-600 dark:text-white shadow-xs' : 'text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-300'}`}
-            >
-              <GripVertical className="w-3.5 h-3.5" />
-              Moviendo Bloques
+              {collapsedSections.permisos ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
             </button>
           </div>
         </div>
 
-        <div className="p-5">
+        {!collapsedSections.permisos && (
+          <div className="p-5 animate-in fade-in-50 duration-200">
           {/* DEFINICIÓN DE LOS BLOQUES DE FUNCIONES ACCESIBLES */}
           {(() => {
             const AVAILABLE_TABS = [
@@ -1058,11 +1089,15 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
             );
           })()}
         </div>
+        )}
       </div>
 
       {/* BITÁCORA DE AUDITORÍA Y LOGS DE ACTIVIDAD */}
       <div className="bg-white rounded-2xl border border-gray-100 dark:bg-zinc-900 dark:border-zinc-850 shadow-xs overflow-hidden">
-        <div className="p-5 border-b border-gray-100 dark:border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div 
+          onClick={() => toggleSection('auditoria')}
+          className="p-5 border-b border-gray-100 dark:border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer hover:bg-slate-50/70 dark:hover:bg-zinc-850/60 transition select-none"
+        >
           <div className="flex items-center gap-2">
             <History className="w-5 h-5 text-indigo-600" />
             <div>
@@ -1078,7 +1113,7 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
             {/* Search Input */}
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1120,79 +1155,91 @@ export default function UserManagement({ currentUser, userPermissions, onUpdateP
               <RefreshCw className={`w-3.5 h-3.5 ${isLoadingLogs ? 'animate-spin' : ''}`} />
               Actualizar
             </button>
+
+            <button 
+              type="button" 
+              onClick={() => toggleSection('auditoria')}
+              className="p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 transition shrink-0 ml-1"
+            >
+              {collapsedSections.auditoria ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            </button>
           </div>
         </div>
         
-        {filteredLogs.length === 0 ? (
-          <p className="text-xs text-center text-gray-400 py-10">
-            {searchLogQuery || (isSuperAdmin && filterLogEmpresa !== 'ALL')
-              ? 'No se encontraron registros de auditoría que coincidan con los filtros aplicados.'
-              : 'No se registran actividades en el sistema.'
-            }
-          </p>
-        ) : (
-          <div className="overflow-x-auto max-h-[380px] overflow-y-auto">
-            <table className="w-full text-left text-xs whitespace-nowrap">
-              <thead className="bg-gray-50 dark:bg-zinc-800/50 text-gray-550 dark:text-zinc-400 text-[10.5px] uppercase tracking-wide font-bold sticky top-0 z-10 border-b border-gray-200 dark:border-zinc-800">
-                <tr>
-                  <th className="px-5 py-3.5">Fecha y Hora</th>
-                  <th className="px-5 py-3.5">Empresa / Inquilino</th>
-                  <th className="px-5 py-3.5">Usuario Operador</th>
-                  <th className="px-5 py-3.5">Rol</th>
-                  <th className="px-5 py-3.5">Acción Ejecutada</th>
-                  <th className="px-5 py-3.5">Detalle / Registro</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-zinc-850">
-                {filteredLogs.map((log) => {
-                  let badgeColor = 'bg-gray-100 text-gray-750';
-                  if (log.accion.includes('Sesión') || log.accion.includes('Log')) badgeColor = 'bg-sky-50 text-sky-850 dark:bg-sky-950/20 dark:text-sky-300';
-                  else if (log.accion.includes('Factura') || log.accion.includes('Comprobante')) badgeColor = 'bg-emerald-50 text-emerald-850 dark:bg-emerald-950/20 dark:text-emerald-300';
-                  else if (log.accion.includes('Creación') || log.accion.includes('Invitación')) badgeColor = 'bg-indigo-50 text-indigo-850 dark:bg-indigo-950/20 dark:text-indigo-300';
-                  else if (log.accion.includes('Elimin') || log.accion.includes('Cancel')) badgeColor = 'bg-red-50 text-red-850 dark:bg-red-950/20 dark:text-red-300';
-
-                  const logEmpresaName = log.empresaNombre || (log.empresaRuc ? `RUC: ${log.empresaRuc}` : (isSuperAdmin ? 'Global / Sistema' : (currentUser.empresaNombre || 'Empresa Inquilino')));
-
-                  return (
-                    <tr key={log.id} className="hover:bg-gray-50/50 dark:hover:bg-zinc-850/20 text-gray-700 dark:text-zinc-350">
-                      <td className="px-5 py-3 font-mono text-[11px] text-gray-450 dark:text-zinc-500">
-                        {new Date(log.fecha).toLocaleString()}
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-1.5 font-medium text-slate-800 dark:text-zinc-200">
-                          <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
-                          <span className="truncate max-w-[180px] font-semibold" title={logEmpresaName}>
-                            {logEmpresaName}
-                          </span>
-                        </div>
-                        {log.empresaRuc && (
-                          <div className="text-[10px] text-gray-450 dark:text-zinc-500 font-mono pl-5">
-                            RUC: {log.empresaRuc}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="font-bold text-gray-800 dark:text-zinc-200">{log.usuarioNombre}</div>
-                        <div className="text-[10px] text-gray-450 font-mono">{log.usuarioCorreo}</div>
-                      </td>
-                      <td className="px-5 py-3">
-                        <span className={`px-2 py-0.5 rounded-sm text-[9.5px] font-black tracking-wide uppercase ${log.usuarioRol === 'SUPERADMIN' ? 'bg-purple-100 text-purple-750 dark:bg-purple-950/30 dark:text-purple-400' : log.usuarioRol === 'ADMIN' ? 'bg-indigo-100 text-indigo-750 dark:bg-indigo-950/30 dark:text-indigo-400' : 'bg-amber-100 text-amber-755 dark:bg-amber-950/30 dark:text-amber-400'}`}>
-                          {log.usuarioRol}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3">
-                        <span className={`px-2 py-0.5 rounded-sm text-[10px] font-bold ${badgeColor}`}>
-                          {log.accion}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3 text-gray-600 dark:text-zinc-300 font-medium max-w-[320px] truncate" title={log.detalles}>
-                        {log.detalles}
-                      </td>
+        {!collapsedSections.auditoria && (
+          <div className="animate-in fade-in-50 duration-200">
+            {filteredLogs.length === 0 ? (
+              <p className="text-xs text-center text-gray-400 py-10">
+                {searchLogQuery || (isSuperAdmin && filterLogEmpresa !== 'ALL')
+                  ? 'No se encontraron registros de auditoría que coincidan con los filtros aplicados.'
+                  : 'No se registran actividades en el sistema.'
+                }
+              </p>
+            ) : (
+              <div className="overflow-x-auto max-h-[380px] overflow-y-auto">
+                <table className="w-full text-left text-xs whitespace-nowrap">
+                  <thead className="bg-gray-50 dark:bg-zinc-800/50 text-gray-550 dark:text-zinc-400 text-[10.5px] uppercase tracking-wide font-bold sticky top-0 z-10 border-b border-gray-200 dark:border-zinc-800">
+                    <tr>
+                      <th className="px-5 py-3.5">Fecha y Hora</th>
+                      <th className="px-5 py-3.5">Empresa / Inquilino</th>
+                      <th className="px-5 py-3.5">Usuario Operador</th>
+                      <th className="px-5 py-3.5">Rol</th>
+                      <th className="px-5 py-3.5">Acción Ejecutada</th>
+                      <th className="px-5 py-3.5">Detalle / Registro</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-zinc-850">
+                    {filteredLogs.map((log) => {
+                      let badgeColor = 'bg-gray-100 text-gray-750';
+                      if (log.accion.includes('Sesión') || log.accion.includes('Log')) badgeColor = 'bg-sky-50 text-sky-850 dark:bg-sky-950/20 dark:text-sky-300';
+                      else if (log.accion.includes('Factura') || log.accion.includes('Comprobante')) badgeColor = 'bg-emerald-50 text-emerald-850 dark:bg-emerald-950/20 dark:text-emerald-300';
+                      else if (log.accion.includes('Creación') || log.accion.includes('Invitación')) badgeColor = 'bg-indigo-50 text-indigo-850 dark:bg-indigo-950/20 dark:text-indigo-300';
+                      else if (log.accion.includes('Elimin') || log.accion.includes('Cancel')) badgeColor = 'bg-red-50 text-red-850 dark:bg-red-950/20 dark:text-red-300';
+
+                      const logEmpresaName = log.empresaNombre || (log.empresaRuc ? `RUC: ${log.empresaRuc}` : (isSuperAdmin ? 'Global / Sistema' : (currentUser.empresaNombre || 'Empresa Inquilino')));
+
+                      return (
+                        <tr key={log.id} className="hover:bg-gray-50/50 dark:hover:bg-zinc-850/20 text-gray-700 dark:text-zinc-350">
+                          <td className="px-5 py-3 font-mono text-[11px] text-gray-450 dark:text-zinc-500">
+                            {new Date(log.fecha).toLocaleString()}
+                          </td>
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-1.5 font-medium text-slate-800 dark:text-zinc-200">
+                              <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                              <span className="truncate max-w-[180px] font-semibold" title={logEmpresaName}>
+                                {logEmpresaName}
+                              </span>
+                            </div>
+                            {log.empresaRuc && (
+                              <div className="text-[10px] text-gray-450 dark:text-zinc-500 font-mono pl-5">
+                                RUC: {log.empresaRuc}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-5 py-3">
+                            <div className="font-bold text-gray-800 dark:text-zinc-200">{log.usuarioNombre}</div>
+                            <div className="text-[10px] text-gray-450 font-mono">{log.usuarioCorreo}</div>
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className={`px-2 py-0.5 rounded-sm text-[9.5px] font-black tracking-wide uppercase ${log.usuarioRol === 'SUPERADMIN' ? 'bg-purple-100 text-purple-750 dark:bg-purple-950/30 dark:text-purple-400' : log.usuarioRol === 'ADMIN' ? 'bg-indigo-100 text-indigo-750 dark:bg-indigo-950/30 dark:text-indigo-400' : 'bg-amber-100 text-amber-755 dark:bg-amber-950/30 dark:text-amber-400'}`}>
+                              {log.usuarioRol}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className={`px-2 py-0.5 rounded-sm text-[10px] font-bold ${badgeColor}`}>
+                              {log.accion}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-gray-600 dark:text-zinc-300 font-medium max-w-[320px] truncate" title={log.detalles}>
+                            {log.detalles}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>

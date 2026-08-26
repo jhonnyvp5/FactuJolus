@@ -1201,21 +1201,31 @@ export default function CompanyProfile({
 
         {/* 6. SECCIÓN DE CONFIGURACIÓN Y SELECCIÓN DE DISEÑO RIDE */}
         <div className="p-6 bg-white dark:bg-zinc-900 space-y-4" id="ride-design-selector-box">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h3 className="text-base font-bold text-gray-950 dark:text-gray-50 flex items-center gap-2">
-                <Palette className="text-indigo-600 w-5 h-5" />
-                Configurar y Seleccionar Diseño de Factura RIDE
-              </h3>
-              <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
-                Diseño visual seleccionado para tus comprobantes autorizados y notas de crédito en PDF.
-              </p>
+          <div 
+            onClick={() => setIsDesignAccordionOpen(!isDesignAccordionOpen)}
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer select-none p-2 -m-2 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-850/60 transition"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-900/50">
+                <Palette className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-950 dark:text-gray-50 flex items-center gap-2">
+                  Configurar y Seleccionar Diseño de Factura RIDE
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
+                  Diseño visual seleccionado para tus comprobantes autorizados y notas de crédito en PDF.
+                </p>
+              </div>
             </div>
 
             {/* Accordion Toggle Button */}
             <button
               type="button"
-              onClick={() => setIsDesignAccordionOpen(!isDesignAccordionOpen)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsDesignAccordionOpen(!isDesignAccordionOpen);
+              }}
               className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shrink-0 shadow-xs border ${
                 isDesignAccordionOpen
                   ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/40 dark:border-indigo-800 dark:text-indigo-300'
@@ -1316,7 +1326,7 @@ export default function CompanyProfile({
                           </span>
                           {isSelected ? (
                             <span className="bg-indigo-600 text-white p-1 rounded-full text-xs flex items-center justify-center w-5 h-5 shadow-xs">
-                              <Check className="w-3 h-3 font-bold" />
+                              <Check className="w-3.5 h-3.5 font-bold" />
                             </span>
                           ) : (
                             <div className="w-4 h-4 rounded-full border border-gray-300 dark:border-zinc-700 group-hover:border-indigo-400 transition" />

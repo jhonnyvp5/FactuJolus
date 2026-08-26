@@ -13,7 +13,15 @@ import {
   Zap,
   CreditCard,
   Building2,
-  CheckCircle2
+  CheckCircle2,
+  Database,
+  MessageCircle,
+  Activity,
+  TrendingUp,
+  Clock,
+  Lock,
+  Shield,
+  PieChart as PieIcon
 } from 'lucide-react';
 import { CustomContainerWidget } from '../../types';
 import { usePlatformSettings } from '../../context/PlatformSettingsContext';
@@ -30,7 +38,16 @@ const ICON_MAP: Record<string, any> = {
   Sparkles,
   Zap,
   CreditCard,
-  Building2
+  Building2,
+  CheckCircle2,
+  Database,
+  MessageCircle,
+  Activity,
+  TrendingUp,
+  Clock,
+  Lock,
+  Shield,
+  PieChart: PieIcon
 };
 
 interface DynamicContainerRendererProps {
@@ -45,14 +62,38 @@ export default function DynamicContainerRenderer({
   onOpenPlansModal
 }: DynamicContainerRendererProps) {
   const { settings } = usePlatformSettings();
-  const containers = (settings.customContainers || []).filter(c => {
+  const allContainers = (settings.customContainers || []).filter(c => {
     if (c.visible === false) return false;
     if (location === 'dashboard' && c.showInDashboard !== false) return true;
     if (location === 'login' && c.showInLogin === true) return true;
     return false;
   });
 
-  if (containers.length === 0) return null;
+  if (allContainers.length === 0) return null;
+
+  // Find fast KPIs / stat metrics container to embed inside the hero banner
+  const hasHeroBanner = allContainers.some(c => c.type === 'hero-banner');
+  const fastKpisWidget = allContainers.find(c => c.type === 'stat-metrics');
+
+  // Default fallback metrics if none are explicitly configured
+  const defaultMetrics = [
+    { id: 'm-1', label: 'Esquema SRI', value: 'XAdES-BES', subtext: 'Validación en línea', iconName: 'ShieldCheck', color: '#10b981', trend: '100% Activo' },
+    { id: 'm-2', label: 'Tarifa IVA', value: '15% / 0%', subtext: 'Cálculo SRI', iconName: 'Coins', color: '#3b82f6', trend: 'Vigente 2026' },
+    { id: 'm-3', label: 'Respaldo Cloud', value: 'Supabase DB', subtext: 'Sincronizado', iconName: 'Database', color: '#8b5cf6', trend: 'En Línea' },
+    { id: 'm-4', label: 'Soporte SRI', value: '24/7 Directo', subtext: 'Asistencia', iconName: 'Zap', color: '#ec4899', trend: 'Disponible' },
+  ];
+
+  const activeMetrics = (fastKpisWidget?.content?.metrics && fastKpisWidget.content.metrics.length > 0)
+    ? fastKpisWidget.content.metrics
+    : defaultMetrics;
+
+  // If hero-banner is present, we embed fast-kpis inside it and omit the separate redundant stat-metrics block
+  const containers = allContainers.filter(c => {
+    if (hasHeroBanner && c.type === 'stat-metrics') {
+      return false; // Merged into the hero banner on the left
+    }
+    return true;
+  });
 
   // Helper for column span class
   const getColSpanClass = (span?: string) => {
@@ -68,104 +109,161 @@ export default function DynamicContainerRenderer({
   };
 
   return (
-    <div className="grid grid-cols-12 gap-6 w-full mb-6">
+    <div className="grid grid-cols-12 gap-5 w-full mb-6">
       {containers.map((container) => {
         const colClass = getColSpanClass(container.columnSpan);
 
         return (
           <div key={container.id} className={colClass}>
             
-            {/* 1. HERO BANNER */}
+            {/* 1. HERO BANNER CON MÉTRICAS RÁPIDAS COMPACTAS INTEGRADAS A LA IZQUIERDA */}
             {container.type === 'hero-banner' && (
               <div
-                className={`relative overflow-hidden rounded-3xl p-6 sm:p-8 text-white shadow-xl ${
+                className={`relative overflow-hidden rounded-3xl p-5 sm:p-7 text-white shadow-xl ${
                   container.style?.bgType === 'gradient'
                     ? (container.style?.gradient ? `bg-gradient-to-r ${container.style.gradient}` : 'bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-900')
                     : 'bg-slate-900'
                 }`}
               >
-                <div className="relative z-10 max-w-2xl space-y-4">
-                  {container.content?.heroBadge && (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white text-[11px] font-black uppercase tracking-wider">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                      <span>{container.content.heroBadge}</span>
+                <div className="relative z-10 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-6">
+                  
+                  {/* PARTE IZQUIERDA: MÉTRICAS RÁPIDAS COMPACTAS (EXCELENTE EXPERIENCIA DE USUARIO) */}
+                  <div className="w-full lg:w-[350px] shrink-0 bg-white/10 dark:bg-black/35 backdrop-blur-md rounded-2xl p-3.5 border border-white/15 shadow-inner">
+                    <div className="flex items-center justify-between mb-2 px-1">
+                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
+                        <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                        {fastKpisWidget?.title || 'Métricas Rápidas'}
+                      </span>
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        SRI Operativo
+                      </span>
                     </div>
-                  )}
 
-                  <h2 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight">
-                    {container.content?.heroTitle || 'Facturación Electrónica SRI'}
-                  </h2>
+                    <div className="grid grid-cols-2 gap-2">
+                      {activeMetrics.map((m) => {
+                        const IconComp = ICON_MAP[m.iconName || 'FileText'] || FileText;
+                        return (
+                          <div
+                            key={m.id}
+                            className="p-2.5 rounded-xl bg-white/10 hover:bg-white/15 dark:bg-white/5 dark:hover:bg-white/10 border border-white/10 transition flex flex-col justify-between gap-1 shadow-2xs"
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-[10px] font-semibold text-slate-300 truncate" title={m.label}>
+                                {m.label}
+                              </span>
+                              <div
+                                className="p-1 rounded-md shrink-0 flex items-center justify-center"
+                                style={{ backgroundColor: `${m.color || '#3b82f6'}30`, color: m.color || '#3b82f6' }}
+                              >
+                                <IconComp className="w-3 h-3" />
+                              </div>
+                            </div>
 
-                  {container.content?.heroSubtitle && (
-                    <p className="text-sm text-slate-200 leading-relaxed max-w-xl">
-                      {container.content.heroSubtitle}
-                    </p>
-                  )}
-
-                  {container.content?.heroButtonText && (
-                    <div className="pt-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const url = container.content?.heroButtonUrl;
-                          if (url?.startsWith('#') && onNavigateTab) {
-                            onNavigateTab(url.replace('#', ''));
-                          } else if (url?.startsWith('http')) {
-                            window.open(url, '_blank');
-                          } else if (onNavigateTab) {
-                            onNavigateTab('new-invoice');
-                          }
-                        }}
-                        className="px-6 py-3 rounded-2xl bg-white text-slate-900 font-black text-xs shadow-lg hover:bg-slate-100 transition active:scale-95 flex items-center gap-2 cursor-pointer"
-                      >
-                        <span>{container.content.heroButtonText}</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
+                            <div>
+                              <div className="text-xs sm:text-sm font-black text-white font-mono tracking-tight truncate">
+                                {m.value}
+                              </div>
+                              {m.trend ? (
+                                <div className="text-[9px] font-bold text-emerald-400 truncate mt-0.5">
+                                  {m.trend}
+                                </div>
+                              ) : m.subtext ? (
+                                <div className="text-[9px] text-slate-400 truncate mt-0.5">
+                                  {m.subtext}
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  )}
+                  </div>
+
+                  {/* PARTE DERECHA: CENTRO DE CONTROL DE FACTURACIÓN ELECTRÓNICA */}
+                  <div className="flex-1 space-y-3">
+                    {container.content?.heroBadge && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                        <span>{container.content.heroBadge}</span>
+                      </div>
+                    )}
+
+                    <h2 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight leading-tight">
+                      {container.content?.heroTitle || 'Centro de Control de Facturación Electrónica'}
+                    </h2>
+
+                    {container.content?.heroSubtitle && (
+                      <p className="text-xs sm:text-sm text-slate-200 leading-relaxed max-w-xl">
+                        {container.content.heroSubtitle}
+                      </p>
+                    )}
+
+                    {container.content?.heroButtonText && (
+                      <div className="pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const url = container.content?.heroButtonUrl;
+                            if (url?.startsWith('#') && onNavigateTab) {
+                              onNavigateTab(url.replace('#', ''));
+                            } else if (url?.startsWith('http')) {
+                              window.open(url, '_blank');
+                            } else if (onNavigateTab) {
+                              onNavigateTab('new-invoice');
+                            }
+                          }}
+                          className="px-5 py-2.5 rounded-xl bg-white text-slate-900 font-black text-xs shadow-lg hover:bg-slate-100 transition active:scale-95 flex items-center gap-2 cursor-pointer w-fit"
+                        >
+                          <span>{container.content.heroButtonText}</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Decorative background ambient glow */}
-                <div className="absolute right-0 bottom-0 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute right-0 bottom-0 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
               </div>
             )}
 
-            {/* 2. STAT METRICS */}
+            {/* 2. STAT METRICS (SOLO SI NO HAY HERO BANNER) */}
             {container.type === 'stat-metrics' && (
-              <div className="bg-white dark:bg-zinc-850 rounded-3xl p-6 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-4">
+              <div className="bg-white dark:bg-zinc-850 rounded-3xl p-5 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-3">
                 {container.title && (
-                  <div className="font-bold text-sm text-slate-900 dark:text-white">
-                    {container.title}
+                  <div className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-amber-500" />
+                    <span>{container.title}</span>
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {(container.content?.metrics || []).map((m) => {
                     const IconComp = ICON_MAP[m.iconName || 'FileText'] || FileText;
 
                     return (
                       <div
                         key={m.id}
-                        className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 flex flex-col justify-between gap-3"
+                        className="p-3 rounded-2xl bg-slate-50 dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 flex flex-col justify-between gap-2"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-600 dark:text-zinc-400">
+                          <span className="text-xs font-bold text-slate-600 dark:text-zinc-400 truncate">
                             {m.label}
                           </span>
                           <div
-                            className="p-2 rounded-xl"
+                            className="p-1.5 rounded-xl"
                             style={{ backgroundColor: `${m.color || '#3b82f6'}15`, color: m.color || '#3b82f6' }}
                           >
-                            <IconComp className="w-4 h-4" />
+                            <IconComp className="w-3.5 h-3.5" />
                           </div>
                         </div>
 
                         <div>
-                          <div className="text-2xl font-black text-slate-900 dark:text-white">
+                          <div className="text-lg font-black text-slate-900 dark:text-white">
                             {m.value}
                           </div>
                           {m.trend && (
-                            <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                            <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
                               {m.trend}
                             </div>
                           )}
