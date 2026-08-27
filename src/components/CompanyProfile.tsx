@@ -4,7 +4,7 @@ import {
   User, Image, FileText, CheckCircle, ShieldCheck, Landmark, Palette, Check, Settings, 
   Building2, Shield, Calendar, Layers, Users, FileCheck2, AlertCircle, AlertTriangle, 
   Sparkles, CheckCircle2, DollarSign, TrendingUp, Clock, HelpCircle, ArrowRight, PieChart as PieIcon,
-  ChevronDown, ChevronUp
+  ChevronDown, ChevronUp, X, Upload, RotateCcw, Sliders, Eye, RefreshCw
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import RideViewer from './RideViewer';
@@ -17,6 +17,43 @@ import {
   fetchProformasFromSupabase 
 } from '../lib/supabase';
 import { REGIMENES } from '../sri/utils';
+
+export interface BannerCustomization {
+  bgType: 'preset' | 'color' | 'image';
+  presetGradient: string;
+  customColor: string;
+  customColor2?: string;
+  isCustomGradient?: boolean;
+  gradientAngle?: number;
+  customImageB64?: string;
+  customImageUrl?: string;
+  imageOverlayOpacity: number; // 0 to 100
+  imageBlur?: boolean;
+}
+
+const DEFAULT_BANNER_CUSTOMIZATION: BannerCustomization = {
+  bgType: 'preset',
+  presetGradient: 'from-slate-950 via-slate-900 to-indigo-950',
+  customColor: '#0f172a',
+  customColor2: '#1e1b4b',
+  isCustomGradient: true,
+  gradientAngle: 90,
+  imageOverlayOpacity: 65,
+  imageBlur: false,
+};
+
+const BANNER_PRESETS = [
+  { id: 'slate_sri', name: 'Pizarra Oscura SRI', gradient: 'from-slate-950 via-slate-900 to-indigo-950', desc: 'Clásico original de la plataforma', hex: '#0f172a' },
+  { id: 'blue_exec', name: 'Azul Ejecutivo', gradient: 'from-blue-950 via-indigo-950 to-slate-950', desc: 'Tonos corporativos formales', hex: '#172554' },
+  { id: 'emerald_corp', name: 'Esmeralda Tech', gradient: 'from-emerald-950 via-teal-950 to-slate-950', desc: 'Vibrante y ecológico moderno', hex: '#022c22' },
+  { id: 'purple_galaxy', name: 'Púrpura Galáctico', gradient: 'from-purple-950 via-indigo-950 to-slate-950', desc: 'Creativo y moderno', hex: '#3b0764' },
+  { id: 'obsidian_dark', name: 'Obsidiana Minimal', gradient: 'from-zinc-950 via-neutral-900 to-black', desc: 'Negro puro ultra elegante', hex: '#09090b' },
+  { id: 'crimson_luxury', name: 'Carmesí & Borgoña', gradient: 'from-rose-950 via-red-950 to-slate-950', desc: 'Fuerza, distinción y energía', hex: '#4c0519' },
+  { id: 'deep_ocean', name: 'Océano Profundo', gradient: 'from-cyan-950 via-blue-950 to-slate-950', desc: 'Aguamarina y azul marino', hex: '#083344' },
+  { id: 'amber_cacao', name: 'Ámbar & Cacao', gradient: 'from-amber-950 via-stone-900 to-neutral-950', desc: 'Cálido, editorial y artesanal', hex: '#451a03' },
+  { id: 'titanium_steel', name: 'Titanio Metálico', gradient: 'from-slate-900 via-gray-900 to-slate-950', desc: 'Gris antracita ejecutivo', hex: '#1e293b' },
+  { id: 'aurora_borealis', name: 'Aurora Boreal', gradient: 'from-teal-950 via-emerald-950 to-indigo-950', desc: 'Gradiente bio-luminiscente', hex: '#134e4a' },
+];
 
 const TEMPLATES = [
   { id: 'oficial', name: 'Oficial SRI (Clásico)', desc: 'Diseño clásico estandarizado idéntico al PDF del SRI con columnas alternadas', color: 'from-gray-700 to-gray-800' },
@@ -51,6 +88,7 @@ export default function CompanyProfile({
   onNavigateToSettings 
 }: CompanyProfileProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bannerFileInputRef = useRef<HTMLInputElement>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(config.logoB64 || null);
   const [showModelPreview, setShowModelPreview] = useState(false);
   const [uploadError, setUploadError] = useState('');
@@ -67,6 +105,29 @@ export default function CompanyProfile({
     const safeEmail = currentUserEmail.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
     return `${baseKey}_user_${safeEmail}`;
   };
+
+  // Unique Isolated Key for Banner Customization per user / tenant
+  const getBannerStorageKey = () => {
+    const safeUser = (currentUser?.correo || currentUserEmail || 'default')
+      .replace(/[^a-zA-Z0-9]/g, '_')
+      .toLowerCase();
+    const safeRuc = (currentUser?.empresaRuc || config.empresaRuc || config.ruc || 'emp')
+      .replace(/[^a-zA-Z0-9]/g, '_');
+    return `sri_profile_banner_bg_${safeRuc}_${safeUser}`;
+  };
+
+  // Banner Customization State (Isolated per tenant & user)
+  const [bannerCustom, setBannerCustom] = useState<BannerCustomization>(() => {
+    try {
+      const saved = localStorage.getItem(getBannerStorageKey());
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_BANNER_CUSTOMIZATION;
+  });
+  const [isCustomizingBanner, setIsCustomizingBanner] = useState(false);
+  const [bannerActiveTab, setBannerActiveTab] = useState<'presets' | 'color' | 'image'>('presets');
+  const [bannerImageError, setBannerImageError] = useState('');
+  const [bannerSaveNotice, setBannerSaveNotice] = useState(false);
 
   const [activeTemplate, setActiveTemplate] = useState<string>(() => {
     return localStorage.getItem(getUserStorageKey('sri_ride_selected_template')) || 'oficial';
@@ -96,6 +157,69 @@ export default function CompanyProfile({
   useEffect(() => {
     setActiveTemplate(localStorage.getItem(getUserStorageKey('sri_ride_selected_template')) || 'oficial');
   }, [currentUserEmail]);
+
+  // Sync Banner Customization when user / company changes
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(getBannerStorageKey());
+      if (saved) {
+        setBannerCustom(JSON.parse(saved));
+      } else {
+        setBannerCustom(DEFAULT_BANNER_CUSTOMIZATION);
+      }
+    } catch {}
+  }, [currentUser?.correo, currentUser?.empresaRuc, config.ruc, config.empresaRuc, currentUserEmail]);
+
+  const handleSaveBannerCustom = (newCustom: BannerCustomization) => {
+    setBannerCustom(newCustom);
+    try {
+      localStorage.setItem(getBannerStorageKey(), JSON.stringify(newCustom));
+      setBannerSaveNotice(true);
+      setTimeout(() => setBannerSaveNotice(false), 2500);
+    } catch (err) {
+      console.warn('Error guardando personalización de banner:', err);
+    }
+  };
+
+  const handleResetBannerCustom = () => {
+    setBannerCustom(DEFAULT_BANNER_CUSTOMIZATION);
+    try {
+      localStorage.removeItem(getBannerStorageKey());
+      setBannerSaveNotice(true);
+      setTimeout(() => setBannerSaveNotice(false), 2500);
+    } catch {}
+  };
+
+  const handleBannerImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setBannerImageError('');
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 3 * 1024 * 1024) {
+      setBannerImageError('La imagen de fondo es demasiado grande (máximo 3MB).');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setBannerImageError('Formato inválido. Selecciona un archivo de imagen (.jpg, .png, .webp).');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const b64 = reader.result as string;
+      const updated: BannerCustomization = {
+        ...bannerCustom,
+        bgType: 'image',
+        customImageB64: b64,
+      };
+      handleSaveBannerCustom(updated);
+    };
+    reader.onerror = () => {
+      setBannerImageError('Error leyendo el archivo de imagen.');
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Fetch plan & company metrics
   useEffect(() => {
@@ -364,6 +488,40 @@ export default function CompanyProfile({
   const displayRuc = config.ruc || empresaTenant?.ruc || currentUser?.empresaRuc || '0000000000001';
   const displayAdmin = config.correo || empresaTenant?.adminCorreo || currentUser?.correo || 'admin@sri.gob.ec';
 
+  // Active Logo Computation: Logo uploaded in "Ficha del Emisor SRI & Logotipo Comercial" or tenant logo
+  const activeLogo = logoPreview || config.logoB64 || empresaTenant?.logoUrl || null;
+
+  // Banner Background Styles Computation (Private per tenant/user)
+  let bannerContainerStyle: React.CSSProperties = {};
+  let bannerClassName = 'p-6 relative overflow-hidden transition-all duration-300 ';
+
+  if (estadoPlan === 'SUSPENDIDO' || isExpired) {
+    bannerClassName += 'bg-amber-50/70 border-b border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/40 text-gray-900 dark:text-white';
+  } else if (bannerCustom.bgType === 'image' && (bannerCustom.customImageB64 || bannerCustom.customImageUrl)) {
+    const imgUrl = bannerCustom.customImageB64 || bannerCustom.customImageUrl;
+    bannerClassName += 'text-white shadow-xl';
+    bannerContainerStyle = {
+      backgroundImage: `url(${imgUrl})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
+    };
+  } else if (bannerCustom.bgType === 'color') {
+    bannerClassName += 'text-white shadow-xl';
+    if (bannerCustom.isCustomGradient && bannerCustom.customColor2) {
+      bannerContainerStyle = {
+        background: `linear-gradient(${bannerCustom.gradientAngle || 90}deg, ${bannerCustom.customColor}, ${bannerCustom.customColor2})`
+      };
+    } else {
+      bannerContainerStyle = {
+        backgroundColor: bannerCustom.customColor
+      };
+    }
+  } else {
+    // Preset Gradient
+    bannerClassName += `bg-gradient-to-r ${bannerCustom.presetGradient || 'from-slate-950 via-slate-900 to-indigo-950'} text-white shadow-xl`;
+  }
+
   // Ring/Donut Chart Data for Quota Breakdown
   const chartData = [
     { name: 'Facturas SRI', value: totalFacturas, color: '#4f46e5' },
@@ -396,22 +554,40 @@ export default function CompanyProfile({
             </p>
           </div>
 
-          {/* Commercial Badge */}
+          {/* Commercial Badge with Logo or Default Icon */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200 text-xs font-bold shrink-0 self-start md:self-auto">
-            <Building2 className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+            {activeLogo ? (
+              <img
+                src={activeLogo}
+                alt="Logo"
+                className="w-4 h-4 object-contain rounded shrink-0"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <Building2 className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+            )}
             <span className="truncate max-w-[220px]" title={displayNombreComercial}>
               {displayNombreComercial}
             </span>
           </div>
         </div>
 
-        {/* 2. BANNER DEL PLAN EMPRESARIAL CON VIGENCIA Y CONTADOR DE DÍAS RESTANTES */}
-        <div className={`p-6 ${
-          estadoPlan === 'SUSPENDIDO' || isExpired 
-            ? 'bg-amber-50/70 border-b border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/40' 
-            : 'bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-white'
-        }`}>
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+        {/* 2. BANNER DEL PLAN EMPRESARIAL CON VIGENCIA Y CONTADOR DE DÍAS RESTANTES (FONDO PERSONALIZABLE) */}
+        <div 
+          className={bannerClassName}
+          style={bannerContainerStyle}
+        >
+          {/* Dark Overlay for Image Backgrounds to guarantee 100% legibility */}
+          {bannerCustom.bgType === 'image' && (bannerCustom.customImageB64 || bannerCustom.customImageUrl) && (
+            <div 
+              className={`absolute inset-0 pointer-events-none transition-opacity ${bannerCustom.imageBlur ? 'backdrop-blur-xs' : ''}`}
+              style={{
+                backgroundColor: `rgba(0, 0, 0, ${Math.max(20, Math.min(95, bannerCustom.imageOverlayOpacity ?? 65)) / 100})`
+              }}
+            />
+          )}
+
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
             
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2.5">
@@ -432,11 +608,39 @@ export default function CompanyProfile({
                     Rol: {currentUser.role}
                   </span>
                 )}
+
+                {/* BOTÓN PARA PERSONALIZAR EL FONDO DEL BANNER */}
+                <button
+                  type="button"
+                  onClick={() => setIsCustomizingBanner(true)}
+                  className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/15 hover:bg-white/25 text-white border border-white/25 backdrop-blur-xs transition flex items-center gap-1.5 cursor-pointer shadow-xs ml-auto sm:ml-0"
+                  title="Cambiar color o colocar imagen de fondo exclusiva para tu usuario/empresa"
+                >
+                  <Palette className="w-3 h-3 text-amber-300" />
+                  <span>Personalizar Fondo</span>
+                </button>
+
+                {bannerSaveNotice && (
+                  <span className="text-[10px] font-bold text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-400/40 flex items-center gap-1 animate-pulse">
+                    <CheckCircle2 className="w-3 h-3" /> Guardado
+                  </span>
+                )}
               </div>
 
-              {/* Primary Name: NOMBRE COMERCIAL */}
-              <h3 className="text-2xl sm:text-3xl font-black tracking-tight flex items-center gap-2.5">
-                <Building2 className="w-7 h-7 text-indigo-400 shrink-0" />
+              {/* Primary Name: NOMBRE COMERCIAL (Con Logo de Empresa si fue cargado, o Ícono por Defecto) */}
+              <h3 className="text-2xl sm:text-3xl font-black tracking-tight flex items-center gap-3">
+                {activeLogo ? (
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-white/95 p-1 flex items-center justify-center shrink-0 border border-white/20 shadow-md">
+                    <img
+                      src={activeLogo}
+                      alt={displayNombreComercial}
+                      className="h-full w-full object-contain rounded-lg"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                ) : (
+                  <Building2 className="w-7 h-7 sm:w-8 sm:h-8 text-indigo-400 shrink-0" />
+                )}
                 <span className="truncate">{displayNombreComercial}</span>
               </h3>
 
@@ -482,6 +686,432 @@ export default function CompanyProfile({
 
           </div>
         </div>
+
+        {/* MODAL DE PERSONALIZACIÓN DEL FONDO DEL BANNER (EXCLUSIVO POR USUARIO / INQUILINO) */}
+        {isCustomizingBanner && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in-50 duration-200">
+            <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-gray-200 dark:border-zinc-800 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+              
+              {/* Modal Header */}
+              <div className="p-5 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between bg-slate-50/50 dark:bg-zinc-850/50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl text-indigo-600 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-900/50">
+                    <Palette className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 dark:text-white text-base">
+                      Personalizar Fondo del Banner
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-zinc-400">
+                      Ajuste individual y exclusivo para <strong className="text-indigo-600 dark:text-indigo-400 font-semibold">{displayNombreComercial}</strong> (RUC: {displayRuc}).
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsCustomizingBanner(false)}
+                  className="p-1.5 rounded-xl text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex border-b border-gray-200 dark:border-zinc-800 px-5 pt-3 gap-2 bg-gray-50/50 dark:bg-zinc-900/50">
+                <button
+                  type="button"
+                  onClick={() => setBannerActiveTab('presets')}
+                  className={`pb-3 px-3 text-xs font-bold transition flex items-center gap-2 border-b-2 cursor-pointer ${
+                    bannerActiveTab === 'presets'
+                      ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-zinc-400'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Degradados Predefinidos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBannerActiveTab('color')}
+                  className={`pb-3 px-3 text-xs font-bold transition flex items-center gap-2 border-b-2 cursor-pointer ${
+                    bannerActiveTab === 'color'
+                      ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-zinc-400'
+                  }`}
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                  Color Sólido / Gradiente
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBannerActiveTab('image')}
+                  className={`pb-3 px-3 text-xs font-bold transition flex items-center gap-2 border-b-2 cursor-pointer ${
+                    bannerActiveTab === 'image'
+                      ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-zinc-400'
+                  }`}
+                >
+                  <Image className="w-3.5 h-3.5" />
+                  Imagen de Fondo
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-5 overflow-y-auto space-y-5 flex-1 text-xs">
+                
+                {/* 1. PRESETS TAB */}
+                {bannerActiveTab === 'presets' && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {BANNER_PRESETS.map((preset) => {
+                        const isSelected = bannerCustom.bgType === 'preset' && bannerCustom.presetGradient === preset.gradient;
+                        return (
+                          <div
+                            key={preset.id}
+                            onClick={() => {
+                              handleSaveBannerCustom({
+                                ...bannerCustom,
+                                bgType: 'preset',
+                                presetGradient: preset.gradient,
+                              });
+                            }}
+                            className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between relative overflow-hidden ${
+                              isSelected
+                                ? 'border-indigo-600 dark:border-indigo-400 ring-2 ring-indigo-500/20 shadow-md'
+                                : 'border-gray-200 dark:border-zinc-700/80 hover:border-gray-300 dark:hover:border-zinc-600'
+                            }`}
+                          >
+                            <div className={`w-full h-12 rounded-xl bg-gradient-to-r ${preset.gradient} mb-2.5 flex items-center justify-end px-3 shadow-inner`}>
+                              {isSelected && (
+                                <div className="p-1 rounded-full bg-white text-indigo-600 shadow-sm">
+                                  <Check className="w-3.5 h-3.5" />
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <span className="font-bold text-gray-900 dark:text-white block text-xs">
+                                {preset.name}
+                              </span>
+                              <span className="text-[10px] text-gray-500 dark:text-zinc-400 line-clamp-1">
+                                {preset.desc}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. CUSTOM COLOR TAB */}
+                {bannerActiveTab === 'color' && (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-slate-50 dark:bg-zinc-850 rounded-2xl border border-gray-200/80 dark:border-zinc-700/80 space-y-4">
+                      
+                      {/* Gradient Toggle */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-gray-800 dark:text-zinc-200 block">
+                            Modo Gradiente de 2 Colores
+                          </span>
+                          <span className="text-[10px] text-gray-500 dark:text-zinc-400">
+                            Combina dos tonos con un ángulo direccionable
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={bannerCustom.isCustomGradient ?? true}
+                          onChange={(e) => {
+                            handleSaveBannerCustom({
+                              ...bannerCustom,
+                              bgType: 'color',
+                              isCustomGradient: e.target.checked
+                            });
+                          }}
+                          className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Color 1 */}
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-semibold text-gray-700 dark:text-zinc-300">
+                          Color Primario / Base:
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={bannerCustom.customColor || '#0f172a'}
+                            onChange={(e) => {
+                              handleSaveBannerCustom({
+                                ...bannerCustom,
+                                bgType: 'color',
+                                customColor: e.target.value
+                              });
+                            }}
+                            className="w-9 h-9 rounded-xl border border-gray-200 dark:border-zinc-700 cursor-pointer p-0.5 bg-white dark:bg-zinc-800"
+                          />
+                          <input
+                            type="text"
+                            value={bannerCustom.customColor || '#0f172a'}
+                            onChange={(e) => {
+                              handleSaveBannerCustom({
+                                ...bannerCustom,
+                                bgType: 'color',
+                                customColor: e.target.value
+                              });
+                            }}
+                            className="w-24 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 font-mono text-xs text-gray-900 dark:text-white"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Color 2 (if gradient) */}
+                      {bannerCustom.isCustomGradient && (
+                        <div className="flex items-center justify-between gap-3 pt-2 border-t border-gray-200/60 dark:border-zinc-700/60">
+                          <span className="text-xs font-semibold text-gray-700 dark:text-zinc-300">
+                            Color Secundario:
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={bannerCustom.customColor2 || '#1e1b4b'}
+                              onChange={(e) => {
+                                handleSaveBannerCustom({
+                                  ...bannerCustom,
+                                  bgType: 'color',
+                                  customColor2: e.target.value
+                                });
+                              }}
+                              className="w-9 h-9 rounded-xl border border-gray-200 dark:border-zinc-700 cursor-pointer p-0.5 bg-white dark:bg-zinc-800"
+                            />
+                            <input
+                              type="text"
+                              value={bannerCustom.customColor2 || '#1e1b4b'}
+                              onChange={(e) => {
+                                handleSaveBannerCustom({
+                                  ...bannerCustom,
+                                  bgType: 'color',
+                                  customColor2: e.target.value
+                                });
+                              }}
+                              className="w-24 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 font-mono text-xs text-gray-900 dark:text-white"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Angle Slider (if gradient) */}
+                      {bannerCustom.isCustomGradient && (
+                        <div className="space-y-1.5 pt-2 border-t border-gray-200/60 dark:border-zinc-700/60">
+                          <div className="flex justify-between text-[11px] text-gray-600 dark:text-zinc-400">
+                            <span>Ángulo de Inclinación:</span>
+                            <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono">
+                              {bannerCustom.gradientAngle ?? 90}°
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="360"
+                            step="15"
+                            value={bannerCustom.gradientAngle ?? 90}
+                            onChange={(e) => {
+                              handleSaveBannerCustom({
+                                ...bannerCustom,
+                                bgType: 'color',
+                                gradientAngle: parseInt(e.target.value, 10)
+                              });
+                            }}
+                            className="w-full accent-indigo-600 cursor-pointer"
+                          />
+                        </div>
+                      )}
+
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. BACKGROUND IMAGE TAB */}
+                {bannerActiveTab === 'image' && (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-slate-50 dark:bg-zinc-850 rounded-2xl border border-gray-200/80 dark:border-zinc-700/80 space-y-4">
+                      
+                      {/* Upload Box */}
+                      <div className="border border-dashed border-gray-300 dark:border-zinc-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center bg-white dark:bg-zinc-900/60">
+                        {bannerCustom.customImageB64 || bannerCustom.customImageUrl ? (
+                          <div className="w-full space-y-3">
+                            <div className="relative w-full h-28 rounded-xl overflow-hidden shadow-inner border border-gray-200 dark:border-zinc-700">
+                              <img
+                                src={bannerCustom.customImageB64 || bannerCustom.customImageUrl}
+                                alt="Banner Background Preview"
+                                className="w-full h-full object-cover"
+                                referrerPolicy="no-referrer"
+                              />
+                              <div 
+                                className="absolute inset-0 flex items-center justify-center text-white font-bold text-xs"
+                                style={{
+                                  backgroundColor: `rgba(0, 0, 0, ${Math.max(20, Math.min(95, bannerCustom.imageOverlayOpacity ?? 65)) / 100})`
+                                }}
+                              >
+                                Vista Previa de Legibilidad
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleSaveBannerCustom({
+                                  ...bannerCustom,
+                                  bgType: 'preset',
+                                  customImageB64: undefined,
+                                  customImageUrl: undefined,
+                                });
+                              }}
+                              className="text-red-500 hover:text-red-700 font-bold text-[11px] underline cursor-pointer"
+                            >
+                              Quitar Imagen de Fondo
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center">
+                              <Upload className="w-5 h-5" />
+                            </div>
+                            <p className="font-bold text-gray-800 dark:text-zinc-200">
+                              Cargar Archivo de Imagen de Fondo
+                            </p>
+                            <p className="text-[10px] text-gray-500 dark:text-zinc-400">
+                              Formatos .png, .jpg, .jpeg o .webp (Máximo 3MB)
+                            </p>
+                          </div>
+                        )}
+
+                        <input
+                          type="file"
+                          ref={bannerFileInputRef}
+                          accept="image/*"
+                          onChange={handleBannerImageUpload}
+                          className="hidden"
+                          id="file-banner-bg"
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => bannerFileInputRef.current?.click()}
+                          className="mt-3 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>{bannerCustom.customImageB64 ? 'Reemplazar Archivo' : 'Seleccionar Imagen'}</span>
+                        </button>
+                      </div>
+
+                      {bannerImageError && (
+                        <p className="text-[11px] text-red-500 font-medium bg-red-50 dark:bg-red-950/20 p-2.5 rounded-lg border border-red-100/50">
+                          ⚠️ {bannerImageError}
+                        </p>
+                      )}
+
+                      {/* URL Direct Input */}
+                      <div className="space-y-1.5 pt-2 border-t border-gray-200/60 dark:border-zinc-700/60">
+                        <label className="block text-[11px] font-bold text-gray-700 dark:text-zinc-300">
+                          O ingresa una URL de Imagen Directa:
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="https://ejemplo.com/fondo-corporativo.jpg"
+                            value={bannerCustom.customImageUrl || ''}
+                            onChange={(e) => {
+                              const url = e.target.value;
+                              handleSaveBannerCustom({
+                                ...bannerCustom,
+                                bgType: 'image',
+                                customImageUrl: url,
+                              });
+                            }}
+                            className="flex-1 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-gray-900 dark:text-white text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Dark Overlay Opacity Slider */}
+                      <div className="space-y-1.5 pt-2 border-t border-gray-200/60 dark:border-zinc-700/60">
+                        <div className="flex justify-between text-[11px] text-gray-600 dark:text-zinc-400">
+                          <span>Filtro de Oscurecimiento (Para legibilidad del texto):</span>
+                          <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono">
+                            {bannerCustom.imageOverlayOpacity ?? 65}%
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="20"
+                          max="95"
+                          step="5"
+                          value={bannerCustom.imageOverlayOpacity ?? 65}
+                          onChange={(e) => {
+                            handleSaveBannerCustom({
+                              ...bannerCustom,
+                              bgType: 'image',
+                              imageOverlayOpacity: parseInt(e.target.value, 10)
+                            });
+                          }}
+                          className="w-full accent-indigo-600 cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Blur Effect */}
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-200/60 dark:border-zinc-700/60">
+                        <div>
+                          <span className="font-bold text-gray-800 dark:text-zinc-200 block text-xs">
+                            Desenfoque Sutil (Blur)
+                          </span>
+                          <span className="text-[10px] text-gray-500 dark:text-zinc-400">
+                            Suaviza detalles complejos de la fotografía
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={bannerCustom.imageBlur ?? false}
+                          onChange={(e) => {
+                            handleSaveBannerCustom({
+                              ...bannerCustom,
+                              bgType: 'image',
+                              imageBlur: e.target.checked
+                            });
+                          }}
+                          className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
+                        />
+                      </div>
+
+                    </div>
+                  </div>
+                )}
+
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 border-t border-gray-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-850/50 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={handleResetBannerCustom}
+                  className="px-3.5 py-2 text-xs font-bold text-gray-600 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white rounded-xl hover:bg-gray-200 dark:hover:bg-zinc-800 transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Restablecer Original
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsCustomizingBanner(false)}
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-xs transition text-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  Guardar & Cerrar
+                </button>
+              </div>
+
+            </div>
+          </div>
+        )}
 
         {/* 3. SECCIÓN DE CONTABILIDAD CON GRÁFICO DE ANILLO (DONUT) Y TARJETAS MÉTRICAS */}
         <div className="bg-slate-50/40 dark:bg-zinc-900/50 border-b border-gray-100 dark:border-zinc-800">
@@ -903,9 +1533,19 @@ export default function CompanyProfile({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-xs transition text-center text-xs flex items-center justify-center gap-1 cursor-pointer"
+                    className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-xs transition text-center text-xs flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    📥 Cargar Logo de Empresa
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Cargar Logo de Empresa</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomizingBanner(true)}
+                    className="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-gray-700 dark:text-zinc-200 font-bold rounded-xl transition text-center text-xs flex items-center justify-center gap-1.5 cursor-pointer border border-gray-200 dark:border-zinc-700"
+                  >
+                    <Palette className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>Personalizar Fondo del Banner</span>
                   </button>
                 </div>
 
@@ -923,8 +1563,8 @@ export default function CompanyProfile({
               </div>
 
               <div className="pt-2 border-t border-gray-100 dark:border-zinc-800">
-                <span className="text-[10px] text-gray-400 block leading-relaxed">
-                  Incrustado en el RIDE para <strong className="text-gray-700 dark:text-zinc-300 font-semibold">{displayNombreComercial}</strong>.
+                <span className="text-[10px] text-gray-500 dark:text-zinc-400 block leading-relaxed">
+                  ● El logotipo se mostrará automáticamente junto al nombre de la empresa en el banner principal y en los comprobantes RIDE.
                 </span>
               </div>
             </div>

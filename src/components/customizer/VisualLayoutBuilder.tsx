@@ -251,6 +251,11 @@ export default function VisualLayoutBuilder({
     groupId?: string;
   } | null>(null);
 
+  // Top-level / Unified Flow Drag & Drop State
+  const [treeViewMode, setTreeViewMode] = useState<'branches' | 'topbar-flow'>('branches');
+  const [draggedTopLevelId, setDraggedTopLevelId] = useState<string | null>(null);
+  const [dragOverTopLevelId, setDragOverTopLevelId] = useState<string | null>(null);
+
   const menuItems = settings.customMenuItems || [];
   const menuGroups: MenuGroup[] = settings.menuGroups && settings.menuGroups.length > 0
     ? settings.menuGroups
@@ -297,6 +302,61 @@ export default function VisualLayoutBuilder({
   const userItemsCount = menuItems.filter(it => isItemAllowedForRole(it, 'USER')).length;
   const adminItemsCount = menuItems.filter(it => isItemAllowedForRole(it, 'ADMIN')).length;
   const superadminItemsCount = menuItems.filter(it => isItemAllowedForRole(it, 'SUPERADMIN')).length;
+
+  // Ungrouped (loose) items list
+  const ungroupedItems = menuItems
+    .filter(it => !it.groupId || !menuGroups.some(g => g.id === it.groupId))
+    .filter(it => isItemAllowedForRole(it, activeUserRole))
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  // Compute unified top level navigation nodes (both branches/groups and standalone loose buttons)
+  interface TopLevelNavNode {
+    type: 'group' | 'item';
+    id: string;
+    name: string;
+    order: number;
+    iconName?: string;
+    key?: string;
+    group?: MenuGroup;
+    item?: CustomMenuItem;
+    subItems?: CustomMenuItem[];
+  }
+
+  const topLevelNodes: TopLevelNavNode[] = [];
+
+  menuGroups
+    .filter(g => g.visible !== false)
+    .forEach(grp => {
+      const subItems = menuItems
+        .filter(it => it.groupId === grp.id && isItemAllowedForRole(it, activeUserRole))
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+      
+      if (subItems.length > 0 || activeUserRole === 'SUPERADMIN') {
+        topLevelNodes.push({
+          type: 'group',
+          id: grp.id,
+          name: grp.name,
+          order: grp.order || 1,
+          iconName: grp.iconName,
+          group: grp,
+          subItems
+        });
+      }
+    });
+
+  ungroupedItems.forEach(item => {
+    topLevelNodes.push({
+      type: 'item',
+      id: item.id,
+      name: item.label,
+      order: item.order || 99,
+      iconName: item.iconName,
+      key: item.key,
+      item
+    });
+  });
+
+  topLevelNodes.sort((a, b) => a.order - b.order);
 
   // Update layout mode
   const handleLayoutChange = (mode: 'topbar-classic' | 'sidebar-left' | 'sidebar-right' | 'compact-dock' | 'floating-island') => {
@@ -501,6 +561,198 @@ export default function VisualLayoutBuilder({
     });
 
     updateSettings({ customMenuItems: newItems });
+  };
+
+  // Move loose item up among loose items
+  const handleMoveLooseItemUp = (itemId: string) => {
+    const looseList = menuItems
+      .filter(it => !it.groupId || !menuGroups.some(g => g.id === it.groupId))
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+    
+    const currIdx = looseList.findIndex(it => it.id === itemId);
+    if (currIdx <= 0) return;
+
+    const prevItem = looseList[currIdx - 1];
+    const newItems = [...menuItems];
+    
+    const idxA = newItems.findIndex(i => i.id === itemId);
+    const idxB = newItems.findIndex(i => i.id === prevItem.id);
+    if (idxA === -1 || idxB === -1) return;
+
+    const temp = newItems[idxA];
+    newItems[idxA] = newItems[idxB];
+    newItems[idxB] = temp;
+
+    newItems.forEach((item, idx) => {
+      item.order = idx + 1;
+    });
+
+    updateSettings({ customMenuItems: newItems });
+    modalAlert.success('Opción Reordenada', `"${temp.label}" se movió hacia arriba.`);
+  };
+
+  // Move loose item down among loose items
+  const handleMoveLooseItemDown = (itemId: string) => {
+    const looseList = menuItems
+      .filter(it => !it.groupId || !menuGroups.some(g => g.id === it.groupId))
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+    
+    const currIdx = looseList.findIndex(it => it.id === itemId);
+    if (currIdx === -1 || currIdx >= looseList.length - 1) return;
+
+    const nextItem = looseList[currIdx + 1];
+    const newItems = [...menuItems];
+    
+    const idxA = newItems.findIndex(i => i.id === itemId);
+    const idxB = newItems.findIndex(i => i.id === nextItem.id);
+    if (idxA === -1 || idxB === -1) return;
+
+    const temp = newItems[idxA];
+    newItems[idxA] = newItems[idxB];
+    newItems[idxB] = temp;
+
+    newItems.forEach((item, idx) => {
+      item.order = idx + 1;
+    });
+
+    updateSettings({ customMenuItems: newItems });
+    modalAlert.success('Opción Reordenada', `"${temp.label}" se movió hacia abajo.`);
+  };
+
+  // Move top level node UP in the TopBar sequence
+  const handleMoveTopLevelNodeUp = (nodeId: string, nodeType: 'group' | 'item') => {
+    const nodeIdx = topLevelNodes.findIndex(n => n.id === nodeId && n.type === nodeType);
+    if (nodeIdx <= 0) return;
+
+    const currentNodes = [...topLevelNodes];
+    const prevNode = currentNodes[nodeIdx - 1];
+    const currNode = currentNodes[nodeIdx];
+
+    currentNodes[nodeIdx - 1] = currNode;
+    currentNodes[nodeIdx] = prevNode;
+
+    const newGroups = [...menuGroups];
+    const newItems = [...menuItems];
+
+    currentNodes.forEach((node, idx) => {
+      const newOrder = idx + 1;
+      if (node.type === 'group') {
+        const gIdx = newGroups.findIndex(g => g.id === node.id);
+        if (gIdx !== -1) {
+          newGroups[gIdx] = { ...newGroups[gIdx], order: newOrder };
+        }
+      } else if (node.type === 'item') {
+        const iIdx = newItems.findIndex(i => i.id === node.id);
+        if (iIdx !== -1) {
+          newItems[iIdx] = { ...newItems[iIdx], order: newOrder };
+        }
+      }
+    });
+
+    updateSettings({
+      menuGroups: newGroups,
+      customMenuItems: newItems
+    });
+
+    modalAlert.success('Posición en Barra Actualizada', `"${currNode.name}" se movió hacia la izquierda/arriba en la barra.`);
+  };
+
+  // Move top level node DOWN in the TopBar sequence
+  const handleMoveTopLevelNodeDown = (nodeId: string, nodeType: 'group' | 'item') => {
+    const nodeIdx = topLevelNodes.findIndex(n => n.id === nodeId && n.type === nodeType);
+    if (nodeIdx === -1 || nodeIdx >= topLevelNodes.length - 1) return;
+
+    const currentNodes = [...topLevelNodes];
+    const nextNode = currentNodes[nodeIdx + 1];
+    const currNode = currentNodes[nodeIdx];
+
+    currentNodes[nodeIdx + 1] = currNode;
+    currentNodes[nodeIdx] = nextNode;
+
+    const newGroups = [...menuGroups];
+    const newItems = [...menuItems];
+
+    currentNodes.forEach((node, idx) => {
+      const newOrder = idx + 1;
+      if (node.type === 'group') {
+        const gIdx = newGroups.findIndex(g => g.id === node.id);
+        if (gIdx !== -1) {
+          newGroups[gIdx] = { ...newGroups[gIdx], order: newOrder };
+        }
+      } else if (node.type === 'item') {
+        const iIdx = newItems.findIndex(i => i.id === node.id);
+        if (iIdx !== -1) {
+          newItems[iIdx] = { ...newItems[iIdx], order: newOrder };
+        }
+      }
+    });
+
+    updateSettings({
+      menuGroups: newGroups,
+      customMenuItems: newItems
+    });
+
+    modalAlert.success('Posición en Barra Actualizada', `"${currNode.name}" se movió hacia la derecha/abajo en la barra.`);
+  };
+
+  // TopLevel Drag & Drop Handlers (Ramas and Loose Buttons)
+  const handleTopLevelDragStart = (e: React.DragEvent, nodeId: string) => {
+    e.dataTransfer.setData('toplevel/id', nodeId);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedTopLevelId(nodeId);
+  };
+
+  const handleTopLevelDragOver = (e: React.DragEvent, targetId: string) => {
+    if (!draggedTopLevelId || draggedTopLevelId === targetId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverTopLevelId !== targetId) {
+      setDragOverTopLevelId(targetId);
+    }
+  };
+
+  const handleTopLevelDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const sourceId = draggedTopLevelId || e.dataTransfer.getData('toplevel/id');
+    setDraggedTopLevelId(null);
+    setDragOverTopLevelId(null);
+
+    if (!sourceId || sourceId === targetId) return;
+
+    const sourceIdx = topLevelNodes.findIndex(n => n.id === sourceId);
+    const targetIdx = topLevelNodes.findIndex(n => n.id === targetId);
+    if (sourceIdx === -1 || targetIdx === -1) return;
+
+    const newNodes = [...topLevelNodes];
+    const [movedNode] = newNodes.splice(sourceIdx, 1);
+    newNodes.splice(targetIdx, 0, movedNode);
+
+    const newGroups = [...menuGroups];
+    const newItems = [...menuItems];
+
+    newNodes.forEach((node, idx) => {
+      const newOrder = idx + 1;
+      if (node.type === 'group') {
+        const gIdx = newGroups.findIndex(g => g.id === node.id);
+        if (gIdx !== -1) {
+          newGroups[gIdx] = { ...newGroups[gIdx], order: newOrder };
+        }
+      } else if (node.type === 'item') {
+        const iIdx = newItems.findIndex(i => i.id === node.id);
+        if (iIdx !== -1) {
+          newItems[iIdx] = { ...newItems[iIdx], order: newOrder };
+        }
+      }
+    });
+
+    updateSettings({
+      menuGroups: newGroups,
+      customMenuItems: newItems
+    });
+
+    modalAlert.success('Barra TopBar Reordenada', `"${movedNode.name}" fue reubicada en la posición ${targetIdx + 1} de la barra.`);
   };
 
   // Drag & Drop Handlers
@@ -739,10 +991,6 @@ export default function VisualLayoutBuilder({
       await saveSettingsToCloud(currentUserEmail || 'SUPERADMIN');
     }
   };
-
-  // Ungrouped items (root branch) filtered strictly by the session user's role
-  const allUngroupedItems = menuItems.filter(it => !it.groupId || it.groupId === 'NONE');
-  const ungroupedItems = allUngroupedItems.filter(it => isItemAllowedForRole(it, activeUserRole));
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -1231,8 +1479,37 @@ export default function VisualLayoutBuilder({
           </div>
         </div>
 
-        {/* MODO RAMAS TREE VIEW */}
-        <div className="space-y-6">
+        {/* SELECTOR DE MODO DE ORGANIZACIÓN (RAMAS vs FLUJO TOPBAR) */}
+        <div className="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 max-w-xl">
+          <button
+            type="button"
+            onClick={() => setTreeViewMode('branches')}
+            className={`flex-1 py-2 px-3.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+              treeViewMode === 'branches'
+                ? 'bg-white dark:bg-zinc-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <GitBranch className="w-4 h-4" />
+            <span>Vista Ramas Jerárquicas</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTreeViewMode('topbar-flow')}
+            className={`flex-1 py-2 px-3.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+              treeViewMode === 'topbar-flow'
+                ? 'bg-white dark:bg-zinc-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <ArrowUpDown className="w-4 h-4" />
+            <span>Orden Secuencial TopBar ({topLevelNodes.length})</span>
+          </button>
+        </div>
+
+        {/* 1. MODO RAMAS TREE VIEW */}
+        {treeViewMode === 'branches' && (
+        <div className="space-y-6 animate-fade-in">
 
           {/* 1. RAMAS DE CADA GRUPO */}
           {menuGroups.map((grp, grpIndex) => {
@@ -1565,28 +1842,28 @@ export default function VisualLayoutBuilder({
                   {collapsedBranches['__root__'] ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
 
-                <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                   <Layout className="w-4 h-4" />
                 </div>
 
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
-                      Nivel Superior
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+                      Botones Directos en Barra
                     </span>
                     <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">
-                      Opciones Sueltas (Botones Directos en Barra)
+                      Opciones Sueltas (Reordenables como Ramas en TopBar)
                     </h4>
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-zinc-400">
-                    {ungroupedItems.length} {ungroupedItems.length === 1 ? 'opción directa' : 'opciones directas'}
+                    {ungroupedItems.length} {ungroupedItems.length === 1 ? 'opción directa configurada' : 'opciones directas configuradas'}
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-mono font-bold text-slate-400 dark:text-zinc-500 hidden sm:inline">
-                  Arrastra aquí para desagrupar
+                  Arrastra aquí para desagrupar o reordenar
                 </span>
                 <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-xs font-black">
                   {ungroupedItems.length}
@@ -1638,13 +1915,13 @@ export default function VisualLayoutBuilder({
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div 
                             className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-slate-400 hover:text-blue-600 dark:text-zinc-500 dark:hover:text-blue-400 rounded-md transition"
-                            title="Arrastrar para reordenar o asignar a un grupo"
+                            title="Arrastrar para reordenar secuencialmente o asignar a un grupo"
                           >
                             <GripVertical className="w-4 h-4" />
                           </div>
 
                           <span className="w-5 h-5 rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[10px] font-black flex items-center justify-center shrink-0">
-                            {itemIdx + 1}
+                            #{itemIdx + 1}
                           </span>
 
                           <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
@@ -1658,6 +1935,9 @@ export default function VisualLayoutBuilder({
                               </span>
                               <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400">
                                 key: {item.key}
+                              </span>
+                              <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+                                TopBar Pos: #{item.order || itemIdx + 1}
                               </span>
 
                               {/* Badge de Rol de Acceso */}
@@ -1702,22 +1982,31 @@ export default function VisualLayoutBuilder({
 
                           <button
                             type="button"
-                            onClick={() => handleMoveUpInBranch(item.id, undefined)}
+                            onClick={() => handleMoveLooseItemUp(item.id)}
                             disabled={itemIdx === 0}
                             className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-500 disabled:opacity-20 cursor-pointer"
-                            title="Subir en esta rama"
+                            title="Subir opción entre las sueltas"
                           >
                             <MoveUp className="w-3.5 h-3.5" />
                           </button>
 
                           <button
                             type="button"
-                            onClick={() => handleMoveDownInBranch(item.id, undefined)}
+                            onClick={() => handleMoveLooseItemDown(item.id)}
                             disabled={itemIdx === ungroupedItems.length - 1}
                             className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-500 disabled:opacity-20 cursor-pointer"
-                            title="Bajar en esta rama"
+                            title="Bajar opción entre las sueltas"
                           >
                             <MoveDown className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleMoveTopLevelNodeUp(item.id, 'item')}
+                            className="p-1 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-950/40 text-purple-600 dark:text-purple-400 cursor-pointer"
+                            title="Adelantar en la barra TopBar general (mover antes de ramas)"
+                          >
+                            <ArrowUpDown className="w-3.5 h-3.5" />
                           </button>
 
                           <button
@@ -1760,6 +2049,185 @@ export default function VisualLayoutBuilder({
           </div>
 
         </div>
+        )}
+
+        {/* 2. MODO FLUJO SECUENCIAL TOPBAR (ORDEN EXACTO EN BARRA SUPERIOR) */}
+        {treeViewMode === 'topbar-flow' && (
+          <div className="space-y-6 animate-fade-in">
+            {/* MINI PREVIEW DE LA BARRA TOPBAR */}
+            <div className="bg-slate-900 text-white p-4 rounded-2xl border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span className="font-bold flex items-center gap-1.5">
+                  <Layout className="w-3.5 h-3.5 text-blue-400" />
+                  Vista Previa en Vivo del Orden TopBar (De Izquierda a Derecha)
+                </span>
+                <span className="text-[11px] font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-300">
+                  Total Nodos: {topLevelNodes.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 overflow-x-auto py-2 px-1 scrollbar-thin">
+                {topLevelNodes.map((node, idx) => (
+                  <div
+                    key={node.id}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold shrink-0 transition ${
+                      node.type === 'group'
+                        ? 'bg-purple-950/80 border-purple-700/80 text-purple-200'
+                        : 'bg-blue-950/80 border-blue-700/80 text-blue-200'
+                    }`}
+                  >
+                    <span className="w-4 h-4 rounded-full bg-white/10 text-[10px] flex items-center justify-center font-mono">
+                      {idx + 1}
+                    </span>
+                    <span>{renderMenuIcon(node.iconName, node.key, 'w-3.5 h-3.5')}</span>
+                    <span>{node.name}</span>
+                    {node.type === 'group' ? (
+                      <ChevronDown className="w-3 h-3 opacity-60" />
+                    ) : (
+                      <span className="text-[9px] px-1 rounded bg-blue-500/30 text-blue-300 font-mono">DIRECTO</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* LISTA ORDENABLE DE NODOS TOPBAR CON DRAG & DROP Y BOTONES */}
+            <div className="space-y-3">
+              {topLevelNodes.map((node, idx) => {
+                const isBeingDragged = draggedTopLevelId === node.id;
+                const isDragOver = dragOverTopLevelId === node.id;
+
+                return (
+                  <div
+                    key={node.id}
+                    draggable
+                    onDragStart={(e) => handleTopLevelDragStart(e, node.id)}
+                    onDragOver={(e) => handleTopLevelDragOver(e, node.id)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleTopLevelDrop(e, node.id)}
+                    className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all duration-150 ${
+                      isBeingDragged
+                        ? 'opacity-40 scale-98 border-blue-500 bg-blue-50 dark:bg-zinc-800'
+                        : isDragOver
+                        ? 'border-blue-500 bg-blue-50/90 dark:bg-blue-950/60 ring-2 ring-blue-500/50 shadow-lg'
+                        : node.type === 'group'
+                        ? 'bg-purple-50/40 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900/60'
+                        : 'bg-white dark:bg-zinc-850 border-slate-200 dark:border-zinc-800 shadow-xs'
+                    }`}
+                  >
+                    {/* Left: Drag Handle, Number, Icon, Title, Sub-items preview */}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className="cursor-grab active:cursor-grabbing p-1.5 text-slate-400 hover:text-blue-600 dark:text-zinc-500 dark:hover:text-blue-400 rounded-lg transition"
+                        title="Arrastrar para reordenar en la barra"
+                      >
+                        <GripVertical className="w-5 h-5" />
+                      </div>
+
+                      <div className="w-8 h-8 rounded-xl bg-slate-900 dark:bg-zinc-800 text-white font-mono font-black text-xs flex items-center justify-center shrink-0 shadow-xs">
+                        #{idx + 1}
+                      </div>
+
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                        node.type === 'group'
+                          ? 'bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400'
+                          : 'bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400'
+                      }`}>
+                        {renderMenuIcon(node.iconName, node.key, 'w-4 h-4')}
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                            node.type === 'group'
+                              ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300'
+                              : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
+                          }`}>
+                            {node.type === 'group' ? '📁 RAMA / DESPLEGABLE' : '🔘 BOTÓN DIRECTO / SUELTO'}
+                          </span>
+                          <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                            {node.name}
+                          </h4>
+                          {node.key && (
+                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400">
+                              key: {node.key}
+                            </span>
+                          )}
+                        </div>
+
+                        {node.type === 'group' ? (
+                          <div className="text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-2 mt-1 flex-wrap">
+                            <span>Contiene {node.subItems?.length || 0} subopciones:</span>
+                            {node.subItems?.slice(0, 4).map(sub => (
+                              <span key={sub.id} className="text-[10px] px-1.5 py-0.5 rounded bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 font-semibold text-slate-700 dark:text-zinc-300">
+                                {sub.label}
+                              </span>
+                            ))}
+                            {(node.subItems?.length || 0) > 4 && (
+                              <span className="text-[10px] text-slate-400">
+                                +{(node.subItems?.length || 0) - 4} más...
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+                            Aparece como acceso directo individual en la barra superior.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right: Actions */}
+                    <div className="flex items-center justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-zinc-800">
+                      <button
+                        type="button"
+                        onClick={() => handleMoveTopLevelNodeUp(node.id, node.type)}
+                        disabled={idx === 0}
+                        className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 disabled:opacity-20 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                        title="Mover a la izquierda en TopBar"
+                      >
+                        <MoveUp className="w-3.5 h-3.5" />
+                        <span>Mover Antes</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleMoveTopLevelNodeDown(node.id, node.type)}
+                        disabled={idx === topLevelNodes.length - 1}
+                        className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 disabled:opacity-20 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                        title="Mover a la derecha en TopBar"
+                      >
+                        <MoveDown className="w-3.5 h-3.5" />
+                        <span>Mover Después</span>
+                      </button>
+
+                      {node.type === 'group' && node.group && (
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditGroup(node.group!)}
+                          className="p-2 rounded-xl bg-purple-100 dark:bg-purple-950/60 hover:bg-purple-200 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300 transition cursor-pointer"
+                          title="Editar rama"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      {node.type === 'item' && node.item && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingItem({ ...node.item! })}
+                          className="p-2 rounded-xl bg-blue-100 dark:bg-blue-950/60 hover:bg-blue-200 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 transition cursor-pointer"
+                          title="Editar opción directa"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* MODAL PARA CREAR NUEVO GRUPO / RAMA */}

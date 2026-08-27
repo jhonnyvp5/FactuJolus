@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS public.empresas_inquilinos (
     fecha_expiracion DATE DEFAULT (CURRENT_DATE + INTERVAL '1 year'),
     limite_comprobantes INT DEFAULT 100,
     limite_usuarios INT DEFAULT 3,
+    feature_permissions JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -440,6 +441,9 @@ CREATE TABLE IF NOT EXISTS public.platform_settings (
 -- =========================================================================
 -- ALTER MIGRATIONS PARA AGREGAR COLUMNAS DE EMPRESA A TABLAS EXISTENTES
 -- =========================================================================
+ALTER TABLE IF EXISTS public.empresas_inquilinos ADD COLUMN IF NOT EXISTS feature_permissions JSONB;
+ALTER TABLE IF EXISTS public.empresas_inquilinos ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
 ALTER TABLE IF EXISTS public.clientes ADD COLUMN IF NOT EXISTS usuario_correo TEXT;
 ALTER TABLE IF EXISTS public.clientes ADD COLUMN IF NOT EXISTS empresa_ruc VARCHAR(20);
 ALTER TABLE IF EXISTS public.clientes ADD COLUMN IF NOT EXISTS empresa_nombre TEXT;
