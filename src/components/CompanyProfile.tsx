@@ -4,7 +4,7 @@ import {
   User, Image, FileText, CheckCircle, ShieldCheck, Landmark, Palette, Check, Settings, 
   Building2, Shield, Calendar, Layers, Users, FileCheck2, AlertCircle, AlertTriangle, 
   Sparkles, CheckCircle2, DollarSign, TrendingUp, Clock, HelpCircle, ArrowRight, PieChart as PieIcon,
-  ChevronDown, ChevronUp, X, Upload, RotateCcw, Sliders, Eye, RefreshCw
+  ChevronDown, ChevronUp, X, Upload, RotateCcw, Sliders, Eye, RefreshCw, Infinity as InfinityIcon
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import RideViewer from './RideViewer';
@@ -405,16 +405,18 @@ export default function CompanyProfile({
     ? Math.max(empresaTenant.comprobantesEmitidos, totalFacturas + totalNotasCredito + totalProformas)
     : (totalFacturas + totalNotasCredito + totalProformas);
 
-  const limiteComprobantes = empresaTenant?.limiteComprobantes || 100;
-  const cupoDisponible = Math.max(0, limiteComprobantes - totalComprobantesEmitidos);
-  const percentComprobantes = Math.min(100, Math.round((totalComprobantesEmitidos / limiteComprobantes) * 100));
+  const isUnlimitedVouchers = !empresaTenant?.limiteComprobantes || empresaTenant.limiteComprobantes <= 0 || empresaTenant.limiteComprobantes >= 99999;
+  const limiteComprobantes = isUnlimitedVouchers ? 0 : (empresaTenant?.limiteComprobantes || 100);
+  const cupoDisponible = isUnlimitedVouchers ? 999999 : Math.max(0, limiteComprobantes - totalComprobantesEmitidos);
+  const percentComprobantes = isUnlimitedVouchers ? 0 : Math.min(100, Math.round((totalComprobantesEmitidos / (limiteComprobantes || 1)) * 100));
 
   const totalUsuariosRegistrados = companyUsers.length > 0 
     ? companyUsers.length 
     : (empresaTenant?.usuariosRegistrados || 1);
 
-  const limiteUsuarios = empresaTenant?.limiteUsuarios || 3;
-  const percentUsuarios = Math.min(100, Math.round((totalUsuariosRegistrados / limiteUsuarios) * 100));
+  const isUnlimitedUsers = !empresaTenant?.limiteUsuarios || empresaTenant.limiteUsuarios <= 0 || empresaTenant.limiteUsuarios >= 99999;
+  const limiteUsuarios = isUnlimitedUsers ? 0 : (empresaTenant?.limiteUsuarios || 3);
+  const percentUsuarios = isUnlimitedUsers ? 0 : Math.min(100, Math.round((totalUsuariosRegistrados / (limiteUsuarios || 1)) * 100));
 
   // Determine expiration and status
   const fechaExpiracion = empresaTenant?.fechaExpiracion || '2027-07-30';
@@ -1138,7 +1140,11 @@ export default function CompanyProfile({
 
             <div className="flex items-center gap-2.5 self-end sm:self-center">
               <span className="text-xs font-semibold text-gray-600 dark:text-zinc-300 bg-white dark:bg-zinc-800 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-zinc-700 shadow-xs">
-                Consumo: <strong className="font-bold text-indigo-600 dark:text-indigo-400">{totalComprobantesEmitidos}</strong> de <strong className="font-bold">{limiteComprobantes}</strong> ({percentComprobantes}%)
+                {isUnlimitedVouchers ? (
+                  <span>Consumo: <strong className="font-bold text-indigo-600 dark:text-indigo-400">{totalComprobantesEmitidos}</strong> emitidos / <strong className="font-bold text-emerald-600 dark:text-emerald-400">Ilimitado (Sin tope)</strong></span>
+                ) : (
+                  <span>Consumo: <strong className="font-bold text-indigo-600 dark:text-indigo-400">{totalComprobantesEmitidos}</strong> de <strong className="font-bold">{limiteComprobantes}</strong> ({percentComprobantes}%)</span>
+                )}
               </span>
               <button 
                 type="button" 
@@ -1221,10 +1227,10 @@ export default function CompanyProfile({
                     Emitidos
                   </span>
                   <span className="text-xl font-black text-gray-900 dark:text-white font-mono mt-0.5">
-                    {totalComprobantesEmitidos}/{limiteComprobantes}
+                    {isUnlimitedVouchers ? `${totalComprobantesEmitidos}/∞` : `${totalComprobantesEmitidos}/${limiteComprobantes}`}
                   </span>
                   <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">
-                    {cupoDisponible} disp.
+                    {isUnlimitedVouchers ? 'Ilimitado' : `${cupoDisponible} disp.`}
                   </span>
                 </div>
               </div>
@@ -1337,11 +1343,18 @@ export default function CompanyProfile({
                   </span>
                 </div>
                 <div className="my-2">
-                  <div className="text-2xl font-black text-gray-900 dark:text-white font-mono">
-                    {cupoDisponible}
+                  <div className="text-2xl font-black text-gray-900 dark:text-white font-mono flex items-center gap-1.5">
+                    {isUnlimitedVouchers ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <InfinityIcon className="w-7 h-7" />
+                        <span className="text-base font-bold">Ilimitado</span>
+                      </span>
+                    ) : (
+                      cupoDisponible
+                    )}
                   </div>
                   <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400 mt-0.5">
-                    Comprobantes habilitados
+                    {isUnlimitedVouchers ? 'Sin límite de comprobantes' : 'Comprobantes habilitados'}
                   </div>
                 </div>
                 <p className="text-[10px] text-gray-400 dark:text-zinc-500">
@@ -1381,7 +1394,11 @@ export default function CompanyProfile({
 
             <div className="flex items-center gap-2.5 self-end sm:self-center">
               <span className="text-xs font-semibold text-gray-600 dark:text-zinc-300 bg-gray-50 dark:bg-zinc-800 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-zinc-700 shadow-xs">
-                Ocupación: <strong className="font-bold text-indigo-600 dark:text-indigo-400">{totalUsuariosRegistrados}</strong> de <strong className="font-bold">{limiteUsuarios}</strong> ({percentUsuarios}%)
+                {isUnlimitedUsers ? (
+                  <span>Ocupación: <strong className="font-bold text-indigo-600 dark:text-indigo-400">{totalUsuariosRegistrados}</strong> usuarios / <strong className="font-bold text-emerald-600 dark:text-emerald-400">Ilimitado (Sin tope)</strong></span>
+                ) : (
+                  <span>Ocupación: <strong className="font-bold text-indigo-600 dark:text-indigo-400">{totalUsuariosRegistrados}</strong> de <strong className="font-bold">{limiteUsuarios}</strong> ({percentUsuarios}%)</span>
+                )}
               </span>
               <button 
                 type="button" 

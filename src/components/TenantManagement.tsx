@@ -143,8 +143,8 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
     const isInfUsuarios = !emp.limiteUsuarios || emp.limiteUsuarios <= 0 || emp.limiteUsuarios >= 99999;
     setIsFacturasIlimitadas(isInfFacturas);
     setIsUsuariosIlimitados(isInfUsuarios);
-    setLimiteComprobantes(isInfFacturas ? 0 : emp.limiteComprobantes);
-    setLimiteUsuarios(isInfUsuarios ? 0 : emp.limiteUsuarios);
+    setLimiteComprobantes(isInfFacturas ? 100 : (emp.limiteComprobantes || 100));
+    setLimiteUsuarios(isInfUsuarios ? 3 : (emp.limiteUsuarios || 3));
 
     setFormError(null);
     setFormSuccess(null);

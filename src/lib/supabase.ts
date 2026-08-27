@@ -2035,8 +2035,12 @@ export async function fetchEmpresasFromSupabase(): Promise<EmpresaTenant[]> {
       estado: (item.estado || 'ACTIVO').toUpperCase() as any,
       fechaInicio: item.fecha_inicio || item.fechaInicio || new Date().toISOString().split('T')[0],
       fechaExpiracion: item.fecha_expiracion || item.fechaExpiracion || new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().split('T')[0],
-      limiteComprobantes: Number(item.limite_comprobantes ?? item.limiteComprobantes ?? 100),
-      limiteUsuarios: Number(item.limite_usuarios ?? item.limiteUsuarios ?? 3),
+      limiteComprobantes: item.limite_comprobantes !== undefined && item.limite_comprobantes !== null
+        ? Number(item.limite_comprobantes)
+        : (item.limiteComprobantes !== undefined && item.limiteComprobantes !== null ? Number(item.limiteComprobantes) : 100),
+      limiteUsuarios: item.limite_usuarios !== undefined && item.limite_usuarios !== null
+        ? Number(item.limite_usuarios)
+        : (item.limiteUsuarios !== undefined && item.limiteUsuarios !== null ? Number(item.limiteUsuarios) : 3),
       comprobantesEmitidos: Number(item.comprobantes_emitidos || 0),
       usuariosRegistrados: Number(item.usuarios_registrados || 0),
       featurePermissions: typeof item.feature_permissions === 'string' 
@@ -2086,8 +2090,12 @@ export async function getEmpresaByRuc(ruc: string): Promise<EmpresaTenant | null
       estado: (data.estado || 'ACTIVO').toUpperCase() as any,
       fechaInicio: data.fecha_inicio || data.fechaInicio || new Date().toISOString().split('T')[0],
       fechaExpiracion: data.fecha_expiracion || data.fechaExpiracion || new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().split('T')[0],
-      limiteComprobantes: Number(data.limite_comprobantes ?? data.limiteComprobantes ?? 100),
-      limiteUsuarios: Number(data.limite_usuarios ?? data.limiteUsuarios ?? 3),
+      limiteComprobantes: data.limite_comprobantes !== undefined && data.limite_comprobantes !== null
+        ? Number(data.limite_comprobantes)
+        : (data.limiteComprobantes !== undefined && data.limiteComprobantes !== null ? Number(data.limiteComprobantes) : 100),
+      limiteUsuarios: data.limite_usuarios !== undefined && data.limite_usuarios !== null
+        ? Number(data.limite_usuarios)
+        : (data.limiteUsuarios !== undefined && data.limiteUsuarios !== null ? Number(data.limiteUsuarios) : 3),
       comprobantesEmitidos: totalDocs,
       usuariosRegistrados: totalUsers,
       featurePermissions: typeof data.feature_permissions === 'string' 
@@ -2156,8 +2164,12 @@ export async function saveEmpresaToSupabase(empresa: EmpresaTenant): Promise<{ s
     estado: empresa.estado || 'ACTIVO',
     fecha_inicio: empresa.fechaInicio || new Date().toISOString().split('T')[0],
     fecha_expiracion: empresa.fechaExpiracion,
-    limite_comprobantes: Number(empresa.limiteComprobantes) || 100,
-    limite_usuarios: Number(empresa.limiteUsuarios) || 3,
+    limite_comprobantes: empresa.limiteComprobantes !== undefined && empresa.limiteComprobantes !== null
+      ? Number(empresa.limiteComprobantes)
+      : 100,
+    limite_usuarios: empresa.limiteUsuarios !== undefined && empresa.limiteUsuarios !== null
+      ? Number(empresa.limiteUsuarios)
+      : 3,
     feature_permissions: empresa.featurePermissions || null
   };
 
