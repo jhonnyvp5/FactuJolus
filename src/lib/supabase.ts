@@ -1043,6 +1043,69 @@ export async function fetchEmitterConfigFromSupabase(ruc?: string, userEmail?: s
   }
 }
 
+/**
+ * Fast bulk fetch for all emitter configs in a single query
+ */
+export async function fetchAllEmitterConfigsFromSupabase(): Promise<Record<string, EmitterConfig>> {
+  const supabase = getSupabase();
+  if (!supabase) return {};
+
+  try {
+    const { data, error } = await supabase.from('emisor_config').select('*');
+    if (error || !data) return {};
+
+    const map: Record<string, EmitterConfig> = {};
+    for (const row of data) {
+      const ruc = row.ruc || row.empresa_ruc;
+      if (ruc) {
+        map[ruc] = {
+          ruc: ruc,
+          razonSocial: row.razon_social || '',
+          nombreComercial: row.nombre_comercial || '',
+          dirMatriz: row.direccion_matriz || row.dir_matriz || '',
+          dirEstablecimiento: row.direccion_establecimiento || row.dir_establecimiento || '',
+          codEstablecimiento: (row.establecimiento || '001').toString().trim().padStart(3, '0'),
+          codPuntoEmision: (row.punto_emision || '001').toString().trim().padStart(3, '0'),
+          obligadoContabilidad: row.lleva_contabilidad === 'SI' || row.lleva_contabilidad === true,
+          contribuyenteEspecial: row.contribuyente_especial || '',
+          agenteRetencion: row.agente_retencion || '',
+          regimen: row.regimen || row.regimen_tributario || '',
+          ambiente: row.ambiente || '',
+          logoB64: row.logo_b64 || row.logo_url || '',
+          ultimoSecuencialFactura: row.ultimo_secuencial_factura || '',
+          p12Nombre: row.p12_nombre || '',
+          p12FirmaB64: row.p12_firma_b64 || '',
+          p12Password: row.p12_password || row.clave_firma || '',
+          p12ValidoDesde: row.p12_valido_desde || row.valido_desde || row.p12ValidoDesde || '',
+          p12ValidoHasta: row.p12_valido_hasta || row.valido_hasta || row.p12ValidoHasta || '',
+          validoDesde: row.p12_valido_desde || row.valido_desde || row.p12ValidoDesde || '',
+          validoHasta: row.p12_valido_hasta || row.valido_hasta || row.p12ValidoHasta || '',
+          p12Subject: row.p12_subject || row.p12Subject || '',
+          p12Issuer: row.p12_issuer || row.p12Issuer || '',
+          p12SerialNumber: row.p12_serial_number || row.p12SerialNumber || '',
+          correo: row.correo || '',
+          telefono: row.telefono || row.telefono_emisor || '',
+          smtpHost: row.smtp_host || '',
+          smtpPort: row.smtp_port || '',
+          smtpUser: row.smtp_user || '',
+          smtpPass: row.smtp_pass || '',
+          smtpFrom: row.smtp_from || '',
+          isDemoMode: row.is_demo_mode !== undefined && row.is_demo_mode !== null
+            ? (row.is_demo_mode === true || row.is_demo_mode === 'true' || row.is_demo_mode === 'SI' || row.is_demo_mode === 1)
+            : (row.isDemoMode !== undefined && row.isDemoMode !== null ? Boolean(row.isDemoMode) : true),
+          usuarioCorreo: row.usuario_correo,
+          empresaRuc: row.empresa_ruc || row.ruc,
+          empresaNombre: row.empresa_nombre || row.razon_social
+        };
+      }
+    }
+    return map;
+  } catch (e) {
+    console.warn('Aviso cargando todas las configuraciones de emisor:', e);
+    return {};
+  }
+}
+
 export async function saveEmitterConfigToSupabase(config: EmitterConfig, userEmail?: string): Promise<boolean> {
   const targetRuc = config.ruc ? config.ruc.trim() : '';
   if (!targetRuc) {

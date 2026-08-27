@@ -611,45 +611,28 @@ export default function ClientCatalog({
     <div className="space-y-6">
       
       {/* ========================================================================= */}
-      {/* 1. HERO HEADER BANNER WITH STATS & ACTION BUTTONS */}
+      {/* 1. HERO HEADER BANNER WITH STATS & ACTION BUTTONS (COMPACT LIGHT THEME) */}
       {/* ========================================================================= */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-indigo-900/40 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none -ml-20 -mb-20" />
-
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-          <div className="space-y-2 max-w-2xl">
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl p-4 sm:p-5 shadow-xs border border-gray-200/80 dark:border-zinc-800 relative">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-gray-100 dark:border-zinc-800/80">
+          <div className="space-y-0.5">
             <div className="flex items-center gap-2">
-              <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
-                Directorio SRI Ecuador
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60">
+                Directorio SRI
               </span>
-              <span className="text-xs text-slate-400 font-medium">
-                Gestión Centralizada de Clientes & Compradores
+              <span className="text-[11px] text-gray-500 dark:text-zinc-400 font-medium">
+                Gestión de Clientes & Compradores
               </span>
             </div>
 
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-3">
-              <Users className="w-8 h-8 text-indigo-400" />
+            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
+              <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               <span>Catálogo de Clientes</span>
             </h2>
-
-            <p className="text-sm text-slate-300">
-              Registra, organiza y sincroniza los receptores de facturas electrónicas, notas de crédito y retenciones con validación de RUC y cédula ecuatoriana.
-            </p>
           </div>
 
           {/* QUICK ACTION BUTTONS */}
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
-            {/* DOWNLOAD EXCEL TEMPLATE */}
-            <button
-              onClick={downloadTemplate}
-              className="px-4 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 border border-slate-700 text-xs font-bold transition flex items-center gap-2 backdrop-blur-xs cursor-pointer shadow-xs"
-              title="Descargar plantilla oficial en formato .xlsx"
-            >
-              <Download className="w-4 h-4 text-emerald-400" />
-              <span>Plantilla Excel (.xlsx)</span>
-            </button>
-
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             {/* BULK UPLOAD BUTTON */}
             <button
               onClick={() => {
@@ -659,10 +642,10 @@ export default function ClientCatalog({
                 setBulkFileName('');
                 setIsBulkModalOpen(true);
               }}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black transition flex items-center gap-2 shadow-lg shadow-emerald-950/40 cursor-pointer"
-              title="Importar múltiples clientes desde archivo Excel"
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+              title="Importar múltiples clientes desde archivo Excel (.xlsx)"
             >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-100" />
               <span>Carga Masiva (Excel)</span>
             </button>
 
@@ -670,55 +653,55 @@ export default function ClientCatalog({
             {allowDemo && (
               <button
                 onClick={loadDefaults}
-                className="px-3.5 py-2.5 rounded-xl bg-indigo-950/70 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-700/60 text-xs font-bold transition flex items-center gap-1.5 backdrop-blur-xs cursor-pointer"
-                title="Cargar clientes de prueba para demostración"
+                className="px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60 text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                title="Cargar clientes de prueba para demostración (Exclusivo SuperAdmin)"
               >
-                <Sparkles className="w-4 h-4 text-amber-400" />
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                 <span>Cargar Clientes Demo</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* QUICK STATS COUNTERS */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-slate-800/80">
-          <div className="p-3 bg-slate-850/60 rounded-2xl border border-slate-800 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold">
-              <Users className="w-5 h-5" />
+        {/* QUICK STATS COUNTERS (COMPACT) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3">
+          <div className="p-2.5 bg-slate-50 dark:bg-zinc-800/60 rounded-xl border border-slate-100 dark:border-zinc-800 flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold shrink-0">
+              <Users className="w-4 h-4" />
             </div>
-            <div>
-              <span className="text-[11px] text-slate-400 font-medium block">Total Clientes</span>
-              <span className="text-lg font-black text-white">{totalCount}</span>
-            </div>
-          </div>
-
-          <div className="p-3 bg-slate-850/60 rounded-2xl border border-slate-800 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold">
-              <CreditCard className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-[11px] text-slate-400 font-medium block">Con RUC (Empresas)</span>
-              <span className="text-lg font-black text-white">{rucCount}</span>
+            <div className="min-w-0">
+              <span className="text-[10px] text-gray-500 dark:text-zinc-400 font-medium block truncate">Total Clientes</span>
+              <span className="text-base font-black text-gray-900 dark:text-white leading-tight">{totalCount}</span>
             </div>
           </div>
 
-          <div className="p-3 bg-slate-850/60 rounded-2xl border border-slate-800 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
-              <UserPlus className="w-5 h-5" />
+          <div className="p-2.5 bg-slate-50 dark:bg-zinc-800/60 rounded-xl border border-slate-100 dark:border-zinc-800 flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold shrink-0">
+              <CreditCard className="w-4 h-4" />
             </div>
-            <div>
-              <span className="text-[11px] text-slate-400 font-medium block">Con Cédula</span>
-              <span className="text-lg font-black text-white">{cedulaCount}</span>
+            <div className="min-w-0">
+              <span className="text-[10px] text-gray-500 dark:text-zinc-400 font-medium block truncate">Con RUC (Empresas)</span>
+              <span className="text-base font-black text-gray-900 dark:text-white leading-tight">{rucCount}</span>
             </div>
           </div>
 
-          <div className="p-3 bg-slate-850/60 rounded-2xl border border-slate-800 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold">
-              <MapPin className="w-5 h-5" />
+          <div className="p-2.5 bg-slate-50 dark:bg-zinc-800/60 rounded-xl border border-slate-100 dark:border-zinc-800 flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold shrink-0">
+              <UserPlus className="w-4 h-4" />
             </div>
-            <div>
-              <span className="text-[11px] text-slate-400 font-medium block">Pasaporte / Otros</span>
-              <span className="text-lg font-black text-white">{pasaporteCount}</span>
+            <div className="min-w-0">
+              <span className="text-[10px] text-gray-500 dark:text-zinc-400 font-medium block truncate">Con Cédula</span>
+              <span className="text-base font-black text-gray-900 dark:text-white leading-tight">{cedulaCount}</span>
+            </div>
+          </div>
+
+          <div className="p-2.5 bg-slate-50 dark:bg-zinc-800/60 rounded-xl border border-slate-100 dark:border-zinc-800 flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold shrink-0">
+              <MapPin className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] text-gray-500 dark:text-zinc-400 font-medium block truncate">Pasaporte / Otros</span>
+              <span className="text-base font-black text-gray-900 dark:text-white leading-tight">{pasaporteCount}</span>
             </div>
           </div>
         </div>

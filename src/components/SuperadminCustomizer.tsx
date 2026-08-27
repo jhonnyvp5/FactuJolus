@@ -294,18 +294,18 @@ export default function SuperadminCustomizer({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Dynamic View Mode: 'compact' (Master-Detail / Pestañas Compactas) vs 'accordion' (Acordeón Tradicional)
-  const [viewMode, setViewMode] = useState<'compact' | 'accordion'>(() => {
+  // Dynamic View Mode: 'compact' (Panel Lateral) vs 'tabs' (Pestañas Superiores) vs 'accordion' (Acordeón Tradicional)
+  const [viewMode, setViewMode] = useState<'compact' | 'tabs' | 'accordion'>(() => {
     const saved = localStorage.getItem('customizer_view_mode');
-    return (saved === 'accordion' || saved === 'compact') ? saved : 'compact';
+    return (saved === 'accordion' || saved === 'compact' || saved === 'tabs') ? saved : 'compact';
   });
 
   const [activeCompactTab, setActiveCompactTab] = useState<SubTab>(() => {
     return (allowedSubTabsList && allowedSubTabsList.length > 0) ? allowedSubTabsList[0] : 'layout';
   });
 
-  const handleToggleViewMode = (mode?: 'compact' | 'accordion') => {
-    const nextMode = mode || (viewMode === 'compact' ? 'accordion' : 'compact');
+  const handleToggleViewMode = (mode?: 'compact' | 'tabs' | 'accordion') => {
+    const nextMode = mode || (viewMode === 'compact' ? 'tabs' : viewMode === 'tabs' ? 'accordion' : 'compact');
     setViewMode(nextMode);
     localStorage.setItem('customizer_view_mode', nextMode);
   };
@@ -481,71 +481,41 @@ export default function SuperadminCustomizer({
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* ========================================================================= */}
-      {/* HEADER BANNER */}
+      {/* HEADER BANNER (COMPACT LIGHT THEME) */}
       {/* ========================================================================= */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-indigo-900/50 relative">
-        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
-        </div>
-
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="space-y-2 max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-bold uppercase tracking-wider backdrop-blur-xs">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Personalizador Global de Marca & Plataforma • SRI Ecuador</span>
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl p-4 sm:p-5 shadow-xs border border-slate-200 dark:border-zinc-800">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-100 dark:border-zinc-800">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60 flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+                <span>Marca & Plataforma • SRI</span>
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium">
+                Personalizador Multi-Inquilino
+              </span>
             </div>
 
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-3">
-              <Sparkles className="w-7 h-7 text-amber-400" />
+            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-amber-500" />
               <span>Diseño & Plataforma Multi-Inquilino</span>
             </h2>
-
-            <p className="text-sm text-slate-300">
-              Modifica la identidad visual, menús jerárquicos estilo Hostinger, colores, diccionarios de textos, banners, 
-              slides publicitarios de bienvenida y credenciales SRI en modo acordeón organizado.
-            </p>
           </div>
 
-          {/* ACTION BUTTONS (EXPORT / IMPORT / RESET / VIEW MODE TOGGLE) */}
+          {/* ACTION BUTTONS (EXPORT / IMPORT / RESET) */}
           <div className="flex flex-wrap items-center gap-2 shrink-0">
-            {/* DYNAMIC DESIGN TOGGLE BUTTON (COMPACT VS ACCORDION) */}
-            <button
-              onClick={() => handleToggleViewMode()}
-              className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-md ${
-                viewMode === 'compact'
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white ring-2 ring-emerald-400/40 hover:from-emerald-600 hover:to-teal-700'
-                  : 'bg-indigo-600 hover:bg-indigo-700 text-white ring-2 ring-indigo-400/30'
-              }`}
-              title="Cambiar dinámica del diseño entre Vista Compacta (Panel Lateral) y Vista Acordeón"
-            >
-              {viewMode === 'compact' ? (
-                <>
-                  <LayoutPanelLeft className="w-4 h-4 text-emerald-200" />
-                  <span>Diseño: Vista Compacta</span>
-                  <span className="px-1.5 py-0.5 rounded-full bg-white/20 text-[9px] uppercase font-mono">Activo</span>
-                </>
-              ) : (
-                <>
-                  <LayoutGrid className="w-4 h-4 text-indigo-200" />
-                  <span>Diseño: Vista Acordeón</span>
-                  <span className="px-1.5 py-0.5 rounded-full bg-white/20 text-[9px] uppercase font-mono">Activo</span>
-                </>
-              )}
-            </button>
-
             <button
               onClick={handleExport}
               disabled={isExporting}
-              className="px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 border border-slate-700 text-xs font-bold transition flex items-center gap-1.5 backdrop-blur-xs cursor-pointer shadow-xs"
+              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
               title="Exportar configuración a archivo JSON"
             >
-              <Download className="w-3.5 h-3.5 text-indigo-400" />
+              <Download className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
               <span>Exportar JSON</span>
             </button>
 
-            <label className="px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 border border-slate-700 text-xs font-bold transition flex items-center gap-1.5 backdrop-blur-xs cursor-pointer shadow-xs">
-              <Upload className="w-3.5 h-3.5 text-emerald-400" />
+            <label className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs">
+              <Upload className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>Importar JSON</span>
               <input
                 ref={fileInputRef}
@@ -558,7 +528,7 @@ export default function SuperadminCustomizer({
 
             <button
               onClick={handleReset}
-              className="px-3.5 py-2 rounded-xl bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/50 text-xs font-bold transition flex items-center gap-1.5 backdrop-blur-xs cursor-pointer shadow-xs"
+              className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
               title="Restablecer valores originales"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -567,51 +537,48 @@ export default function SuperadminCustomizer({
           </div>
         </div>
 
-        {/* QUICK JUMP DROPDOWN SELECTOR (GROUPED) */}
-        <div className="mt-6 pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-20">
-          <div className="flex items-center gap-3">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">
+        {/* QUICK JUMP DROPDOWN SELECTOR & STATS (COMPACT) */}
+        <div className="pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 whitespace-nowrap">
               Acceso Rápido:
             </span>
 
             {/* GROUPED DROPDOWN MENU */}
             <div className="relative" ref={dropdownRef}>
               {visibleSubTabDefs.length <= 1 ? (
-                /* INQUILINO CON SOLO 1 OPCIÓN HABILITADA: BOTÓN BLOQUEADO / READ-ONLY */
-                <button
-                  type="button"
-                  disabled
-                  className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2.5 bg-slate-800/70 text-slate-300 border border-slate-700/70 cursor-not-allowed select-none shadow-sm opacity-90"
-                  title="Sección única asignada a tu perfil de inquilino"
+                /* INQUILINO CON SOLO 1 OPCIÓN HABILITADA */
+                <div
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 shadow-2xs"
                 >
-                  <FolderTree className="w-4 h-4 text-amber-400" />
+                  <FolderTree className="w-3.5 h-3.5 text-amber-500" />
                   <span>1. Estructura & Menú (Organizador de Ramas)</span>
-                  <Lock className="w-3.5 h-3.5 text-slate-400 ml-1" />
-                </button>
+                  <Lock className="w-3 h-3 text-slate-400 ml-1" />
+                </div>
               ) : (
-                /* SUPERADMIN O MÚLTIPLES OPCIONES HABILITADAS: DESPLEGABLE INTERACTIVO */
+                /* SUPERADMIN O MÚLTIPLES OPCIONES HABILITADAS */
                 <>
                   <button
                     type="button"
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2.5 cursor-pointer border shadow-md backdrop-blur-md ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer border shadow-2xs ${
                       isDropdownOpen
-                        ? 'bg-indigo-600 text-white border-indigo-400 ring-2 ring-indigo-400/40'
-                        : 'bg-slate-800 hover:bg-slate-750 text-slate-100 border-slate-600 hover:border-slate-500'
+                        ? 'bg-indigo-600 text-white border-indigo-500'
+                        : 'bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 border-slate-200 dark:border-zinc-700 hover:bg-slate-200 dark:hover:bg-zinc-700'
                     }`}
                   >
-                    <Layers className="w-4 h-4 text-indigo-400" />
-                    <span>Explorar Secciones ({visibleSubTabDefs.length} disponibles)</span>
-                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180 text-white' : 'text-slate-300'}`} />
+                    <Layers className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>Explorar Secciones ({visibleSubTabDefs.length})</span>
+                    <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180 text-white' : 'text-slate-400'}`} />
                   </button>
 
                   {/* DROPDOWN POPOVER */}
                   {isDropdownOpen && (
-                    <div className="absolute top-full mt-2 left-0 z-50 w-[320px] sm:w-[440px] bg-slate-900/98 backdrop-blur-2xl border border-slate-700 rounded-2xl shadow-2xl p-2.5 max-h-[75vh] overflow-y-auto ring-1 ring-white/15 divide-y divide-slate-800">
-                      <div className="px-3 py-2 text-[10px] font-black text-indigo-300 uppercase tracking-wider flex items-center justify-between">
+                    <div className="absolute top-full mt-2 left-0 z-50 w-[300px] sm:w-[420px] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl p-2 max-h-[70vh] overflow-y-auto divide-y divide-slate-100 dark:divide-zinc-800">
+                      <div className="px-3 py-1.5 text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center justify-between">
                         <span>SECCIONES DE PERSONALIZACIÓN</span>
-                        <span className="bg-indigo-950 px-2 py-0.5 rounded-full border border-indigo-700/60 text-[9.5px] text-indigo-300 font-bold">
-                          {visibleSubTabDefs.length} disponibles
+                        <span className="bg-indigo-50 dark:bg-indigo-950 px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800 text-[9px] text-indigo-700 dark:text-indigo-300 font-bold">
+                          {visibleSubTabDefs.length} activas
                         </span>
                       </div>
 
@@ -619,11 +586,11 @@ export default function SuperadminCustomizer({
                       {Array.from(new Set(visibleSubTabDefs.map(d => d.category))).map(category => {
                         const categoryItems = visibleSubTabDefs.filter(d => d.category === category);
                         return (
-                          <div key={category} className="py-2 first:pt-1 last:pb-1">
-                            <div className="px-3 py-1 text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">
+                          <div key={category} className="py-1.5 first:pt-1 last:pb-1">
+                            <div className="px-3 py-0.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">
                               {category}
                             </div>
-                            <div className="space-y-1 mt-1">
+                            <div className="space-y-0.5 mt-1">
                               {categoryItems.map(subTab => {
                                 const IconComp = subTab.icon;
                                 const isOpen = openAccordions.has(subTab.key);
@@ -633,40 +600,32 @@ export default function SuperadminCustomizer({
                                     key={subTab.key}
                                     type="button"
                                     onClick={() => handleQuickJump(subTab.key)}
-                                    className={`w-full p-2.5 rounded-xl text-left transition flex items-center justify-between gap-3 cursor-pointer group ${
+                                    className={`w-full p-2 rounded-xl text-left transition flex items-center justify-between gap-2.5 cursor-pointer group ${
                                       isOpen
-                                        ? 'bg-indigo-600/30 text-white border border-indigo-500/40'
-                                        : 'hover:bg-slate-800/80 text-slate-300 hover:text-white border border-transparent'
+                                        ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-900 dark:text-white border border-indigo-200 dark:border-indigo-800/60'
+                                        : 'hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300'
                                     }`}
                                   >
-                                    <div className="flex items-center gap-2.5 min-w-0">
-                                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                                        isOpen ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 group-hover:text-white'
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
+                                        isOpen ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'
                                       }`}>
-                                        <IconComp className={`w-3.5 h-3.5 ${isOpen ? 'text-white' : subTab.iconColor}`} />
+                                        <IconComp className={`w-3 h-3 ${isOpen ? 'text-white' : subTab.iconColor}`} />
                                       </div>
                                       <div className="min-w-0">
                                         <div className="text-xs font-bold truncate">
                                           {subTab.name}
                                         </div>
-                                        <div className="text-[10px] text-slate-400 truncate">
-                                          {subTab.description}
-                                        </div>
                                       </div>
                                     </div>
 
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                      <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-extrabold uppercase ${
-                                        isOpen
-                                          ? 'bg-indigo-500/30 text-indigo-200 border border-indigo-400/40'
-                                          : 'bg-slate-800 text-slate-400 group-hover:text-slate-200'
-                                      }`}>
-                                        {subTab.badge}
-                                      </span>
-                                      {isOpen && (
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                      )}
-                                    </div>
+                                    <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-extrabold uppercase shrink-0 ${
+                                      isOpen
+                                        ? 'bg-indigo-600 text-white'
+                                        : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'
+                                    }`}>
+                                      {subTab.badge}
+                                    </span>
                                   </button>
                                 );
                               })}
@@ -684,13 +643,13 @@ export default function SuperadminCustomizer({
           {/* PERMISSION BADGE & EXPAND / COLLAPSE BUTTONS */}
           <div className="flex items-center gap-2 flex-wrap">
             {isSuperadmin ? (
-              <span className="px-2.5 py-1 rounded-lg bg-indigo-950/70 border border-indigo-500/30 text-indigo-300 text-[10.5px] font-bold flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 text-[10.5px] font-bold flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
                 <span>Superadmin (14 Secciones)</span>
               </span>
             ) : (
-              <span className="px-2.5 py-1 rounded-lg bg-amber-950/70 border border-amber-500/30 text-amber-300 text-[10.5px] font-bold flex items-center gap-1.5">
-                <FolderTree className="w-3.5 h-3.5 text-amber-400" />
+              <span className="px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/50 text-amber-700 dark:text-amber-300 text-[10.5px] font-bold flex items-center gap-1">
+                <FolderTree className="w-3.5 h-3.5 text-amber-600" />
                 <span>
                   {visibleSubTabDefs.length === 1 
                     ? 'Inquilino: Estructura & Menú' 
@@ -698,24 +657,6 @@ export default function SuperadminCustomizer({
                 </span>
               </span>
             )}
-
-            <button
-              onClick={expandAll}
-              className="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
-              title="Abrir todos los acordeones"
-            >
-              <Maximize2 className="w-3 h-3 text-indigo-400" />
-              <span>Expandir</span>
-            </button>
-
-            <button
-              onClick={collapseAll}
-              className="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
-              title="Cerrar todos los acordeones"
-            >
-              <Minimize2 className="w-3 h-3 text-slate-400" />
-              <span>Colapsar</span>
-            </button>
           </div>
         </div>
       </div>
@@ -754,7 +695,19 @@ export default function SuperadminCustomizer({
               title="Vista Compacta con panel lateral y área amplia"
             >
               <LayoutPanelLeft className="w-3.5 h-3.5" />
-              <span>Compacta</span>
+              <span>Panel Lateral</span>
+            </button>
+            <button
+              onClick={() => handleToggleViewMode('tabs')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'tabs'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+              title="Vista con Pestañas Superiores"
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>Pestañas</span>
             </button>
             <button
               onClick={() => handleToggleViewMode('accordion')}
@@ -932,7 +885,122 @@ export default function SuperadminCustomizer({
       )}
 
       {/* ========================================================================= */}
-      {/* VISTA 2: 14 COMPLETE ACCORDION SECTIONS (MODO ACORDEÓN VERTICAL) */}
+      {/* VISTA 2: TOP TABS VIEW (PESTAÑAS SUPERIORES COMPACTAS) */}
+      {/* ========================================================================= */}
+      {viewMode === 'tabs' && (
+        <div className="space-y-5">
+          {/* HORIZONTAL TABS NAVIGATION BAR */}
+          <div className="bg-white dark:bg-zinc-900 p-2.5 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-x-auto">
+            <div className="flex items-center gap-2 min-w-max pb-1 sm:pb-0">
+              {visibleSubTabDefs.filter(def => isSubTabVisible(def.key)).map((def) => {
+                const isActive = activeCompactTab === def.key;
+                const IconComp = def.icon;
+
+                return (
+                  <button
+                    key={def.key}
+                    type="button"
+                    onClick={() => setActiveCompactTab(def.key)}
+                    className={`px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2.5 cursor-pointer whitespace-nowrap ${
+                      isActive
+                        ? `${def.activeBg} text-white shadow-md ring-2 ring-indigo-400/30 scale-[1.02]`
+                        : 'bg-slate-50 dark:bg-zinc-800/80 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200/60 dark:border-zinc-700/60'
+                    }`}
+                  >
+                    <IconComp className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : def.iconColor}`} />
+                    <span>{def.shortName || def.name}</span>
+                    <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-zinc-400'
+                    }`}>
+                      {def.badge}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ACTIVE TAB CANVAS */}
+          {(() => {
+            const currentDef = visibleSubTabDefs.find(d => d.key === activeCompactTab) || visibleSubTabDefs[0];
+            if (!currentDef) return null;
+            const IconComp = currentDef.icon;
+            const currentIndex = visibleSubTabDefs.findIndex(d => d.key === activeCompactTab);
+            const prevDef = currentIndex > 0 ? visibleSubTabDefs[currentIndex - 1] : null;
+            const nextDef = currentIndex < visibleSubTabDefs.length - 1 ? visibleSubTabDefs[currentIndex + 1] : null;
+
+            return (
+              <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800 shadow-lg overflow-hidden animate-fade-in">
+                {/* CANVAS HEADER */}
+                <div className="p-5 sm:p-6 bg-gradient-to-r from-slate-900 via-slate-850 to-indigo-950 text-white border-b border-indigo-900/40 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${currentDef.activeBg} text-white shadow-md ring-2 ring-white/10`}>
+                      <IconComp className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/10 text-indigo-200 border border-white/10">
+                          {currentDef.category}
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          {currentDef.badge}
+                        </span>
+                      </div>
+                      <h3 className="text-lg sm:text-xl font-black tracking-tight text-white mt-1">
+                        {currentDef.name}
+                      </h3>
+                      <p className="text-xs text-slate-300 mt-0.5">
+                        {currentDef.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* PREV / NEXT NAV BUTTONS */}
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                    <button
+                      type="button"
+                      disabled={!prevDef}
+                      onClick={() => prevDef && setActiveCompactTab(prevDef.key)}
+                      className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-1 transition ${
+                        prevDef 
+                          ? 'bg-white/10 hover:bg-white/20 border-white/20 text-white cursor-pointer' 
+                          : 'bg-white/5 border-white/5 text-slate-500 cursor-not-allowed opacity-50'
+                      }`}
+                      title={prevDef ? `Anterior: ${prevDef.shortName}` : ''}
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      <span className="hidden md:inline">Anterior</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={!nextDef}
+                      onClick={() => nextDef && setActiveCompactTab(nextDef.key)}
+                      className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-1 transition ${
+                        nextDef 
+                          ? 'bg-indigo-600 hover:bg-indigo-500 border-indigo-400/40 text-white cursor-pointer shadow-md' 
+                          : 'bg-white/5 border-white/5 text-slate-500 cursor-not-allowed opacity-50'
+                      }`}
+                      title={nextDef ? `Siguiente: ${nextDef.shortName}` : ''}
+                    >
+                      <span className="hidden md:inline">Siguiente</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* ACTIVE SUBTAB COMPONENT */}
+                <div className="p-5 sm:p-7 bg-slate-50/40 dark:bg-zinc-900/50">
+                  {renderSubTabComponent(currentDef.key)}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* VISTA 3: 14 COMPLETE ACCORDION SECTIONS (MODO ACORDEÓN VERTICAL) */}
       {/* ========================================================================= */}
       {viewMode === 'accordion' && (
         <div className="space-y-4">

@@ -243,6 +243,8 @@ export default function VisualLayoutBuilder({
 
   // Drag & Drop State
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [draggedGroupId, setDraggedGroupId] = useState<string | null>(null);
+  const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
   const [dragOverTarget, setDragOverTarget] = useState<{
     type: 'item' | 'group' | 'root';
     id: string;
@@ -335,6 +337,47 @@ export default function VisualLayoutBuilder({
     });
     updateSettings({ menuGroups: newGroups });
     modalAlert.success('Rama Reordenada', `La rama "${temp.name}" se movió hacia abajo.`);
+  };
+
+  // Group Drag & Drop Handlers (Reorder whole branches via Drag & Drop)
+  const handleGroupDragStart = (e: React.DragEvent, groupId: string) => {
+    e.dataTransfer.setData('group/id', groupId);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedGroupId(groupId);
+  };
+
+  const handleGroupDragOver = (e: React.DragEvent, targetGroupId: string) => {
+    if (!draggedGroupId || draggedGroupId === targetGroupId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverGroupId !== targetGroupId) {
+      setDragOverGroupId(targetGroupId);
+    }
+  };
+
+  const handleGroupDrop = (e: React.DragEvent, targetGroupId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const sourceGroupId = draggedGroupId || e.dataTransfer.getData('group/id');
+    setDraggedGroupId(null);
+    setDragOverGroupId(null);
+
+    if (!sourceGroupId || sourceGroupId === targetGroupId) return;
+
+    const sourceIdx = menuGroups.findIndex(g => g.id === sourceGroupId);
+    const targetIdx = menuGroups.findIndex(g => g.id === targetGroupId);
+    if (sourceIdx === -1 || targetIdx === -1) return;
+
+    const newGroups = [...menuGroups];
+    const [movedGroup] = newGroups.splice(sourceIdx, 1);
+    newGroups.splice(targetIdx, 0, movedGroup);
+    newGroups.forEach((g, idx) => {
+      g.order = idx + 1;
+    });
+
+    updateSettings({ menuGroups: newGroups });
+    modalAlert.success('Rama Reordenada', `La rama "${movedGroup.name}" fue reubicada en la posición ${targetIdx + 1}.`);
   };
 
   // Start editing a branch/group - Auto close all other branches!
@@ -1206,25 +1249,53 @@ export default function VisualLayoutBuilder({
 
             const isCollapsed = !!collapsedBranches[grp.id];
             const isGroupDropTarget = dragOverTarget?.type === 'group' && dragOverTarget?.id === grp.id;
+            const isBeingDragged = draggedGroupId === grp.id;
+            const isOverGroupDrop = dragOverGroupId === grp.id;
 
             return (
               <div 
                 key={grp.id}
-                onDragOver={(e) => handleDragOver(e, 'group', grp.id, grp.id)}
+                onDragOver={(e) => {
+                  if (draggedGroupId) {
+                    handleGroupDragOver(e, grp.id);
+                  } else {
+                    handleDragOver(e, 'group', grp.id, grp.id);
+                  }
+                }}
                 onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, 'group', grp.id)}
+                onDrop={(e) => {
+                  if (draggedGroupId) {
+                    handleGroupDrop(e, grp.id);
+                  } else {
+                    handleDrop(e, 'group', grp.id);
+                  }
+                }}
                 className={`rounded-2xl border transition-all duration-200 ${
-                  isGroupDropTarget 
+                  isBeingDragged
+                    ? 'opacity-40 scale-98 border-purple-400 bg-purple-50/50 dark:bg-purple-950/20'
+                    : isOverGroupDrop
+                    ? 'border-purple-600 bg-purple-100/70 dark:bg-purple-950/80 ring-4 ring-purple-500/40 shadow-xl'
+                    : isGroupDropTarget 
                     ? 'border-purple-500 bg-purple-50/60 dark:bg-purple-950/40 ring-2 ring-purple-500/40' 
                     : 'border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/40'
                 }`}
               >
-                {/* RAMA PRINCIPAL (ENCABEZADO DE GRUPO) */}
-                <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3 bg-white dark:bg-zinc-850 rounded-2xl border-b border-slate-100 dark:border-zinc-800/80">
+                {/* RAMA PRINCIPAL (ENCABEZADO DE GRUPO CON DRAG & DROP) */}
+                <div 
+                  draggable
+                  onDragStart={(e) => handleGroupDragStart(e, grp.id)}
+                  onDragEnd={() => { setDraggedGroupId(null); setDragOverGroupId(null); }}
+                  className="p-3.5 sm:p-4 flex items-center justify-between gap-3 bg-white dark:bg-zinc-850 rounded-2xl border-b border-slate-100 dark:border-zinc-800/80 cursor-grab active:cursor-grabbing select-none"
+                  title="Arrastra para reordenar la posición de toda esta rama en el Menú TopBar"
+                >
                   <div className="flex items-center gap-3 min-w-0">
+                    <div className="p-1 -ml-1 text-slate-400 hover:text-purple-600 dark:text-zinc-500 dark:hover:text-purple-400 rounded-md transition shrink-0">
+                      <GripVertical className="w-4 h-4" />
+                    </div>
+
                     <button
                       type="button"
-                      onClick={() => toggleBranch(grp.id)}
+                      onClick={(e) => { e.stopPropagation(); toggleBranch(grp.id); }}
                       className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-500 dark:text-zinc-400 transition cursor-pointer"
                       title={isCollapsed ? 'Expandir rama (cierra las demás)' : 'Colapsar rama'}
                     >
@@ -1245,7 +1316,7 @@ export default function VisualLayoutBuilder({
                         </h4>
                       </div>
                       <div className="text-[11px] text-slate-500 dark:text-zinc-400">
-                        {groupSubItems.length} {groupSubItems.length === 1 ? 'subrama visible' : 'subramas visibles'}
+                        {groupSubItems.length} {groupSubItems.length === 1 ? 'subrama visible' : 'subramas visibles'} • Menú TopBar
                       </div>
                     </div>
                   </div>

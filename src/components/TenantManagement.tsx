@@ -17,7 +17,8 @@ import {
   fetchCreditNotesFromSupabase,
   fetchRetencionesFromSupabase,
   fetchProformasFromSupabase,
-  fetchEmitterConfigFromSupabase
+  fetchEmitterConfigFromSupabase,
+  fetchAllEmitterConfigsFromSupabase
 } from '../lib/supabase';
 import { logActivity } from '../lib/activityLogger';
 import { modalAlert } from '../context/ModalAlertContext';
@@ -58,7 +59,9 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
     return d.toISOString().split('T')[0];
   });
   const [limiteComprobantes, setLimiteComprobantes] = useState<number>(100);
+  const [isFacturasIlimitadas, setIsFacturasIlimitadas] = useState<boolean>(false);
   const [limiteUsuarios, setLimiteUsuarios] = useState<number>(3);
+  const [isUsuariosIlimitados, setIsUsuariosIlimitados] = useState<boolean>(false);
   const [isVigenciaIlimitada, setIsVigenciaIlimitada] = useState<boolean>(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
@@ -70,15 +73,19 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
   }, []);
 
   const loadData = async () => {
-    setLoading(true);
+    if (empresas.length === 0) {
+      setLoading(true);
+    }
     try {
-      const [empList, userList, invList, cnList, retList, profList] = await Promise.all([
+      // Parallel fast batch fetch (including all emitter configs in 1 query)
+      const [empList, userList, invList, cnList, retList, profList, allConfigsMap] = await Promise.all([
         fetchEmpresasFromSupabase(),
         fetchUsersFromSupabase(undefined, 'SUPERADMIN'),
         fetchInvoicesFromSupabase(undefined, 'SUPERADMIN'),
         fetchCreditNotesFromSupabase(undefined, 'SUPERADMIN'),
         fetchRetencionesFromSupabase(undefined, 'SUPERADMIN'),
-        fetchProformasFromSupabase(undefined, 'SUPERADMIN')
+        fetchProformasFromSupabase(undefined, 'SUPERADMIN'),
+        fetchAllEmitterConfigsFromSupabase()
       ]);
       
       const loadedEmps = empList || [];
@@ -88,22 +95,7 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
       if (cnList) setCreditNotes(cnList);
       if (retList) setRetenciones(retList);
       if (profList) setProformas(profList);
-
-      // Load emitter configurations for each company from Supabase
-      const configsMap: Record<string, EmitterConfig> = {};
-      await Promise.all(
-        loadedEmps.map(async (emp) => {
-          try {
-            const cfg = await fetchEmitterConfigFromSupabase(emp.ruc, emp.adminCorreo, 'SUPERADMIN', emp.ruc);
-            if (cfg) {
-              configsMap[emp.ruc] = cfg;
-            }
-          } catch (e) {
-            console.warn(`Aviso cargando config emisor para RUC ${emp.ruc}:`, e);
-          }
-        })
-      );
-      setEmitterConfigs(configsMap);
+      if (allConfigsMap) setEmitterConfigs(allConfigsMap);
 
     } catch (e) {
       console.warn('Error cargando inquilinos y comprobantes:', e);
@@ -124,6 +116,8 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
     d.setFullYear(d.getFullYear() + 1);
     setFechaExpiracion(d.toISOString().split('T')[0]);
     setIsVigenciaIlimitada(false);
+    setIsFacturasIlimitadas(false);
+    setIsUsuariosIlimitados(false);
     setLimiteComprobantes(100);
     setLimiteUsuarios(3);
     setFormError(null);
@@ -144,8 +138,14 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
                   emp.fechaExpiracion === '2099-12-31' || 
                   (Boolean(emp.fechaExpiracion) && emp.fechaExpiracion.startsWith('2099'));
     setIsVigenciaIlimitada(Boolean(isInf));
-    setLimiteComprobantes(emp.limiteComprobantes);
-    setLimiteUsuarios(emp.limiteUsuarios);
+
+    const isInfFacturas = !emp.limiteComprobantes || emp.limiteComprobantes <= 0 || emp.limiteComprobantes >= 99999;
+    const isInfUsuarios = !emp.limiteUsuarios || emp.limiteUsuarios <= 0 || emp.limiteUsuarios >= 99999;
+    setIsFacturasIlimitadas(isInfFacturas);
+    setIsUsuariosIlimitados(isInfUsuarios);
+    setLimiteComprobantes(isInfFacturas ? 0 : emp.limiteComprobantes);
+    setLimiteUsuarios(isInfUsuarios ? 0 : emp.limiteUsuarios);
+
     setFormError(null);
     setFormSuccess(null);
     setIsModalOpen(true);
@@ -173,6 +173,8 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
     }
 
     const finalFechaExp = isVigenciaIlimitada ? '2099-12-31' : fechaExpiracion;
+    const finalLimiteComprobantes = isFacturasIlimitadas ? 0 : (Number(limiteComprobantes) || 100);
+    const finalLimiteUsuarios = isUsuariosIlimitados ? 0 : (Number(limiteUsuarios) || 3);
 
     const payload: EmpresaTenant = {
       id: editingEmpresa?.id || `emp-${cleanRuc}`,
@@ -183,8 +185,8 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
       estado,
       fechaInicio,
       fechaExpiracion: finalFechaExp,
-      limiteComprobantes: Number(limiteComprobantes) || 100,
-      limiteUsuarios: Number(limiteUsuarios) || 3
+      limiteComprobantes: finalLimiteComprobantes,
+      limiteUsuarios: finalLimiteUsuarios
     };
 
     const res = await saveEmpresaToSupabase(payload);
@@ -193,7 +195,7 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
       logActivity(
         currentUser,
         editingEmpresa ? 'Actualización de Empresa/Inquilino' : 'Creación de Empresa/Inquilino',
-        `Empresa "${payload.razonSocial}" (RUC: ${payload.ruc}) configurada. Límite: ${payload.limiteComprobantes} facturas, ${payload.limiteUsuarios} usuarios. Expira: ${payload.fechaExpiracion}`
+        `Empresa "${payload.razonSocial}" (RUC: ${payload.ruc}) configurada. Límite: ${payload.limiteComprobantes === 0 ? 'Ilimitado' : payload.limiteComprobantes} facturas, ${payload.limiteUsuarios === 0 ? 'Ilimitado' : payload.limiteUsuarios} usuarios. Expira: ${payload.fechaExpiracion}`
       );
       await loadData();
       setTimeout(() => {
@@ -437,8 +439,9 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
 
             const calculatedVouchersCount = empInvoices.length + empCreditNotes.length + empRetenciones.length + empProformas.length;
             const vouchersUsed = Math.max(emp.comprobantesEmitidos || 0, calculatedVouchersCount);
-            const vouchersLimit = emp.limiteComprobantes || 100;
-            const vouchersPercent = Math.min(100, Math.round((vouchersUsed / vouchersLimit) * 100));
+            const isUnlimitedVouchers = !emp.limiteComprobantes || emp.limiteComprobantes <= 0 || emp.limiteComprobantes >= 99999;
+            const vouchersLimit = isUnlimitedVouchers ? 0 : (emp.limiteComprobantes || 100);
+            const vouchersPercent = isUnlimitedVouchers ? 0 : Math.min(100, Math.round((vouchersUsed / vouchersLimit) * 100));
 
             // 2. Dynamic calculation of Users for this company
             const empUsers = portalUsers.filter(u => 
@@ -446,8 +449,9 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
               (u.correo && emp.adminCorreo && u.correo.toLowerCase() === emp.adminCorreo.toLowerCase())
             );
             const usersUsed = Math.max(empUsers.length, 1);
-            const usersLimit = emp.limiteUsuarios || 3;
-            const usersPercent = Math.min(100, Math.round((usersUsed / usersLimit) * 100));
+            const isUnlimitedUsers = !emp.limiteUsuarios || emp.limiteUsuarios <= 0 || emp.limiteUsuarios >= 99999;
+            const usersLimit = isUnlimitedUsers ? 0 : (emp.limiteUsuarios || 3);
+            const usersPercent = isUnlimitedUsers ? 0 : Math.min(100, Math.round((usersUsed / usersLimit) * 100));
 
             // Config emisor for accordion
             const configEmisor = emitterConfigs[emp.ruc];
@@ -579,20 +583,31 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
                           <FileCheck2 className="w-3.5 h-3.5 text-blue-500" />
                           Comprobantes Emitidos
                         </span>
-                        <span className="font-bold text-gray-900 dark:text-white font-mono">
-                          {vouchersUsed} / {vouchersLimit} <span className="text-gray-500 font-sans font-normal">({vouchersPercent}%)</span>
-                        </span>
+                        {isUnlimitedVouchers ? (
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono flex items-center gap-1">
+                            <span>{vouchersUsed}</span>
+                            <span className="text-gray-400 font-sans">/</span>
+                            <Infinity className="w-3.5 h-3.5" />
+                            <span className="text-[11px] font-sans font-semibold text-emerald-600 dark:text-emerald-400">Ilimitado</span>
+                          </span>
+                        ) : (
+                          <span className="font-bold text-gray-900 dark:text-white font-mono">
+                            {vouchersUsed} / {vouchersLimit} <span className="text-gray-500 font-sans font-normal">({vouchersPercent}%)</span>
+                          </span>
+                        )}
                       </div>
                       <div className="w-full bg-gray-100 dark:bg-zinc-800 h-2.5 rounded-full overflow-hidden">
                         <div 
                           className={`h-full transition-all duration-500 rounded-full ${
-                            vouchersPercent >= 90 
+                            isUnlimitedVouchers
+                              ? 'bg-emerald-500'
+                              : vouchersPercent >= 90 
                               ? 'bg-rose-500' 
                               : vouchersPercent >= 70 
                               ? 'bg-amber-500' 
                               : 'bg-blue-600'
                           }`}
-                          style={{ width: `${Math.max(vouchersPercent, vouchersUsed > 0 ? 4 : 0)}%` }}
+                          style={{ width: isUnlimitedVouchers ? `${Math.min(100, Math.max(8, vouchersUsed > 0 ? 100 : 0))}%` : `${Math.max(vouchersPercent, vouchersUsed > 0 ? 4 : 0)}%` }}
                         />
                       </div>
                     </div>
@@ -603,14 +618,25 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
                           <Users className="w-3.5 h-3.5 text-indigo-500" />
                           Usuarios del Equipo
                         </span>
-                        <span className="font-bold text-gray-900 dark:text-white font-mono">
-                          {usersUsed} / {usersLimit} <span className="text-gray-500 font-sans font-normal">({usersPercent}%)</span>
-                        </span>
+                        {isUnlimitedUsers ? (
+                          <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono flex items-center gap-1">
+                            <span>{usersUsed}</span>
+                            <span className="text-gray-400 font-sans">/</span>
+                            <Infinity className="w-3.5 h-3.5" />
+                            <span className="text-[11px] font-sans font-semibold text-indigo-600 dark:text-indigo-400">Ilimitado</span>
+                          </span>
+                        ) : (
+                          <span className="font-bold text-gray-900 dark:text-white font-mono">
+                            {usersUsed} / {usersLimit} <span className="text-gray-500 font-sans font-normal">({usersPercent}%)</span>
+                          </span>
+                        )}
                       </div>
                       <div className="w-full bg-gray-100 dark:bg-zinc-800 h-2.5 rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-indigo-500 transition-all duration-500 rounded-full"
-                          style={{ width: `${Math.max(usersPercent, usersUsed > 0 ? 4 : 0)}%` }}
+                          className={`h-full transition-all duration-500 rounded-full ${
+                            isUnlimitedUsers ? 'bg-indigo-500' : 'bg-indigo-500'
+                          }`}
+                          style={{ width: isUnlimitedUsers ? `${Math.min(100, Math.max(8, usersUsed > 0 ? 100 : 0))}%` : `${Math.max(usersPercent, usersUsed > 0 ? 4 : 0)}%` }}
                         />
                       </div>
                     </div>
@@ -934,32 +960,74 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Límite de Facturas / NC
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={100000}
-                      value={limiteComprobantes}
-                      onChange={(e) => setLimiteComprobantes(parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm text-gray-900 dark:text-white font-semibold"
-                    />
+                  {/* LIMIT FACTURAS / NC */}
+                  <div className="p-3 bg-white dark:bg-zinc-850 border border-blue-100 dark:border-blue-900/40 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                        Límite de Facturas / NC
+                      </label>
+                      <label className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={isFacturasIlimitadas}
+                          onChange={(e) => setIsFacturasIlimitadas(e.target.checked)}
+                          className="w-3.5 h-3.5 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer"
+                        />
+                        <span>Ilimitado</span>
+                      </label>
+                    </div>
+
+                    {isFacturasIlimitadas ? (
+                      <div className="w-full px-3 py-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-lg text-xs font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5 h-[38px]">
+                        <Infinity className="w-4 h-4 shrink-0 text-emerald-600" />
+                        <span>Emisión Ilimitada (Sin tope)</span>
+                      </div>
+                    ) : (
+                      <input
+                        type="number"
+                        min={1}
+                        max={100000}
+                        value={limiteComprobantes}
+                        onChange={(e) => setLimiteComprobantes(parseInt(e.target.value) || 0)}
+                        placeholder="Ej: 100"
+                        className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm text-gray-900 dark:text-white font-semibold"
+                      />
+                    )}
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Límite de Usuarios Invitados
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={limiteUsuarios}
-                      onChange={(e) => setLimiteUsuarios(parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm text-gray-900 dark:text-white font-semibold"
-                    />
+                  {/* LIMIT USUARIOS */}
+                  <div className="p-3 bg-white dark:bg-zinc-850 border border-blue-100 dark:border-blue-900/40 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                        Límite de Usuarios Invitados
+                      </label>
+                      <label className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={isUsuariosIlimitados}
+                          onChange={(e) => setIsUsuariosIlimitados(e.target.checked)}
+                          className="w-3.5 h-3.5 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer"
+                        />
+                        <span>Ilimitado</span>
+                      </label>
+                    </div>
+
+                    {isUsuariosIlimitados ? (
+                      <div className="w-full px-3 py-2 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 rounded-lg text-xs font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 h-[38px]">
+                        <Infinity className="w-4 h-4 shrink-0 text-indigo-600" />
+                        <span>Usuarios Ilimitados (Sin tope)</span>
+                      </div>
+                    ) : (
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={limiteUsuarios}
+                        onChange={(e) => setLimiteUsuarios(parseInt(e.target.value) || 0)}
+                        placeholder="Ej: 3"
+                        className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm text-gray-900 dark:text-white font-semibold"
+                      />
+                    )}
                   </div>
                 </div>
 
