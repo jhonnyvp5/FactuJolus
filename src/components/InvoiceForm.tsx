@@ -29,6 +29,7 @@ import { generateInvoiceXml } from '../sri/xmlTemplates';
 import { uploadInvoiceXmlSinFirmar, uploadInvoiceXmlFirmado } from '../lib/supabase';
 import { apiSignXml, apiSendSri, apiAuthorizeSri, apiSendInvoiceEmail } from '../lib/apiClient';
 import { modalAlert } from '../context/ModalAlertContext';
+import { usePlatformSettings } from '../context/PlatformSettingsContext';
 import RideViewer from './RideViewer';
 
 interface InvoiceFormProps {
@@ -58,6 +59,9 @@ export default function InvoiceForm({
   onDeleteInvoice,
   onOpenRide
 }: InvoiceFormProps) {
+  const { settings } = usePlatformSettings();
+  const allowDemo = Boolean(settings?.modules?.showDemoButtons || settings?.allowDemoData);
+
   // Tab State
   const [viewTab, setViewTab] = useState<'emit' | 'history'>('emit');
   const [searchQuery, setSearchQuery] = useState('');
@@ -986,13 +990,15 @@ export default function InvoiceForm({
             >
               Consumidor Final
             </button>
-            <button
-              type="button"
-              onClick={handleLoadDemoClient}
-              className="px-3 py-1.5 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-medium hover:bg-gray-200 transition"
-            >
-              Cargar Cliente Demo
-            </button>
+            {allowDemo && (
+              <button
+                type="button"
+                onClick={handleLoadDemoClient}
+                className="px-3 py-1.5 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-medium hover:bg-gray-200 transition"
+              >
+                Cargar Cliente Demo
+              </button>
+            )}
           </div>
         </div>
 
@@ -1131,13 +1137,15 @@ export default function InvoiceForm({
             Detalles de Factura (Servicios o Productos)
           </h3>
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleLoadDemoProducts}
-              className="px-3 py-1.5 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-400 rounded-lg text-xs font-medium hover:bg-indigo-100 transition flex items-center gap-1"
-            >
-              <Sparkles className="w-3.5 h-3.5" /> Agregar Productos de Prueba
-            </button>
+            {allowDemo && (
+              <button
+                type="button"
+                onClick={handleLoadDemoProducts}
+                className="px-3 py-1.5 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-400 rounded-lg text-xs font-medium hover:bg-indigo-100 transition flex items-center gap-1"
+              >
+                <Sparkles className="w-3.5 h-3.5" /> Agregar Productos de Prueba
+              </button>
+            )}
             <button
               type="button"
               onClick={addDetailRow}

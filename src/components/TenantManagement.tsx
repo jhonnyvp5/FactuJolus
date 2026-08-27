@@ -4,7 +4,7 @@ import {
   AlertCircle, CheckCircle2, Search, X, Check, ArrowRight, ShieldCheck, Lock,
   ChevronDown, ChevronUp, FileText, Receipt, Percent, KeyRound, ExternalLink,
   Briefcase, Mail, MapPin, Globe, Sparkles, Phone, FileSpreadsheet,
-  ArrowUpDown, ArrowUp, ArrowDown, Sliders, ToggleRight
+  ArrowUpDown, ArrowUp, ArrowDown, Sliders, ToggleRight, Infinity, XCircle
 } from 'lucide-react';
 import { EmpresaTenant, PortalUser, Invoice, CreditNote, Proforma, Retention, EmitterConfig } from '../types';
 import TenantPermissionsModal from './tenants/TenantPermissionsModal';
@@ -59,6 +59,7 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
   });
   const [limiteComprobantes, setLimiteComprobantes] = useState<number>(100);
   const [limiteUsuarios, setLimiteUsuarios] = useState<number>(3);
+  const [isVigenciaIlimitada, setIsVigenciaIlimitada] = useState<boolean>(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
@@ -88,12 +89,12 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
       if (retList) setRetenciones(retList);
       if (profList) setProformas(profList);
 
-      // Load emitter configurations for each company
+      // Load emitter configurations for each company from Supabase
       const configsMap: Record<string, EmitterConfig> = {};
       await Promise.all(
         loadedEmps.map(async (emp) => {
           try {
-            const cfg = await fetchEmitterConfigFromSupabase(emp.adminCorreo, emp.ruc);
+            const cfg = await fetchEmitterConfigFromSupabase(emp.ruc, emp.adminCorreo, 'SUPERADMIN', emp.ruc);
             if (cfg) {
               configsMap[emp.ruc] = cfg;
             }
@@ -122,6 +123,7 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
     const d = new Date();
     d.setFullYear(d.getFullYear() + 1);
     setFechaExpiracion(d.toISOString().split('T')[0]);
+    setIsVigenciaIlimitada(false);
     setLimiteComprobantes(100);
     setLimiteUsuarios(3);
     setFormError(null);
@@ -138,6 +140,10 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
     setEstado(emp.estado);
     setFechaInicio(emp.fechaInicio);
     setFechaExpiracion(emp.fechaExpiracion);
+    const isInf = emp.fechaExpiracion === 'ilimitada' || 
+                  emp.fechaExpiracion === '2099-12-31' || 
+                  (Boolean(emp.fechaExpiracion) && emp.fechaExpiracion.startsWith('2099'));
+    setIsVigenciaIlimitada(Boolean(isInf));
     setLimiteComprobantes(emp.limiteComprobantes);
     setLimiteUsuarios(emp.limiteUsuarios);
     setFormError(null);
@@ -166,6 +172,8 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
       return;
     }
 
+    const finalFechaExp = isVigenciaIlimitada ? '2099-12-31' : fechaExpiracion;
+
     const payload: EmpresaTenant = {
       id: editingEmpresa?.id || `emp-${cleanRuc}`,
       ruc: cleanRuc,
@@ -174,7 +182,7 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
       adminCorreo: adminCorreo.trim().toLowerCase(),
       estado,
       fechaInicio,
-      fechaExpiracion,
+      fechaExpiracion: finalFechaExp,
       limiteComprobantes: Number(limiteComprobantes) || 100,
       limiteUsuarios: Number(limiteUsuarios) || 3
     };
@@ -403,7 +411,10 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {filteredEmpresas.map((emp) => {
-            const isExpired = new Date(emp.fechaExpiracion) < new Date();
+            const isUnlimited = emp.fechaExpiracion === 'ilimitada' || 
+                                emp.fechaExpiracion === '2099-12-31' || 
+                                (Boolean(emp.fechaExpiracion) && emp.fechaExpiracion.startsWith('2099'));
+            const isExpired = !isUnlimited && Boolean(emp.fechaExpiracion && new Date(emp.fechaExpiracion) < new Date());
             const isExpanded = expandedEmpresaId === emp.id;
 
             // 1. Dynamic calculation of Vouchers issued for this company
@@ -440,6 +451,11 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
 
             // Config emisor for accordion
             const configEmisor = emitterConfigs[emp.ruc];
+            const hasFirmaP12 = Boolean(
+              configEmisor?.p12FirmaB64 || 
+              configEmisor?.p12Nombre || 
+              configEmisor?.p12Password
+            );
 
             return (
               <div 
@@ -452,7 +468,11 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
                     : 'border-gray-200 dark:border-zinc-800 hover:border-gray-300 dark:hover:border-zinc-700 shadow-xs'
                 }`}
               >
-                <div className="p-5">
+                <div 
+                  className="p-5 cursor-pointer select-none"
+                  onClick={() => setExpandedEmpresaId(isExpanded ? null : emp.id)}
+                  title="Haz clic para expandir o colapsar información de la empresa"
+                >
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
@@ -478,9 +498,12 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
                     </div>
 
                     {isSuperAdmin && (
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                         <button
-                          onClick={() => setSelectedEmpresaForPerms(emp)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedEmpresaForPerms(emp);
+                          }}
                           className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 rounded-md transition cursor-pointer flex items-center gap-1 text-[11px] font-bold"
                           title="Gestionar permisos, módulos y diseños autorizados"
                         >
@@ -488,14 +511,20 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
                           <span>Funciones</span>
                         </button>
                         <button
-                          onClick={() => handleOpenEditModal(emp)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEditModal(emp);
+                          }}
                           className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md transition cursor-pointer"
                           title="Editar empresa y límites"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(emp)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(emp);
+                          }}
                           className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-md transition cursor-pointer"
                           title="Eliminar empresa"
                         >
@@ -515,9 +544,16 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
                     </div>
                     <div>
                       <span className="text-gray-400 block text-[10px] uppercase font-bold">Vigencia Plan</span>
-                      <span className={`font-medium ${isExpired ? 'text-rose-600 font-bold' : 'text-gray-700 dark:text-gray-200'}`}>
-                        {emp.fechaExpiracion}
-                      </span>
+                      {isUnlimited ? (
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                          <Infinity className="w-3.5 h-3.5 shrink-0" />
+                          <span>Ilimitada (De por vida)</span>
+                        </span>
+                      ) : (
+                        <span className={`font-medium ${isExpired ? 'text-rose-600 font-bold' : 'text-gray-700 dark:text-gray-200'}`}>
+                          {emp.fechaExpiracion}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -645,15 +681,22 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
                       </div>
                       <div>
                         <span className="text-gray-400 block text-[10px] uppercase font-bold">Firma Electrónica (.p12)</span>
-                        <span className="flex items-center gap-1 font-bold text-emerald-600 dark:text-emerald-400">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          {configEmisor?.p12Nombre ? configEmisor.p12Nombre : 'Certificado P12 Registrado'}
-                        </span>
+                        {hasFirmaP12 ? (
+                          <span className="flex items-center gap-1 font-bold text-emerald-600 dark:text-emerald-400">
+                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                            <span>{configEmisor?.p12Nombre ? `Certificado P12 Registrado (${configEmisor.p12Nombre})` : 'Certificado P12 Registrado'}</span>
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 font-bold text-rose-600 dark:text-rose-400">
+                            <XCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span>Sin Firma Electrónica Registrada</span>
+                          </span>
+                        )}
                       </div>
                       <div>
                         <span className="text-gray-400 block text-[10px] uppercase font-bold">Fecha de Registro Inquilino</span>
                         <span className="text-gray-700 dark:text-gray-300 font-medium">
-                          {emp.createdAt ? new Date(emp.createdAt).toLocaleDateString() : emp.fechaInicio}
+                          {emp.createdAt ? new Date(emp.createdAt).toLocaleDateString('es-EC') : (emp.fechaInicio || 'No registrada')}
                         </span>
                       </div>
                     </div>
@@ -906,6 +949,41 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
                   </div>
                 </div>
 
+                {/* Unlimited plan validity option */}
+                <div className="p-3 bg-white dark:bg-zinc-800/80 border border-blue-100 dark:border-blue-900/40 rounded-lg">
+                  <label className="flex items-center justify-between cursor-pointer select-none">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-lg">
+                        <Infinity className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-gray-900 dark:text-white block">
+                          Vigencia del Plan Ilimitada (Acceso de por vida)
+                        </span>
+                        <span className="text-[11px] text-gray-500 dark:text-zinc-400 block">
+                          El inquilino tendrá acceso permanente a la plataforma sin fecha de caducidad.
+                        </span>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={isVigenciaIlimitada}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setIsVigenciaIlimitada(checked);
+                        if (checked) {
+                          setFechaExpiracion('2099-12-31');
+                        } else {
+                          const d = new Date();
+                          d.setFullYear(d.getFullYear() + 1);
+                          setFechaExpiracion(d.toISOString().split('T')[0]);
+                        }
+                      }}
+                      className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer"
+                    />
+                  </label>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -923,12 +1001,19 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Fecha Expiración de Acceso
                     </label>
-                    <input
-                      type="date"
-                      value={fechaExpiracion}
-                      onChange={(e) => setFechaExpiracion(e.target.value)}
-                      className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm text-gray-900 dark:text-white"
-                    />
+                    {isVigenciaIlimitada ? (
+                      <div className="w-full px-3 py-2 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5 h-[38px]">
+                        <Infinity className="w-4 h-4 shrink-0" />
+                        <span>Acceso Ilimitado / De por vida</span>
+                      </div>
+                    ) : (
+                      <input
+                        type="date"
+                        value={fechaExpiracion}
+                        onChange={(e) => setFechaExpiracion(e.target.value)}
+                        className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm text-gray-900 dark:text-white"
+                      />
+                    )}
                   </div>
                 </div>
               </div>

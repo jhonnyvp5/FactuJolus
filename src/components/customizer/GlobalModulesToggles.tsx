@@ -27,6 +27,7 @@ export const GlobalModulesToggles: React.FC = () => {
           { key: 'showSocialLinksInFooter', label: 'Mostrar Enlaces de Redes Sociales en el Pie de Página', desc: 'Iconos directos a WhatsApp, Instagram, Facebook y soporte.' },
           { key: 'showSocialLinksInLogin', label: 'Mostrar Enlaces de Redes Sociales en la Pantalla de Login', desc: 'Acceso directo a canales de contacto antes de iniciar sesión.' },
           { key: 'showSimulatorIndicator', label: 'Mostrar Indicador de Conexión SRI / Modo Simulador', desc: 'Insignia de estado verde/azul en el encabezado.' },
+          { key: 'showDemoButtons', label: 'Habilitar Botones de Carga de Datos Demo (Demostraciones)', desc: 'Muestra u oculta los botones para cargar clientes, productos y proformas de prueba con un solo clic.' },
         ].map(moduleItem => (
           <div
             key={moduleItem.key}
@@ -44,7 +45,7 @@ export const GlobalModulesToggles: React.FC = () => {
             <label className="relative inline-flex items-center cursor-pointer shrink-0">
               <input
                 type="checkbox"
-                checked={(settings.modules as any)[moduleItem.key] ?? true}
+                checked={(settings.modules as any)[moduleItem.key] ?? (moduleItem.key === 'showDemoButtons' ? false : true)}
                 onChange={(e) => updateSettings({
                   modules: { ...settings.modules, [moduleItem.key]: e.target.checked }
                 })}

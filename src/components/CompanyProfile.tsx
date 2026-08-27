@@ -1200,36 +1200,35 @@ export default function CompanyProfile({
         </div>
 
         {/* 6. SECCIÓN DE CONFIGURACIÓN Y SELECCIÓN DE DISEÑO RIDE */}
-        <div className="p-6 bg-white dark:bg-zinc-900 space-y-4" id="ride-design-selector-box">
+        <div className="bg-white dark:bg-zinc-900 border-b border-gray-100 dark:border-zinc-800" id="ride-design-selector-box">
           <div 
             onClick={() => setIsDesignAccordionOpen(!isDesignAccordionOpen)}
-            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer select-none p-2 -m-2 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-850/60 transition"
+            className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-850/60 transition select-none"
           >
             <div className="flex items-center gap-3">
               <div className="p-2 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-900/50">
                 <Palette className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-gray-950 dark:text-gray-50 flex items-center gap-2">
+                <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide flex items-center gap-2">
                   Configurar y Seleccionar Diseño de Factura RIDE
-                </h3>
+                </h4>
                 <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
                   Diseño visual seleccionado para tus comprobantes autorizados y notas de crédito en PDF.
                 </p>
               </div>
             </div>
 
-            {/* Right side status badge and chevron toggle */}
+            {/* Right side status badge displaying only the selected option name and chevron toggle */}
             <div className="flex items-center gap-2.5 self-end sm:self-center">
-              <span className="text-xs font-semibold text-gray-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-zinc-700 shadow-xs flex items-center gap-1.5">
-                <Palette className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                <span className="font-bold text-gray-900 dark:text-zinc-100 uppercase tracking-wide text-[11px]">
+              <span className="text-xs font-semibold text-gray-600 dark:text-zinc-300 bg-gray-50 dark:bg-zinc-800 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-zinc-700 shadow-xs">
+                <strong className="font-bold text-indigo-600 dark:text-indigo-400">
                   {TEMPLATES.find(t => t.id === activeTemplate)?.name || 'Azul Ejecutivo'}
-                </span>
+                </strong>
               </span>
               <button 
                 type="button" 
-                className="p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 transition cursor-pointer"
+                className="p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 transition cursor-pointer"
               >
                 {isDesignAccordionOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </button>
@@ -1238,7 +1237,7 @@ export default function CompanyProfile({
 
           {/* MODO ACORDEÓN DESPLEGABLE: INFORMACIÓN Y CATÁLOGO COMPLETO */}
           {isDesignAccordionOpen && (
-            <div className="pt-2 border-t border-gray-100 dark:border-zinc-800 space-y-4 animate-in fade-in-50 slide-in-from-top-2 duration-200">
+            <div className="px-6 pb-6 pt-2 space-y-4 animate-in fade-in-50 duration-200">
               {/* VISTA PRINCIPAL: DETALLE DEL DISEÑO SELECCIONADO */}
               {(() => {
                 const currentTmpl = TEMPLATES.find(t => t.id === activeTemplate) || TEMPLATES[0];

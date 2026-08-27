@@ -458,6 +458,7 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformCustomizationSettings = {
     showSocialLinksInLogin: true,
     showSimulatorIndicator: true,
     allowPublicRegistration: false,
+    showDemoButtons: false,
   },
 };
 

@@ -485,6 +485,7 @@ export interface ModuleVisibilityFlags {
   showSocialLinksInLogin: boolean;
   showSimulatorIndicator: boolean;
   allowPublicRegistration: boolean;
+  showDemoButtons?: boolean;
 }
 
 export interface MenuGroup {
@@ -672,6 +673,7 @@ export interface PlatformCustomizationSettings {
   plansAnnualDiscountText?: string;
 
   // Components & Content
+  allowDemoData?: boolean;
   topBanner: TopAnnouncementBanner;
   promoBanner: PromotionalBanner;
   loginSlides: LoginSlideItem[];

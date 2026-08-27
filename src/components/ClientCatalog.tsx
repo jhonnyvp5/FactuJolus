@@ -3,6 +3,7 @@ import { Client, TipoIdentificacion, PortalUser } from '../types';
 import { Trash2, UserPlus, Users, Search, Sparkles, AlertCircle, Phone, Mail, MapPin, CreditCard, Database, Check, Copy, AlertTriangle, Edit3, Save, X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { saveClientToSupabase, deleteClientFromSupabase, SUPABASE_SQL_SCRIPT, testSupabaseConnection } from '../lib/supabase';
 import { modalAlert } from '../context/ModalAlertContext';
+import { usePlatformSettings } from '../context/PlatformSettingsContext';
 
 interface ClientCatalogProps {
   clients: Client[];
@@ -19,6 +20,9 @@ export default function ClientCatalog({
   onSetClients,
   currentUser
 }: ClientCatalogProps) {
+  const { settings } = usePlatformSettings();
+  const allowDemo = Boolean(settings?.modules?.showDemoButtons || settings?.allowDemoData);
+
   // Form states
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [name, setName] = useState('');
@@ -235,13 +239,15 @@ export default function ClientCatalog({
             Administra tus clientes, tipos de identificaciones autorizados por el SRI, direcciones de envío, correos y contactos.
           </p>
         </div>
-        <button
-          onClick={loadDefaults}
-          className="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:text-indigo-400 rounded-lg text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          Cargar Clientes Iniciales Demo
-        </button>
+        {allowDemo && (
+          <button
+            onClick={loadDefaults}
+            className="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:text-indigo-400 rounded-lg text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Cargar Clientes Iniciales Demo
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

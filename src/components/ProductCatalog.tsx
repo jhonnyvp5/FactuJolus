@@ -4,6 +4,7 @@ import { IVA_TARIFAS } from '../sri/utils';
 import { Trash2, Sparkles, Plus, PackageCheck, Receipt, Edit3, Save, X, FileSpreadsheet, Download, Upload, AlertCircle, CheckCircle2, FileText, AlertTriangle, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { saveProductToSupabase, saveBulkProductsToSupabase } from '../lib/supabase';
 import { modalAlert } from '../context/ModalAlertContext';
+import { usePlatformSettings } from '../context/PlatformSettingsContext';
 import * as XLSX from 'xlsx';
 
 interface ProductCatalogProps {
@@ -32,6 +33,9 @@ export default function ProductCatalog({
   onSetProducts,
   currentUser
 }: ProductCatalogProps) {
+  const { settings } = usePlatformSettings();
+  const allowDemo = Boolean(settings?.modules?.showDemoButtons || settings?.allowDemoData);
+
   // Form states
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [code, setCode] = useState('');
@@ -535,13 +539,15 @@ export default function ProductCatalog({
             Carga Masiva (Excel)
           </button>
 
-          <button
-            onClick={loadDefaults}
-            className="px-3 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:text-indigo-400 rounded-xl text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            Cargar Demos
-          </button>
+          {allowDemo && (
+            <button
+              onClick={loadDefaults}
+              className="px-3 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:text-indigo-400 rounded-xl text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Cargar Demos
+            </button>
+          )}
         </div>
       </div>
 
@@ -688,12 +694,14 @@ export default function ProductCatalog({
                     <Upload className="w-3.5 h-3.5" />
                     Cargar Masiva (Excel)
                   </button>
-                  <button
-                    onClick={loadDefaults}
-                    className="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:text-indigo-400 rounded-lg text-xs font-semibold cursor-pointer"
-                  >
-                    Cargar Demos
-                  </button>
+                  {allowDemo && (
+                    <button
+                      onClick={loadDefaults}
+                      className="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:text-indigo-400 rounded-lg text-xs font-semibold cursor-pointer"
+                    >
+                      Cargar Demos
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (

@@ -3,6 +3,7 @@ import { EmitterConfig, Client, Product, Proforma, ProformaDetail } from '../typ
 import { Plus, Trash2, Printer, CheckCircle, FileText, Download, Eye, RotateCcw, Copy, Pencil, X, Mail, Phone, MapPin, Palette, Layout, Award, Briefcase, ChevronDown, ChevronUp, Check, Search, RefreshCw } from 'lucide-react';
 import { fetchProformasFromSupabase, saveProformaToSupabase, deleteProformaFromSupabase } from '../lib/supabase';
 import { modalAlert } from '../context/ModalAlertContext';
+import { usePlatformSettings } from '../context/PlatformSettingsContext';
 
 interface ProformaFormProps {
   config: EmitterConfig;
@@ -33,6 +34,9 @@ export default function ProformaForm({
   onAddProduct,
   currentUserEmail
 }: ProformaFormProps) {
+  const { settings } = usePlatformSettings();
+  const allowDemo = Boolean(settings?.modules?.showDemoButtons || settings?.allowDemoData);
+
   const getUserStorageKey = (baseKey: string) => {
     if (!currentUserEmail) return baseKey;
     const safeEmail = currentUserEmail.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
@@ -561,14 +565,16 @@ export default function ProformaForm({
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap shrink-0">
-          <button
-            type="button"
-            onClick={() => handleLoadDemoThemeData()}
-            className="px-3 py-2 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/60 dark:text-indigo-300 rounded-xl border border-indigo-200 dark:border-indigo-800 transition cursor-pointer whitespace-nowrap shrink-0"
-            title="Carga de inmediato el ejemplo corporativo"
-          >
-            Cargar Demo
-          </button>
+          {allowDemo && (
+            <button
+              type="button"
+              onClick={() => handleLoadDemoThemeData()}
+              className="px-3 py-2 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/60 dark:text-indigo-300 rounded-xl border border-indigo-200 dark:border-indigo-800 transition cursor-pointer whitespace-nowrap shrink-0"
+              title="Carga de inmediato el ejemplo corporativo"
+            >
+              Cargar Demo
+            </button>
+          )}
 
           {/* Tab Toggle Buttons - FIXED DIMENSIONS PREVENTS CONTAINER OVERFLOW */}
           <div className="flex items-center bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl border border-slate-200 dark:border-zinc-700 shrink-0">

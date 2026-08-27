@@ -338,62 +338,80 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
 
           // GROUP ACCORDION IN MOBILE
           const grp = node.group;
-          const isExpanded = !!expandedAccordions[grp.id];
+          const isSingleOption = node.children.length === 1;
+          const isExpanded = !isSingleOption && !!expandedAccordions[grp.id];
           const hasActiveChild = node.children.some(c => c.key === activeTab);
+          const singleChild = isSingleOption ? node.children[0] : null;
 
           return (
             <div key={grp.id} className="rounded-2xl border border-slate-200/80 dark:border-zinc-800/80 bg-slate-50/50 dark:bg-zinc-900/40 overflow-hidden">
               <button
                 type="button"
-                onClick={() => toggleAccordion(grp.id)}
-                className={`w-full py-2.5 px-3.5 text-xs font-black transition flex items-center justify-between cursor-pointer ${
-                  hasActiveChild
-                    ? 'text-blue-600 dark:text-blue-400 bg-blue-50/80 dark:bg-blue-950/30'
-                    : 'text-slate-800 dark:text-zinc-200 hover:bg-slate-100/70 dark:hover:bg-zinc-800/60'
+                disabled={isSingleOption}
+                onClick={() => {
+                  if (!isSingleOption) toggleAccordion(grp.id);
+                }}
+                className={`w-full py-2.5 px-3.5 text-xs font-black transition flex items-center justify-between ${
+                  isSingleOption
+                    ? 'cursor-not-allowed opacity-75 text-slate-600 dark:text-zinc-400 bg-slate-100/60 dark:bg-zinc-800/40'
+                    : hasActiveChild
+                    ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/30 cursor-pointer'
+                    : 'text-slate-800 dark:text-zinc-200 hover:bg-slate-100/70 dark:hover:bg-zinc-800/60 cursor-pointer'
                 }`}
+                title={isSingleOption ? `Opción única disponible (${singleChild?.label}) - Desplegable bloqueado` : undefined}
               >
                 <div className="flex items-center gap-2.5">
-                  <span className={hasActiveChild ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-zinc-400'}>
+                  <span className={hasActiveChild ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-zinc-400'}>
                     {renderMenuIcon(grp.iconName || 'folder', undefined, 'w-4 h-4')}
                   </span>
                   <span>{grp.name}</span>
-                  <span className="text-[10px] font-mono font-normal opacity-60">({node.children.length})</span>
+                  {isSingleOption ? (
+                    <span className="text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-zinc-300">
+                      1 opción (bloqueado)
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-mono font-normal opacity-60">({node.children.length})</span>
+                  )}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {hasActiveChild && (
                     <span className="relative flex h-2 w-2 shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600 dark:bg-blue-400"></span>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-500 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-600 dark:bg-indigo-400"></span>
                     </span>
                   )}
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                  {isSingleOption ? (
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500">🔒</span>
+                  ) : (
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                  )}
                 </div>
               </button>
 
-              {isExpanded && (
-                <div className="p-1 space-y-1 bg-white/60 dark:bg-zinc-900/60 border-t border-slate-200/60 dark:border-zinc-800/60">
+              {isExpanded && !isSingleOption && (
+                <div className="p-1.5 space-y-1 bg-white dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800">
                   {node.children.map(child => {
                     const isChildActive = activeTab === child.key;
                     return (
                       <button
                         key={child.id || child.key}
                         onClick={() => handleItemClick(child)}
-                        className={`w-full py-2 px-3 pl-4 rounded-xl text-xs font-semibold transition flex items-center justify-between cursor-pointer ${
+                        className={`w-full py-2.5 px-3 pl-4 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${
                           isChildActive
-                            ? `bg-gradient-to-r ${themeClasses.primaryGradient} text-white shadow-sm shadow-blue-500/20 font-bold`
-                            : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800'
+                            ? `bg-indigo-600 text-white shadow-md shadow-indigo-500/20 font-black`
+                            : 'text-slate-800 dark:text-zinc-200 hover:text-indigo-600 dark:hover:text-indigo-300 hover:bg-slate-100 dark:hover:bg-zinc-800'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <span className={isChildActive ? 'text-white' : 'text-blue-500'}>
-                            {renderMenuIcon(child.iconName, child.key, 'w-3.5 h-3.5')}
+                          <span className={isChildActive ? 'text-white' : 'text-indigo-600 dark:text-indigo-400'}>
+                            {renderMenuIcon(child.iconName, child.key, 'w-4 h-4')}
                           </span>
                           <span className="truncate">{child.label}</span>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           {child.badge && (
-                            <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-bold uppercase ${
-                              isChildActive ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                            <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase ${
+                              isChildActive ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
                             }`}>
                               {child.badge}
                             </span>
@@ -471,38 +489,55 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
 
           // GROUP ACCORDION IN SIDEBAR
           const grp = node.group;
-          const isExpanded = !!expandedAccordions[grp.id];
+          const isSingleOption = node.children.length === 1;
+          const isExpanded = !isSingleOption && !!expandedAccordions[grp.id];
           const hasActiveChild = node.children.some(c => c.key === activeTab);
+          const singleChild = isSingleOption ? node.children[0] : null;
 
           return (
             <div key={grp.id} className="rounded-2xl border border-slate-200/80 dark:border-zinc-800/80 bg-slate-50/40 dark:bg-zinc-900/40 overflow-hidden">
               <button
                 type="button"
-                onClick={() => toggleAccordion(grp.id)}
-                className={`w-full py-2 px-3 text-xs font-bold transition-colors flex items-center justify-between cursor-pointer ${
-                  hasActiveChild
-                    ? 'text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-950/20'
-                    : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-100/60 dark:hover:bg-zinc-800/50'
+                disabled={isSingleOption}
+                onClick={() => {
+                  if (!isSingleOption) toggleAccordion(grp.id);
+                }}
+                className={`w-full py-2.5 px-3.5 text-xs font-bold transition-colors flex items-center justify-between ${
+                  isSingleOption
+                    ? 'cursor-not-allowed opacity-75 text-slate-600 dark:text-zinc-400 bg-slate-100/60 dark:bg-zinc-800/40'
+                    : hasActiveChild
+                    ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/60 dark:bg-indigo-950/20 cursor-pointer'
+                    : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-100/60 dark:hover:bg-zinc-800/50 cursor-pointer'
                 }`}
+                title={isSingleOption ? `Opción única disponible (${singleChild?.label}) - Desplegable bloqueado` : undefined}
               >
                 <div className="flex items-center gap-2.5">
-                  <span className={hasActiveChild ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-zinc-400'}>
+                  <span className={hasActiveChild ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-zinc-400'}>
                     {renderMenuIcon(grp.iconName || 'folder', undefined, 'w-3.5 h-3.5')}
                   </span>
-                  <span className="truncate">{grp.name}</span>
+                  <span className="truncate font-extrabold">{grp.name}</span>
+                  {isSingleOption && (
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-zinc-300">
+                      1 opción
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {hasActiveChild && (
                     <span className="relative flex h-2 w-2 shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600 dark:bg-blue-400"></span>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-500 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-600 dark:bg-indigo-400"></span>
                     </span>
                   )}
-                  <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                  {isSingleOption ? (
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500">🔒</span>
+                  ) : (
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                  )}
                 </div>
               </button>
 
-              {isExpanded && (
+              {isExpanded && !isSingleOption && (
                 <div className="p-1 space-y-0.5 bg-white dark:bg-zinc-900 border-t border-slate-100 dark:border-zinc-800">
                   {node.children.map(child => {
                     const isChildActive = activeTab === child.key;
@@ -510,23 +545,23 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
                       <button
                         key={child.id || child.key}
                         onClick={() => handleItemClick(child)}
-                        className={`w-full py-2 px-3 pl-4 rounded-xl text-xs font-medium transition-all duration-150 flex items-center justify-between cursor-pointer group text-left ${
+                        className={`w-full py-2 px-3 pl-4 rounded-xl text-xs font-bold transition-all duration-150 flex items-center justify-between cursor-pointer group text-left ${
                           isChildActive
-                            ? `bg-gradient-to-r ${themeClasses.primaryGradient} text-white font-bold shadow-xs shadow-blue-500/20`
-                            : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800/70'
+                            ? `bg-indigo-600 text-white font-black shadow-xs shadow-indigo-500/20`
+                            : 'text-slate-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-zinc-800/70'
                         }`}
                         title={child.label}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <span className={isChildActive ? 'text-white' : 'text-blue-500'}>
+                          <span className={isChildActive ? 'text-white' : 'text-indigo-600 dark:text-indigo-400'}>
                             {renderMenuIcon(child.iconName, child.key, 'w-3.5 h-3.5')}
                           </span>
                           <span className="truncate">{child.label}</span>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           {child.badge && (
-                            <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase ${
-                              isChildActive ? 'bg-white/20 text-white' : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
+                            <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase ${
+                              isChildActive ? 'bg-white/20 text-white' : 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300'
                             }`}>
                               {child.badge}
                             </span>
@@ -593,75 +628,96 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
 
             // GROUP DROPDOWN IN FLOATING ISLAND
             const grp = node.group;
-            const isDropdownOpen = openDropdownId === grp.id;
+            const isSingleOption = node.children.length === 1;
+            const isDropdownOpen = !isSingleOption && openDropdownId === grp.id;
             const hasActiveChild = node.children.some(c => c.key === activeTab);
             const activeChild = node.children.find(c => c.key === activeTab);
+            const singleChild = isSingleOption ? node.children[0] : null;
 
             return (
               <div key={grp.id} className="relative shrink-0">
                 <button
                   type="button"
-                  onClick={() => setOpenDropdownId(isDropdownOpen ? null : grp.id)}
-                  className={`group px-3.5 py-2 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-                    hasActiveChild
-                      ? `bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-300 font-bold ring-1 ring-blue-500/30 shadow-xs`
-                      : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'
+                  disabled={isSingleOption}
+                  onClick={() => {
+                    if (!isSingleOption) setOpenDropdownId(isDropdownOpen ? null : grp.id);
+                  }}
+                  className={`group px-3.5 py-2 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${
+                    isSingleOption
+                      ? 'cursor-not-allowed opacity-75 bg-slate-100/80 dark:bg-zinc-800/60 text-slate-500 dark:text-zinc-400'
+                      : hasActiveChild
+                      ? `bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 font-bold ring-1 ring-indigo-500/30 shadow-xs cursor-pointer`
+                      : 'text-slate-700 dark:text-zinc-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80 cursor-pointer'
                   }`}
+                  title={isSingleOption ? `Opción única disponible (${singleChild?.label}) - Desplegable bloqueado` : undefined}
                 >
-                  <span className={hasActiveChild ? 'text-blue-600 dark:text-blue-400' : 'text-blue-500'}>
+                  <span className={hasActiveChild ? 'text-indigo-600 dark:text-indigo-400' : 'text-indigo-500'}>
                     {renderMenuIcon(grp.iconName || 'folder', undefined, 'w-3.5 h-3.5')}
                   </span>
-                  <span>{grp.name}</span>
-                  {activeChild && (
-                    <span className="hidden md:inline text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-600 text-white">
+                  <span className="font-extrabold">{grp.name}</span>
+                  {isSingleOption ? (
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-zinc-300">
+                      1 opción
+                    </span>
+                  ) : activeChild ? (
+                    <span className="hidden md:inline text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-600 text-white">
                       {activeChild.label}
                     </span>
+                  ) : null}
+                  {isSingleOption ? (
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500">🔒</span>
+                  ) : (
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 opacity-70 ${isDropdownOpen ? 'rotate-180' : ''}`} />
                   )}
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 opacity-60 ${isDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {/* DROPDOWN MENU */}
-                {isDropdownOpen && (
-                  <div className="absolute top-full mt-2.5 left-1/2 -translate-x-1/2 min-w-[220px] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-1.5 z-50 animate-fade-in ring-1 ring-black/10">
-                    <div className="px-3 py-1.5 text-[10px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-wider border-b border-slate-100 dark:border-zinc-800 mb-1">
-                      {grp.name}
+                {isDropdownOpen && !isSingleOption && (
+                  <div className="absolute top-full mt-2.5 left-1/2 -translate-x-1/2 min-w-[240px] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150 ring-1 ring-black/10 dark:ring-white/10">
+                    <div className="px-3 py-1.5 text-[10px] font-black text-slate-500 dark:text-zinc-400 uppercase tracking-wider border-b border-slate-100 dark:border-zinc-800 mb-1.5 flex items-center justify-between">
+                      <span className="text-slate-800 dark:text-zinc-200 font-bold">{grp.name}</span>
+                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300">
+                        {node.children.length} opciones
+                      </span>
                     </div>
-                    {node.children.map(child => {
-                      const isChildActive = activeTab === child.key;
-                      return (
-                        <button
-                          key={child.id || child.key}
-                          onClick={() => handleItemClick(child)}
-                          className={`w-full px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center justify-between cursor-pointer ${
-                            isChildActive
-                              ? `bg-gradient-to-r ${themeClasses.primaryGradient} text-white font-bold shadow-md shadow-blue-500/20`
-                              : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-950 dark:hover:text-white'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span className={isChildActive ? 'text-white' : 'text-blue-500'}>
-                              {renderMenuIcon(child.iconName, child.key, 'w-4 h-4')}
-                            </span>
-                            <span className="truncate">{child.label}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {child.badge && (
-                              <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase ${
-                                isChildActive ? 'bg-white/20 text-white' : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
-                              }`}>
-                                {child.badge}
+                    <div className="space-y-0.5">
+                      {node.children.map(child => {
+                        const isChildActive = activeTab === child.key;
+                        return (
+                          <button
+                            key={child.id || child.key}
+                            onClick={() => handleItemClick(child)}
+                            className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer text-left ${
+                              isChildActive
+                                ? `bg-indigo-600 text-white font-black shadow-md shadow-indigo-500/25`
+                                : 'text-slate-800 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-indigo-600 dark:hover:text-indigo-400'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className={isChildActive ? 'text-white' : 'text-indigo-600 dark:text-indigo-400'}>
+                                {renderMenuIcon(child.iconName, child.key, 'w-4 h-4')}
                               </span>
-                            )}
-                            {isChildActive && (
-                              <span className="relative flex h-2 w-2 shrink-0">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
+                              <span className="truncate">{child.label}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {child.badge && (
+                                <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase ${
+                                  isChildActive ? 'bg-white/20 text-white' : 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
+                                }`}>
+                                  {child.badge}
+                                </span>
+                              )}
+                              {isChildActive && (
+                                <span className="relative flex h-2 w-2 shrink-0">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -687,12 +743,12 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
                   onClick={() => handleItemClick(item)}
                   className={`group px-3 py-2 rounded-xl sm:rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${
                     isActive
-                      ? `bg-gradient-to-r ${themeClasses.primaryGradient} text-white font-bold shadow-lg shadow-blue-500/40 ring-1 ring-white/30 scale-105`
+                      ? `bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-500/40 ring-1 ring-white/30 scale-105`
                       : 'text-slate-300 hover:text-white hover:bg-white/10'
                   }`}
                   title={item.label}
                 >
-                  <span className={`shrink-0 transition-transform duration-200 ${isActive ? 'text-white' : 'text-blue-400 group-hover:scale-110'}`}>
+                  <span className={`shrink-0 transition-transform duration-200 ${isActive ? 'text-white' : 'text-indigo-400 group-hover:scale-110'}`}>
                     {renderMenuIcon(item.iconName, item.key, 'w-4 h-4')}
                   </span>
                   <span className="hidden sm:inline">{item.label}</span>
@@ -703,75 +759,96 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
 
             // GROUP BUTTON IN DOCK WITH POPUP OPENING UPWARDS
             const grp = node.group;
-            const isDropdownOpen = openDropdownId === grp.id;
+            const isSingleOption = node.children.length === 1;
+            const isDropdownOpen = !isSingleOption && openDropdownId === grp.id;
             const hasActiveChild = node.children.some(c => c.key === activeTab);
             const activeChild = node.children.find(c => c.key === activeTab);
+            const singleChild = isSingleOption ? node.children[0] : null;
 
             return (
               <div key={grp.id} className="relative shrink-0">
                 <button
                   type="button"
-                  onClick={() => setOpenDropdownId(isDropdownOpen ? null : grp.id)}
-                  className={`group px-3 py-2 rounded-xl sm:rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-                    hasActiveChild
-                      ? `bg-blue-600 text-white font-bold shadow-lg shadow-blue-500/40 ring-1 ring-white/30 scale-105`
-                      : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  disabled={isSingleOption}
+                  onClick={() => {
+                    if (!isSingleOption) setOpenDropdownId(isDropdownOpen ? null : grp.id);
+                  }}
+                  className={`group px-3 py-2 rounded-xl sm:rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${
+                    isSingleOption
+                      ? 'cursor-not-allowed opacity-75 bg-slate-800/80 text-slate-400'
+                      : hasActiveChild
+                      ? `bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-500/40 ring-1 ring-white/30 scale-105 cursor-pointer`
+                      : 'text-slate-300 hover:text-white hover:bg-white/10 cursor-pointer'
                   }`}
+                  title={isSingleOption ? `Opción única disponible (${singleChild?.label}) - Desplegable bloqueado` : undefined}
                 >
-                  <span className={hasActiveChild ? 'text-white' : 'text-blue-400'}>
+                  <span className={hasActiveChild ? 'text-white' : 'text-indigo-400'}>
                     {renderMenuIcon(grp.iconName || 'folder', undefined, 'w-4 h-4')}
                   </span>
-                  <span className="hidden sm:inline">{grp.name}</span>
-                  {activeChild && (
+                  <span className="hidden sm:inline font-extrabold">{grp.name}</span>
+                  {isSingleOption ? (
+                    <span className="hidden sm:inline text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-white/10 text-slate-300">
+                      1 opción
+                    </span>
+                  ) : activeChild ? (
                     <span className="hidden md:inline text-[9px] px-1.5 py-0.5 rounded-full bg-white/20 text-white font-bold">
                       {activeChild.label}
                     </span>
+                  ) : null}
+                  {isSingleOption ? (
+                    <span className="text-[10px] font-bold text-slate-400">🔒</span>
+                  ) : (
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
                   )}
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {/* DOCK POPUP OPENING UPWARDS */}
-                {isDropdownOpen && (
-                  <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 min-w-[220px] bg-slate-900 dark:bg-zinc-900 border border-slate-700 dark:border-zinc-700 rounded-2xl shadow-2xl p-1.5 z-50 animate-fade-in text-white ring-1 ring-white/20">
-                    <div className="px-3 py-1.5 text-[10px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-800 mb-1">
-                      {grp.name}
+                {isDropdownOpen && !isSingleOption && (
+                  <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 min-w-[240px] bg-slate-900 dark:bg-zinc-900 border border-slate-700 dark:border-zinc-700 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150 text-white ring-1 ring-white/20">
+                    <div className="px-3 py-1.5 text-[10px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-800 mb-1.5 flex items-center justify-between">
+                      <span className="text-white font-bold">{grp.name}</span>
+                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
+                        {node.children.length} opciones
+                      </span>
                     </div>
-                    {node.children.map(child => {
-                      const isChildActive = activeTab === child.key;
-                      return (
-                        <button
-                          key={child.id || child.key}
-                          onClick={() => handleItemClick(child)}
-                          className={`w-full px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center justify-between cursor-pointer ${
-                            isChildActive
-                              ? `bg-gradient-to-r ${themeClasses.primaryGradient} text-white font-bold shadow-md shadow-blue-500/30`
-                              : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span className={isChildActive ? 'text-white' : 'text-blue-400'}>
-                              {renderMenuIcon(child.iconName, child.key, 'w-4 h-4')}
-                            </span>
-                            <span className="truncate">{child.label}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {child.badge && (
-                              <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase ${
-                                isChildActive ? 'bg-white/20 text-white' : 'bg-blue-900/60 text-blue-300 border border-blue-700/50'
-                              }`}>
-                                {child.badge}
+                    <div className="space-y-0.5">
+                      {node.children.map(child => {
+                        const isChildActive = activeTab === child.key;
+                        return (
+                          <button
+                            key={child.id || child.key}
+                            onClick={() => handleItemClick(child)}
+                            className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${
+                              isChildActive
+                                ? `bg-indigo-600 text-white font-black shadow-md shadow-indigo-500/30`
+                                : 'text-slate-200 hover:bg-white/10 hover:text-white'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className={isChildActive ? 'text-white' : 'text-indigo-400'}>
+                                {renderMenuIcon(child.iconName, child.key, 'w-4 h-4')}
                               </span>
-                            )}
-                            {isChildActive && (
-                              <span className="relative flex h-2 w-2 shrink-0">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
+                              <span className="truncate">{child.label}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {child.badge && (
+                                <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase ${
+                                  isChildActive ? 'bg-white/20 text-white' : 'bg-indigo-900/60 text-indigo-300 border border-indigo-700/50'
+                                }`}>
+                                  {child.badge}
+                                </span>
+                              )}
+                              {isChildActive && (
+                                <span className="relative flex h-2 w-2 shrink-0">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -795,18 +872,18 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
               onClick={() => handleItemClick(item)}
               className={`group px-2.5 lg:px-3.5 py-1.5 lg:py-2 rounded-xl text-[11px] lg:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
                 isActive
-                  ? `bg-gradient-to-r ${themeClasses.primaryGradient} text-white font-bold shadow-md shadow-blue-500/25 ring-1 ring-white/30 scale-[1.02]`
-                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'
+                  ? `bg-indigo-600 text-white font-bold shadow-md shadow-indigo-500/25 ring-1 ring-white/30 scale-[1.02]`
+                  : 'text-slate-700 dark:text-zinc-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'
               }`}
               title={item.label}
             >
-              <span className={`shrink-0 transition-transform duration-200 ${isActive ? 'text-white' : 'text-blue-500 dark:text-blue-400 group-hover:scale-110'}`}>
+              <span className={`shrink-0 transition-transform duration-200 ${isActive ? 'text-white' : 'text-indigo-600 dark:text-indigo-400 group-hover:scale-110'}`}>
                 {renderMenuIcon(item.iconName, item.key, 'w-4 h-4')}
               </span>
-              <span>{item.label}</span>
+              <span className="font-bold">{item.label}</span>
               {item.badge && (
-                <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase ${
-                  isActive ? 'bg-white/20 text-white' : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
+                <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase ${
+                  isActive ? 'bg-white/20 text-white' : 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300'
                 }`}>
                   {item.badge}
                 </span>
@@ -823,39 +900,57 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
 
         // GROUP DROPDOWN IN TOPBAR CLASSIC
         const grp = node.group;
-        const isDropdownOpen = openDropdownId === grp.id;
+        const isSingleOption = node.children.length === 1;
+        const isDropdownOpen = !isSingleOption && openDropdownId === grp.id;
         const hasActiveChild = node.children.some(c => c.key === activeTab);
         const activeChild = node.children.find(c => c.key === activeTab);
+        const singleChild = isSingleOption ? node.children[0] : null;
 
         return (
           <div key={grp.id} className="relative shrink-0">
             <button
               type="button"
-              onClick={() => setOpenDropdownId(isDropdownOpen ? null : grp.id)}
-              className={`group px-3 lg:px-3.5 py-1.5 lg:py-2 rounded-xl text-[11px] lg:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                hasActiveChild
-                  ? `bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-300 font-bold ring-1 ring-blue-500/30 shadow-xs`
-                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80'
+              disabled={isSingleOption}
+              onClick={() => {
+                if (!isSingleOption) setOpenDropdownId(isDropdownOpen ? null : grp.id);
+              }}
+              className={`group px-3 lg:px-3.5 py-1.5 lg:py-2 rounded-xl text-[11px] lg:text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap ${
+                isSingleOption
+                  ? 'cursor-not-allowed opacity-75 bg-slate-100/70 dark:bg-zinc-800/50 text-slate-500 dark:text-zinc-400'
+                  : hasActiveChild
+                  ? `bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 font-bold ring-1 ring-indigo-500/30 shadow-xs cursor-pointer`
+                  : 'text-slate-700 dark:text-zinc-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100/90 dark:hover:bg-zinc-800/80 cursor-pointer'
               }`}
+              title={isSingleOption ? `Opción única disponible (${singleChild?.label}) - Desplegable bloqueado` : undefined}
             >
-              <span className={`shrink-0 transition-transform duration-200 ${hasActiveChild ? 'text-blue-600 dark:text-blue-400' : 'text-blue-500 group-hover:scale-110'}`}>
+              <span className={`shrink-0 transition-transform duration-200 ${hasActiveChild ? 'text-indigo-600 dark:text-indigo-400' : 'text-indigo-500 group-hover:scale-110'}`}>
                 {renderMenuIcon(grp.iconName || 'folder', undefined, 'w-4 h-4')}
               </span>
-              <span>{grp.name}</span>
-              {activeChild && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-600 text-white">
+              <span className="font-extrabold">{grp.name}</span>
+              {isSingleOption ? (
+                <span className="text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-zinc-300">
+                  1 opción
+                </span>
+              ) : activeChild ? (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-600 text-white">
                   {activeChild.label}
                 </span>
+              ) : null}
+              {isSingleOption ? (
+                <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500">🔒</span>
+              ) : (
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 opacity-70 ${isDropdownOpen ? 'rotate-180' : ''}`} />
               )}
-              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 opacity-70 ${isDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {/* TOPBAR DROPDOWN POPOVER */}
-            {isDropdownOpen && (
-              <div className="absolute top-full mt-2 left-0 sm:left-1/2 sm:-translate-x-1/2 min-w-[230px] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-1.5 z-50 animate-fade-in ring-1 ring-black/10">
-                <div className="px-3 py-1.5 text-[10px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-wider border-b border-slate-100 dark:border-zinc-800 mb-1 flex items-center justify-between">
-                  <span>{grp.name}</span>
-                  <span className="text-[9px] font-mono opacity-60 font-normal">{node.children.length} opciones</span>
+            {isDropdownOpen && !isSingleOption && (
+              <div className="absolute top-full mt-2 left-0 sm:left-1/2 sm:-translate-x-1/2 min-w-[240px] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150 ring-1 ring-black/10 dark:ring-white/10">
+                <div className="px-3 py-1.5 text-[10px] font-black text-slate-500 dark:text-zinc-400 uppercase tracking-wider border-b border-slate-100 dark:border-zinc-800 mb-1.5 flex items-center justify-between">
+                  <span className="text-slate-800 dark:text-zinc-200 font-bold">{grp.name}</span>
+                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300">
+                    {node.children.length} opciones
+                  </span>
                 </div>
                 <div className="space-y-0.5">
                   {node.children.map(child => {
@@ -864,22 +959,22 @@ export const DynamicPlatformNavigation: React.FC<DynamicPlatformNavigationProps>
                       <button
                         key={child.id || child.key}
                         onClick={() => handleItemClick(child)}
-                        className={`w-full px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center justify-between cursor-pointer text-left ${
+                        className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer text-left ${
                           isChildActive
-                            ? `bg-gradient-to-r ${themeClasses.primaryGradient} text-white font-bold shadow-md shadow-blue-500/20`
-                            : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-950 dark:hover:text-white'
+                            ? `bg-indigo-600 text-white font-black shadow-md shadow-indigo-500/25`
+                            : 'text-slate-800 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-indigo-600 dark:hover:text-indigo-400'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <span className={isChildActive ? 'text-white' : 'text-blue-500'}>
+                          <span className={isChildActive ? 'text-white' : 'text-indigo-600 dark:text-indigo-400'}>
                             {renderMenuIcon(child.iconName, child.key, 'w-4 h-4')}
                           </span>
                           <span className="truncate">{child.label}</span>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           {child.badge && (
-                            <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase shrink-0 ${
-                              isChildActive ? 'bg-white/20 text-white' : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
+                            <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase shrink-0 ${
+                              isChildActive ? 'bg-white/20 text-white' : 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
                             }`}>
                               {child.badge}
                             </span>
