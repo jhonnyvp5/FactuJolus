@@ -25,7 +25,13 @@ import {
   ChevronUp,
   Maximize2,
   Minimize2,
-  Lock
+  Lock,
+  LayoutGrid,
+  LayoutPanelLeft,
+  ListFilter,
+  ArrowRight,
+  ArrowLeft,
+  Eye
 } from 'lucide-react';
 import { usePlatformSettings } from '../context/PlatformSettingsContext';
 import { modalAlert } from '../context/ModalAlertContext';
@@ -288,6 +294,22 @@ export default function SuperadminCustomizer({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Dynamic View Mode: 'compact' (Master-Detail / Pestañas Compactas) vs 'accordion' (Acordeón Tradicional)
+  const [viewMode, setViewMode] = useState<'compact' | 'accordion'>(() => {
+    const saved = localStorage.getItem('customizer_view_mode');
+    return (saved === 'accordion' || saved === 'compact') ? saved : 'compact';
+  });
+
+  const [activeCompactTab, setActiveCompactTab] = useState<SubTab>(() => {
+    return (allowedSubTabsList && allowedSubTabsList.length > 0) ? allowedSubTabsList[0] : 'layout';
+  });
+
+  const handleToggleViewMode = (mode?: 'compact' | 'accordion') => {
+    const nextMode = mode || (viewMode === 'compact' ? 'accordion' : 'compact');
+    setViewMode(nextMode);
+    localStorage.setItem('customizer_view_mode', nextMode);
+  };
+
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -485,8 +507,33 @@ export default function SuperadminCustomizer({
             </p>
           </div>
 
-          {/* ACTION BUTTONS (EXPORT / IMPORT / RESET) */}
+          {/* ACTION BUTTONS (EXPORT / IMPORT / RESET / VIEW MODE TOGGLE) */}
           <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {/* DYNAMIC DESIGN TOGGLE BUTTON (COMPACT VS ACCORDION) */}
+            <button
+              onClick={() => handleToggleViewMode()}
+              className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-md ${
+                viewMode === 'compact'
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white ring-2 ring-emerald-400/40 hover:from-emerald-600 hover:to-teal-700'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white ring-2 ring-indigo-400/30'
+              }`}
+              title="Cambiar dinámica del diseño entre Vista Compacta (Panel Lateral) y Vista Acordeón"
+            >
+              {viewMode === 'compact' ? (
+                <>
+                  <LayoutPanelLeft className="w-4 h-4 text-emerald-200" />
+                  <span>Diseño: Vista Compacta</span>
+                  <span className="px-1.5 py-0.5 rounded-full bg-white/20 text-[9px] uppercase font-mono">Activo</span>
+                </>
+              ) : (
+                <>
+                  <LayoutGrid className="w-4 h-4 text-indigo-200" />
+                  <span>Diseño: Vista Acordeón</span>
+                  <span className="px-1.5 py-0.5 rounded-full bg-white/20 text-[9px] uppercase font-mono">Activo</span>
+                </>
+              )}
+            </button>
+
             <button
               onClick={handleExport}
               disabled={isExporting}
@@ -674,120 +721,294 @@ export default function SuperadminCustomizer({
       </div>
 
       {/* ========================================================================= */}
-      {/* ACCORDION TOOLBAR (FILTER & EXPAND/COLLAPSE ALL) */}
+      {/* TOOLBAR (SEARCH FILTER, VIEW SWITCHER & ACTIONS) */}
       {/* ========================================================================= */}
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl p-4 border border-slate-200 dark:border-zinc-800 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1 sm:w-80">
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl p-4 border border-slate-200 dark:border-zinc-800 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="flex items-center gap-3 flex-1">
+          <div className="relative flex-1 max-w-md">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
-              placeholder="Filtrar opciones de diseño y configuración..."
+              placeholder="Filtrar opciones de diseño y personalización..."
               className="w-full pl-9.5 pr-4 py-2 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             />
           </div>
-          <span className="text-xs font-bold text-slate-500 dark:text-zinc-400 whitespace-nowrap hidden md:inline">
-            {openAccordions.size} de {visibleSubTabDefs.length} abiertas
+
+          <span className="text-xs font-bold text-slate-500 dark:text-zinc-400 whitespace-nowrap hidden lg:inline">
+            {visibleSubTabDefs.filter(d => isSubTabVisible(d.key)).length} secciones disponibles
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={expandAll}
-            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-          >
-            <Maximize2 className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Desplegar Todo</span>
-          </button>
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {/* VIEW MODE TOGGLE BUTTONS */}
+          <div className="flex items-center bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl border border-slate-200 dark:border-zinc-700">
+            <button
+              onClick={() => handleToggleViewMode('compact')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'compact'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+              title="Vista Compacta con panel lateral y área amplia"
+            >
+              <LayoutPanelLeft className="w-3.5 h-3.5" />
+              <span>Compacta</span>
+            </button>
+            <button
+              onClick={() => handleToggleViewMode('accordion')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'accordion'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+              title="Vista Acordeón vertical clásica"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Acordeón</span>
+            </button>
+          </div>
 
-          <button
-            onClick={collapseAll}
-            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-          >
-            <Minimize2 className="w-3.5 h-3.5 text-slate-500" />
-            <span>Colapsar Todo</span>
-          </button>
+          {viewMode === 'accordion' && (
+            <>
+              <button
+                onClick={expandAll}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <Maximize2 className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Desplegar Todo</span>
+              </button>
+
+              <button
+                onClick={collapseAll}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <Minimize2 className="w-3.5 h-3.5 text-slate-500" />
+                <span>Colapsar Todo</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* 14 COMPLETE ACCORDION SECTIONS */}
+      {/* VISTA 1: COMPACT MASTER-DETAIL LAYOUT (PANTALLA COMPACTA Y ERGONÓMICA) */}
       {/* ========================================================================= */}
-      <div className="space-y-4">
-        {visibleSubTabDefs.filter(def => isSubTabVisible(def.key)).map((def) => {
-          const isOpen = openAccordions.has(def.key);
-          const IconComp = def.icon;
+      {viewMode === 'compact' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          
+          {/* SIDEBAR NAVIGATION LIST (LEFT COLUMN) */}
+          <div className="lg:col-span-4 xl:col-span-3.5 bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm p-3 space-y-1.5 sticky top-4 max-h-[calc(100vh-100px)] overflow-y-auto">
+            <div className="px-3 py-2 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+                Secciones de Personalización
+              </span>
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                Compacto
+              </span>
+            </div>
 
-          return (
-            <div
-              key={def.key}
-              id={`customizer-accordion-${def.key}`}
-              className={`bg-white dark:bg-zinc-900 rounded-2xl border transition-all duration-200 overflow-hidden shadow-xs ${
-                isOpen
-                  ? 'border-indigo-500/50 dark:border-indigo-500/40 ring-2 ring-indigo-500/10'
-                  : 'border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700'
-              }`}
-            >
-              {/* ACCORDION HEADER (CLICK TO EXPAND / COLLAPSE) */}
-              <button
-                type="button"
-                onClick={() => toggleAccordion(def.key)}
-                className={`w-full p-4 sm:p-5 text-left flex items-center justify-between gap-4 transition-colors cursor-pointer ${
-                  isOpen 
-                    ? 'bg-slate-50/80 dark:bg-zinc-850/80 border-b border-slate-200/80 dark:border-zinc-800' 
-                    : 'hover:bg-slate-50/50 dark:hover:bg-zinc-850/40'
+            {visibleSubTabDefs.filter(def => isSubTabVisible(def.key)).map((def, idx) => {
+              const isActive = activeCompactTab === def.key;
+              const IconComp = def.icon;
+
+              return (
+                <button
+                  key={def.key}
+                  type="button"
+                  onClick={() => setActiveCompactTab(def.key)}
+                  className={`w-full p-2.5 rounded-xl text-left transition-all flex items-center justify-between gap-3 cursor-pointer group ${
+                    isActive
+                      ? `${def.activeBg} text-white shadow-md font-bold ring-2 ring-indigo-400/30`
+                      : 'hover:bg-slate-100/80 dark:hover:bg-zinc-800/80 text-slate-700 dark:text-zinc-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400'
+                    }`}>
+                      <IconComp className="w-4 h-4" />
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className={`text-xs font-bold truncate ${isActive ? 'text-white font-black' : 'text-slate-800 dark:text-zinc-200'}`}>
+                        {def.shortName || def.name}
+                      </p>
+                      <p className={`text-[10px] truncate ${isActive ? 'text-white/80' : 'text-slate-400 dark:text-zinc-500'}`}>
+                        {def.badge}
+                      </p>
+                    </div>
+                  </div>
+
+                  <ArrowRight className={`w-3.5 h-3.5 shrink-0 transition ${
+                    isActive ? 'text-white translate-x-0.5' : 'text-slate-300 dark:text-zinc-600 opacity-0 group-hover:opacity-100'
+                  }`} />
+                </button>
+              );
+            })}
+          </div>
+
+          {/* MAIN ACTIVE SECTION CANVAS (RIGHT COLUMN) */}
+          <div className="lg:col-span-8 xl:col-span-8.5 space-y-4">
+            {(() => {
+              const currentDef = visibleSubTabDefs.find(d => d.key === activeCompactTab) || visibleSubTabDefs[0];
+              if (!currentDef) return null;
+              const IconComp = currentDef.icon;
+              const currentIndex = visibleSubTabDefs.findIndex(d => d.key === activeCompactTab);
+              const prevDef = currentIndex > 0 ? visibleSubTabDefs[currentIndex - 1] : null;
+              const nextDef = currentIndex < visibleSubTabDefs.length - 1 ? visibleSubTabDefs[currentIndex + 1] : null;
+
+              return (
+                <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800 shadow-lg overflow-hidden animate-fade-in">
+                  
+                  {/* CANVAS HEADER */}
+                  <div className="p-5 sm:p-6 bg-gradient-to-r from-slate-900 via-slate-850 to-indigo-950 text-white border-b border-indigo-900/40 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${currentDef.activeBg} text-white shadow-md ring-2 ring-white/10`}>
+                        <IconComp className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/10 text-indigo-200 border border-white/10">
+                            {currentDef.category}
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            {currentDef.badge}
+                          </span>
+                        </div>
+                        <h3 className="text-lg sm:text-xl font-black tracking-tight text-white mt-1">
+                          {currentDef.name}
+                        </h3>
+                        <p className="text-xs text-slate-300 mt-0.5">
+                          {currentDef.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* PREV / NEXT NAV BUTTONS */}
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      <button
+                        type="button"
+                        disabled={!prevDef}
+                        onClick={() => prevDef && setActiveCompactTab(prevDef.key)}
+                        className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-1 transition ${
+                          prevDef 
+                            ? 'bg-white/10 hover:bg-white/20 border-white/20 text-white cursor-pointer' 
+                            : 'bg-white/5 border-white/5 text-slate-500 cursor-not-allowed opacity-50'
+                        }`}
+                        title={prevDef ? `Anterior: ${prevDef.shortName}` : ''}
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                        <span className="hidden md:inline">Anterior</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={!nextDef}
+                        onClick={() => nextDef && setActiveCompactTab(nextDef.key)}
+                        className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-1 transition ${
+                          nextDef 
+                            ? 'bg-indigo-600 hover:bg-indigo-500 border-indigo-400/40 text-white cursor-pointer shadow-md' 
+                            : 'bg-white/5 border-white/5 text-slate-500 cursor-not-allowed opacity-50'
+                        }`}
+                        title={nextDef ? `Siguiente: ${nextDef.shortName}` : ''}
+                      >
+                        <span className="hidden md:inline">Siguiente</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* ACTIVE SUBTAB COMPONENT */}
+                  <div className="p-5 sm:p-7 bg-slate-50/40 dark:bg-zinc-900/50">
+                    {renderSubTabComponent(currentDef.key)}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* VISTA 2: 14 COMPLETE ACCORDION SECTIONS (MODO ACORDEÓN VERTICAL) */}
+      {/* ========================================================================= */}
+      {viewMode === 'accordion' && (
+        <div className="space-y-4">
+          {visibleSubTabDefs.filter(def => isSubTabVisible(def.key)).map((def) => {
+            const isOpen = openAccordions.has(def.key);
+            const IconComp = def.icon;
+
+            return (
+              <div
+                key={def.key}
+                id={`customizer-accordion-${def.key}`}
+                className={`bg-white dark:bg-zinc-900 rounded-2xl border transition-all duration-200 overflow-hidden shadow-xs ${
+                  isOpen
+                    ? 'border-indigo-500/50 dark:border-indigo-500/40 ring-2 ring-indigo-500/10'
+                    : 'border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700'
                 }`}
               >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    isOpen ? def.activeBg : 'bg-slate-100 dark:bg-zinc-800'
-                  }`}>
-                    <IconComp className={`w-5 h-5 ${isOpen ? 'text-white' : def.iconColor}`} />
-                  </div>
-
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white truncate">
-                        {def.name}
-                      </h3>
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
-                        isOpen 
-                          ? 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300' 
-                          : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'
-                      }`}>
-                        {def.badge}
-                      </span>
+                {/* ACCORDION HEADER (CLICK TO EXPAND / COLLAPSE) */}
+                <button
+                  type="button"
+                  onClick={() => toggleAccordion(def.key)}
+                  className={`w-full p-4 sm:p-5 text-left flex items-center justify-between gap-4 transition-colors cursor-pointer ${
+                    isOpen 
+                      ? 'bg-slate-50/80 dark:bg-zinc-850/80 border-b border-slate-200/80 dark:border-zinc-800' 
+                      : 'hover:bg-slate-50/50 dark:hover:bg-zinc-850/40'
+                  }`}
+                >
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      isOpen ? def.activeBg : 'bg-slate-100 dark:bg-zinc-800'
+                    }`}>
+                      <IconComp className={`w-5 h-5 ${isOpen ? 'text-white' : def.iconColor}`} />
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400 truncate mt-0.5 hidden sm:block">
-                      {def.description}
-                    </p>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-xs font-bold text-slate-400 dark:text-zinc-500 hidden md:inline">
-                    {isOpen ? 'Ocultar módulo' : 'Configurar módulo'}
-                  </span>
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                    isOpen ? 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'
-                  }`}>
-                    {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white truncate">
+                          {def.name}
+                        </h3>
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                          isOpen 
+                            ? 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300' 
+                            : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'
+                        }`}>
+                          {def.badge}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-zinc-400 truncate mt-0.5 hidden sm:block">
+                        {def.description}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </button>
 
-              {/* ACCORDION CONTENT (RENDERED WHEN OPEN) */}
-              {isOpen && (
-                <div className="p-4 sm:p-6 bg-slate-50/30 dark:bg-zinc-900/40 animate-fadeIn">
-                  {renderSubTabComponent(def.key)}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-xs font-bold text-slate-400 dark:text-zinc-500 hidden md:inline">
+                      {isOpen ? 'Ocultar módulo' : 'Configurar módulo'}
+                    </span>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                      isOpen ? 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'
+                    }`}>
+                      {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </div>
+                  </div>
+                </button>
+
+                {/* ACCORDION CONTENT (RENDERED WHEN OPEN) */}
+                {isOpen && (
+                  <div className="p-4 sm:p-6 bg-slate-50/30 dark:bg-zinc-900/40 animate-fadeIn">
+                    {renderSubTabComponent(def.key)}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

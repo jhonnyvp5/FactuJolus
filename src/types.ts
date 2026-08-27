@@ -287,6 +287,18 @@ export interface EmpresaTenant {
   comprobantesEmitidos?: number;
   usuariosRegistrados?: number;
   featurePermissions?: TenantFeaturePermissions;
+  plan?: string;
+  vigencia?: string;
+  logoUrl?: string;
+  colorPrimario?: string;
+  ambienteSri?: string;
+  establecimiento?: string;
+  puntoEmision?: string;
+  secuencialFactura?: number;
+  secuencialRetencion?: number;
+  secuencialNotaCredito?: number;
+  secuencialProforma?: number;
+  obligadoContabilidad?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

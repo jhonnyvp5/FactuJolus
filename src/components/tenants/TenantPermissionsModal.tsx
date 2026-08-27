@@ -4,7 +4,8 @@ import {
   Receipt, Percent, FileSpreadsheet, Package, Users, KeyRound, 
   CheckCircle2, AlertCircle, Save, Sliders, Layers, ChevronRight,
   ShieldCheck, Lock, ArrowRight, ToggleLeft, ToggleRight, FileCheck2,
-  Code, Image as ImageIcon, Megaphone, Newspaper, Share2, Eye
+  Code, Image as ImageIcon, Megaphone, Newspaper, Share2, Eye,
+  Building2, Calendar, Hash, RefreshCw, Zap, CheckCircle, Globe
 } from 'lucide-react';
 import { EmpresaTenant, TenantFeaturePermissions, TenantModulePermissions, CustomizerSubTabKey } from '../../types';
 import { modalAlert } from '../../context/ModalAlertContext';
@@ -165,7 +166,23 @@ export default function TenantPermissionsModal({ empresa, isOpen, onClose, onSav
   }));
 
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'modules' | 'customizer' | 'layouts' | 'presets'>('customizer');
+  const [activeTab, setActiveTab] = useState<'modules' | 'customizer' | 'layouts' | 'presets' | 'live-settings'>('customizer');
+
+  // Live Company Settings state (Superadmin live controls)
+  const [livePlan, setLivePlan] = useState<string>(empresa.plan || 'pro');
+  const [liveVigencia, setLiveVigencia] = useState<string>(empresa.vigencia || empresa.fechaExpiracion || 'ilimitada');
+  const [liveEstado, setLiveEstado] = useState<'ACTIVO' | 'SUSPENDIDO' | 'VENCIDO'>(empresa.estado || 'ACTIVO');
+  const [liveLogoUrl, setLiveLogoUrl] = useState<string>(empresa.logoUrl || '');
+  const [liveColorPrimario, setLiveColorPrimario] = useState<string>(empresa.colorPrimario || '#4f46e5');
+  const [liveAmbienteSri, setLiveAmbienteSri] = useState<'1' | '2'>((empresa.ambienteSri as '1' | '2') || '1');
+  const [liveEstablecimiento, setLiveEstablecimiento] = useState<string>(empresa.establecimiento || '001');
+  const [livePuntoEmision, setLivePuntoEmision] = useState<string>(empresa.puntoEmision || '001');
+  const [liveSecuencialFactura, setLiveSecuencialFactura] = useState<number>(empresa.secuencialFactura || 1);
+  const [liveSecuencialRetencion, setLiveSecuencialRetencion] = useState<number>(empresa.secuencialRetencion || 1);
+  const [liveSecuencialNotaCredito, setLiveSecuencialNotaCredito] = useState<number>(empresa.secuencialNotaCredito || 1);
+  const [liveSecuencialProforma, setLiveSecuencialProforma] = useState<number>(empresa.secuencialProforma || 1);
+  const [liveObligadoContabilidad, setLiveObligadoContabilidad] = useState<boolean>(empresa.obligadoContabilidad ?? true);
+  const [liveNombreComercial, setLiveNombreComercial] = useState<string>(empresa.nombreComercial || empresa.razonSocial || '');
 
   if (!isOpen) return null;
 
@@ -271,10 +288,25 @@ export default function TenantPermissionsModal({ empresa, isOpen, onClose, onSav
 
       const updatedEmpresa: EmpresaTenant = {
         ...empresa,
+        plan: livePlan,
+        vigencia: liveVigencia,
+        estado: liveEstado,
+        logoUrl: liveLogoUrl,
+        colorPrimario: liveColorPrimario,
+        ambienteSri: liveAmbienteSri,
+        establecimiento: liveEstablecimiento,
+        puntoEmision: livePuntoEmision,
+        secuencialFactura: Number(liveSecuencialFactura) || 1,
+        secuencialRetencion: Number(liveSecuencialRetencion) || 1,
+        secuencialNotaCredito: Number(liveSecuencialNotaCredito) || 1,
+        secuencialProforma: Number(liveSecuencialProforma) || 1,
+        obligadoContabilidad: liveObligadoContabilidad,
+        nombreComercial: liveNombreComercial,
         featurePermissions: updatedPermissions
       };
 
       await onSave(updatedEmpresa);
+      modalAlert.success('Ajustes Guardados', `Se han actualizado con éxito los permisos y parámetros de ${empresa.razonSocial}.`);
       onClose();
     } catch (err: any) {
       modalAlert.error('Error', err?.message || 'No se pudieron guardar los permisos del inquilino.');
@@ -367,10 +399,24 @@ export default function TenantPermissionsModal({ empresa, isOpen, onClose, onSav
               <Sparkles className="w-3.5 h-3.5" />
               Perfiles Rápidos
             </button>
+
+            <button
+              onClick={() => setActiveTab('live-settings')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                activeTab === 'live-settings'
+                  ? 'bg-emerald-600 text-white shadow-xs font-black ring-2 ring-emerald-400/40'
+                  : 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-800'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-300" />
+              <span>Ajustes en vivo por empresa</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            </button>
           </div>
 
-          <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-semibold hidden lg:inline">
-            Ajustes en vivo por empresa
+          <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-semibold hidden lg:inline flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            Control Central Superadmin
           </span>
         </div>
 
@@ -999,6 +1045,296 @@ export default function TenantPermissionsModal({ empresa, isOpen, onClose, onSav
                 </div>
               </div>
 
+            </div>
+          )}
+
+          {/* TAB 4: LIVE SETTINGS (AJUSTES EN VIVO POR EMPRESA) */}
+          {activeTab === 'live-settings' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="p-4 bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/40 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <Zap className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-emerald-950 dark:text-emerald-200 uppercase tracking-wide flex items-center gap-2">
+                      <span>Panel de Ajustes en Vivo • {empresa.razonSocial}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-200 dark:bg-emerald-900/80 text-emerald-800 dark:text-emerald-300 font-mono text-[10px]">
+                        {empresa.ruc}
+                      </span>
+                    </h4>
+                    <p className="text-xs text-emerald-800/80 dark:text-emerald-300/90 mt-0.5 leading-relaxed">
+                      Como SUPERADMIN, puedes modificar en tiempo real el plan, vigencia vitalicia/ilimitada, ambiente SRI, numeración de secuenciales, datos comerciales y estado operativo de esta empresa.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300">
+                    Estado Actual:
+                  </span>
+                  <select
+                    value={liveEstado}
+                    onChange={(e) => setLiveEstado(e.target.value as any)}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-zinc-800 border border-emerald-300 dark:border-emerald-700 text-slate-800 dark:text-zinc-100 shadow-xs cursor-pointer"
+                  >
+                    <option value="ACTIVO">🟢 ACTIVO (Operativa)</option>
+                    <option value="SUSPENDIDO">🔴 SUSPENDIDO</option>
+                    <option value="VENCIDO">⚪ VENCIDO</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* GRID OF LIVE SETTINGS */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                
+                {/* 1. PLAN & VIGENCIA */}
+                <div className="p-5 rounded-2xl bg-white dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 shadow-xs space-y-4">
+                  <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-zinc-700">
+                    <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <h5 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                      Suscripción & Vigencia del Plan
+                    </h5>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-1">
+                      Plan Asignado
+                    </label>
+                    <select
+                      value={livePlan}
+                      onChange={(e) => setLivePlan(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-bold text-slate-800 dark:text-white"
+                    >
+                      <option value="basic">Plan Básico (Facturación)</option>
+                      <option value="pro">Plan Profesional (Facturación + Retenciones + Proformas)</option>
+                      <option value="enterprise">Plan Enterprise (Ilimitado Completo)</option>
+                      <option value="ilimitado">Plan Lifetime / Ilimitado de por Vida</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-slate-700 dark:text-zinc-300">
+                        Vigencia del Acceso
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setLiveVigencia('ilimitada')}
+                        className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                      >
+                        Fijar Ilimitada (De por vida)
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={liveVigencia}
+                        onChange={(e) => setLiveVigencia(e.target.value)}
+                        placeholder="Ej: ilimitada o 2026-12-31"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-slate-800 dark:text-white font-medium"
+                      />
+                      {liveVigencia.toLowerCase() === 'ilimitada' ? (
+                        <span className="px-3 py-2 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded-xl text-xs font-black shrink-0 flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5" /> Vitalicio
+                        </span>
+                      ) : (
+                        <input
+                          type="date"
+                          value={liveVigencia.length === 10 ? liveVigencia : ''}
+                          onChange={(e) => setLiveVigencia(e.target.value)}
+                          className="px-2 py-1 text-xs rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-slate-800 dark:text-white cursor-pointer"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-1">
+                      Nombre Comercial de Facturación
+                    </label>
+                    <input
+                      type="text"
+                      value={liveNombreComercial}
+                      onChange={(e) => setLiveNombreComercial(e.target.value)}
+                      placeholder="Nombre de fantasía o marca"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-slate-800 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                {/* 2. AMBIENTE & PARÁMETROS SRI */}
+                <div className="p-5 rounded-2xl bg-white dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 shadow-xs space-y-4">
+                  <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-zinc-700">
+                    <Globe className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <h5 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                      Ambiente & Parámetros SRI
+                    </h5>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-1">
+                        Ambiente SRI
+                      </label>
+                      <select
+                        value={liveAmbienteSri}
+                        onChange={(e) => setLiveAmbienteSri(e.target.value as any)}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-bold text-slate-800 dark:text-white"
+                      >
+                        <option value="1">1 - Pruebas / Sandbox</option>
+                        <option value="2">2 - Producción Oficial</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-1">
+                        Contabilidad Obligada
+                      </label>
+                      <select
+                        value={liveObligadoContabilidad ? 'SI' : 'NO'}
+                        onChange={(e) => setLiveObligadoContabilidad(e.target.value === 'SI')}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-bold text-slate-800 dark:text-white"
+                      >
+                        <option value="SI">SÍ (Obligado a llevar)</option>
+                        <option value="NO">NO (No obligado)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-1">
+                        Establecimiento
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={3}
+                        value={liveEstablecimiento}
+                        onChange={(e) => setLiveEstablecimiento(e.target.value.padStart(3, '0').slice(-3))}
+                        placeholder="001"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-center font-mono font-bold text-slate-800 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-1">
+                        Punto de Emisión
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={3}
+                        value={livePuntoEmision}
+                        onChange={(e) => setLivePuntoEmision(e.target.value.padStart(3, '0').slice(-3))}
+                        placeholder="001"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-center font-mono font-bold text-slate-800 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-1">
+                      Color Primario de Marca (HEX)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={liveColorPrimario}
+                        onChange={(e) => setLiveColorPrimario(e.target.value)}
+                        className="w-9 h-9 rounded-lg border border-slate-200 cursor-pointer p-0.5"
+                      />
+                      <input
+                        type="text"
+                        value={liveColorPrimario}
+                        onChange={(e) => setLiveColorPrimario(e.target.value)}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-mono font-bold text-slate-800 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. SECUENCIALES FISCALES EN VIVO */}
+                <div className="p-5 rounded-2xl bg-white dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 shadow-xs md:col-span-2 space-y-4">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-700">
+                    <div className="flex items-center gap-2">
+                      <Hash className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                      <h5 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                        Ajuste de Secuenciales Fiscales en Vivo
+                      </h5>
+                    </div>
+                    <span className="text-[11px] text-slate-400">
+                      Siguiente número a emitir por el motor SRI
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3 bg-slate-50 dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700">
+                      <label className="block text-[11px] font-bold text-slate-600 dark:text-zinc-400 mb-1">
+                        Facturas
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={liveSecuencialFactura}
+                        onChange={(e) => setLiveSecuencialFactura(Number(e.target.value))}
+                        className="w-full px-2 py-1.5 text-xs font-mono font-black text-slate-900 dark:text-white rounded-lg border border-slate-200 dark:border-zinc-600 bg-white dark:bg-zinc-900"
+                      />
+                      <span className="text-[10px] text-slate-400 font-mono mt-1 block">
+                        {(liveSecuencialFactura || 1).toString().padStart(9, '0')}
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700">
+                      <label className="block text-[11px] font-bold text-slate-600 dark:text-zinc-400 mb-1">
+                        Retenciones
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={liveSecuencialRetencion}
+                        onChange={(e) => setLiveSecuencialRetencion(Number(e.target.value))}
+                        className="w-full px-2 py-1.5 text-xs font-mono font-black text-slate-900 dark:text-white rounded-lg border border-slate-200 dark:border-zinc-600 bg-white dark:bg-zinc-900"
+                      />
+                      <span className="text-[10px] text-slate-400 font-mono mt-1 block">
+                        {(liveSecuencialRetencion || 1).toString().padStart(9, '0')}
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700">
+                      <label className="block text-[11px] font-bold text-slate-600 dark:text-zinc-400 mb-1">
+                        Notas de Crédito
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={liveSecuencialNotaCredito}
+                        onChange={(e) => setLiveSecuencialNotaCredito(Number(e.target.value))}
+                        className="w-full px-2 py-1.5 text-xs font-mono font-black text-slate-900 dark:text-white rounded-lg border border-slate-200 dark:border-zinc-600 bg-white dark:bg-zinc-900"
+                      />
+                      <span className="text-[10px] text-slate-400 font-mono mt-1 block">
+                        {(liveSecuencialNotaCredito || 1).toString().padStart(9, '0')}
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700">
+                      <label className="block text-[11px] font-bold text-slate-600 dark:text-zinc-400 mb-1">
+                        Proformas / Cotizaciones
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={liveSecuencialProforma}
+                        onChange={(e) => setLiveSecuencialProforma(Number(e.target.value))}
+                        className="w-full px-2 py-1.5 text-xs font-mono font-black text-slate-900 dark:text-white rounded-lg border border-slate-200 dark:border-zinc-600 bg-white dark:bg-zinc-900"
+                      />
+                      <span className="text-[10px] text-slate-400 font-mono mt-1 block">
+                        {(liveSecuencialProforma || 1).toString().padStart(9, '0')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
             </div>
           )}
 

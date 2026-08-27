@@ -778,6 +778,58 @@ export async function saveClientToSupabase(client: Client, userEmail?: string): 
   return safeUpsert('clientes', spanishPayload, 'identificacion');
 }
 
+export async function saveBulkClientsToSupabase(clientsList: Client[], userEmail?: string): Promise<{ successCount: number; errorCount: number }> {
+  if (!clientsList || clientsList.length === 0) {
+    return { successCount: 0, errorCount: 0 };
+  }
+
+  const supabase = getSupabase();
+  if (!supabase) {
+    return { successCount: clientsList.length, errorCount: 0 };
+  }
+
+  const batchPayloads = clientsList.map(c => ({
+    id: c.id || `cli-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    tipo_identificacion: c.tipoIdentificacion || '05',
+    identificacion: c.identificacion,
+    nombre: c.nombre,
+    direccion: c.direccion || '',
+    telefono: c.telefono || '',
+    correo: c.correo || '',
+    usuario_correo: userEmail || c.usuarioCorreo || '',
+    empresa_ruc: c.empresaRuc || '',
+    empresa_nombre: c.empresaNombre || ''
+  }));
+
+  const chunkSize = 50;
+  let successCount = 0;
+  let errorCount = 0;
+
+  for (let i = 0; i < batchPayloads.length; i += chunkSize) {
+    const chunk = batchPayloads.slice(i, i + chunkSize);
+    try {
+      const { error } = await supabase.from('clientes').upsert(chunk, { onConflict: 'identificacion' });
+      if (!error) {
+        successCount += chunk.length;
+      } else {
+        for (const item of chunk) {
+          const res = await safeUpsert('clientes', item, 'identificacion');
+          if (res.success) successCount++;
+          else errorCount++;
+        }
+      }
+    } catch {
+      for (const item of chunk) {
+        const res = await safeUpsert('clientes', item, 'identificacion');
+        if (res.success) successCount++;
+        else errorCount++;
+      }
+    }
+  }
+
+  return { successCount, errorCount };
+}
+
 export async function deleteClientFromSupabase(id: string, identificacion?: string): Promise<boolean> {
   const supabase = getSupabase();
   if (!supabase) return false;

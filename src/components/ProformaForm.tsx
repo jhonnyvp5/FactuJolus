@@ -612,10 +612,10 @@ export default function ProformaForm({
         <form onSubmit={handleSaveProforma} className="space-y-6">
           
           {/* TOP FULL-WIDTH COMPACT BENTO CARD: DATOS DEL CLIENTE Y CABECERA */}
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-5 border border-gray-150 dark:border-zinc-850 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 border-b border-gray-100 dark:border-zinc-800 pb-3">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-zinc-800 pb-3">
               <span className="w-2.5 h-2.5 rounded-full bg-[#703bb0]" />
-              <h3 className="font-extrabold text-xs uppercase text-gray-800 dark:text-zinc-200 tracking-wider">
+              <h3 className="font-extrabold text-xs uppercase text-slate-800 dark:text-zinc-200 tracking-wider">
                 Datos de la Cotización & Cliente
               </h3>
               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-950/20 text-[#703bb0] ml-auto">Compacto & Inteligente</span>
@@ -625,11 +625,11 @@ export default function ProformaForm({
               
               {/* Row 1, Col 1: Client Lookup */}
               <div className="space-y-1">
-                <label className="block text-[9px] font-bold text-gray-400 dark:text-zinc-500 uppercase">Cargar de Clientes SRI</label>
+                <label className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase">Cargar de Clientes SRI</label>
                 <select
                   value={selectedClientId}
                   onChange={(e) => handleClientChange(e.target.value)}
-                  className="w-full text-xs p-2.5 bg-gray-50 uppercase font-bold dark:bg-zinc-850 rounded-xl border border-gray-200 dark:border-zinc-750 focus:ring-1 focus:ring-indigo-500"
+                  className="w-full text-xs p-2.5 bg-slate-50 uppercase font-bold dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700 focus:ring-1 focus:ring-sky-500"
                 >
                   <option value="">-- SELECIONAR CLIENTE --</option>
                   <option value="NEW">+ INGRESAR MANUALMENTE</option>
@@ -643,25 +643,25 @@ export default function ProformaForm({
 
               {/* Row 1, Col 2: Name */}
               <div className="space-y-1">
-                <label className="block text-[9px] font-bold text-gray-400 dark:text-zinc-500 uppercase">Nombre Completo *</label>
+                <label className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase">Nombre Completo *</label>
                 <input
                   type="text"
                   required
                   value={buyerName}
                   onChange={(e) => setBuyerName(e.target.value)}
                   placeholder="e.g. Carolina Leon"
-                  className="w-full text-xs p-2.5 bg-gray-50 dark:bg-zinc-850 rounded-xl border border-gray-200 dark:border-zinc-750 focus:ring-1 focus:ring-indigo-500"
+                  className="w-full text-xs p-2.5 bg-slate-50 dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700 focus:ring-1 focus:ring-sky-500"
                 />
               </div>
 
               {/* Row 1, Col 3: Identificación (Cédula / RUC) */}
               <div className="space-y-1">
-                <label className="block text-[9px] font-bold text-gray-400 dark:text-zinc-500 uppercase">Identificación (Cédula / RUC) *</label>
+                <label className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase">Identificación (Cédula / RUC) *</label>
                 <div className="flex gap-1.5">
                   <select
                     value={buyerTipoIdentificacion}
                     onChange={(e) => setBuyerTipoIdentificacion(e.target.value)}
-                    className="text-xs p-2.5 bg-gray-50 dark:bg-zinc-850 rounded-xl border border-gray-200 dark:border-zinc-750 focus:ring-1 focus:ring-indigo-500 shrink-0 font-bold uppercase"
+                    className="text-xs p-2.5 bg-slate-50 dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700 focus:ring-1 focus:ring-sky-500 shrink-0 font-bold uppercase"
                   >
                     <option value="05">Cédula</option>
                     <option value="04">RUC</option>
@@ -674,68 +674,68 @@ export default function ProformaForm({
                     value={buyerIdentificacion}
                     onChange={(e) => setBuyerIdentificacion(e.target.value.replace(/[^0-9A-Za-z]/g, ''))}
                     placeholder="e.g. 1712398472"
-                    className="w-full text-xs p-2.5 bg-gray-50 dark:bg-zinc-850 rounded-xl border border-gray-200 dark:border-zinc-750 focus:ring-1 focus:ring-indigo-500 font-mono font-bold"
+                    className="w-full text-xs p-2.5 bg-slate-50 dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700 focus:ring-1 focus:ring-sky-500 font-mono font-bold"
                   />
                 </div>
               </div>
 
               {/* Row 2, Col 1: Tel */}
               <div className="space-y-1">
-                <label className="block text-[9px] font-bold text-gray-400 dark:text-zinc-500 uppercase">Teléfono de contacto</label>
+                <label className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase">Teléfono de contacto</label>
                 <input
                   type="text"
                   value={buyerTel}
                   onChange={(e) => setBuyerTel(e.target.value)}
                   placeholder="e.g. 0984961268"
-                  className="w-full text-xs p-2.5 bg-gray-50 dark:bg-zinc-850 rounded-xl border border-gray-200 dark:border-zinc-750 focus:ring-1 focus:ring-indigo-500"
+                  className="w-full text-xs p-2.5 bg-slate-50 dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700 focus:ring-1 focus:ring-sky-500"
                 />
               </div>
 
               {/* Row 2, Col 1: Email */}
               <div className="space-y-1">
-                <label className="block text-[9px] font-bold text-gray-400 dark:text-zinc-500 uppercase">Correo Electrónico</label>
+                <label className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase">Correo Electrónico</label>
                 <input
                   type="email"
                   value={buyerEmail}
                   onChange={(e) => setBuyerEmail(e.target.value)}
                   placeholder="e.g. carolina@worq.com.ec"
-                  className="w-full text-xs p-2.5 bg-gray-50 dark:bg-zinc-850 rounded-xl border border-gray-200 dark:border-zinc-750 focus:ring-1 focus:ring-indigo-500"
+                  className="w-full text-xs p-2.5 bg-slate-50 dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700 focus:ring-1 focus:ring-sky-500"
                 />
               </div>
 
               {/* Row 2, Col 2: Dir */}
               <div className="space-y-1">
-                <label className="block text-[9px] font-bold text-gray-400 dark:text-zinc-500 uppercase">Dirección</label>
+                <label className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase">Dirección</label>
                 <input
                   type="text"
                   value={buyerDir}
                   onChange={(e) => setBuyerDir(e.target.value)}
                   placeholder="e.g. Cdla. Los Esteros, Guayaquil"
-                  className="w-full text-xs p-2.5 bg-gray-50 dark:bg-zinc-850 rounded-xl border border-gray-200 dark:border-zinc-750 focus:ring-1 focus:ring-indigo-500"
+                  className="w-full text-xs p-2.5 bg-slate-50 dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700 focus:ring-1 focus:ring-sky-500"
                 />
               </div>
 
               {/* Row 2, Col 3: Secuencial & Fecha */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="block text-[9px] font-bold text-gray-400 dark:text-zinc-500 uppercase">Nº Secuencial</label>
+                  <label className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase">Nº Secuencial</label>
                   <input
                     type="text"
                     required
                     value={secuencial}
                     onChange={(e) => setSecuencial(e.target.value)}
                     placeholder="00000001"
-                    className="w-full text-xs p-2.5 bg-gray-50 dark:bg-zinc-850 rounded-xl border border-gray-200 dark:border-zinc-750 focus:ring-1 focus:ring-indigo-500 font-mono text-center font-bold"
+                    className="w-full text-xs p-2.5 bg-slate-50 dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700 focus:ring-1 focus:ring-sky-500 font-mono text-center font-bold"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="block text-[9px] font-bold text-gray-400 dark:text-zinc-500 uppercase">Fecha Emisión</label>
+                  <label className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase">Fecha Emisión</label>
                   <input
                     type="date"
                     required
                     value={fechaEmision}
                     onChange={(e) => setFechaEmision(e.target.value)}
-                    className="w-full text-xs p-2.5 bg-gray-50 dark:bg-zinc-850 rounded-xl border border-gray-200 dark:border-zinc-750 focus:ring-1 focus:ring-indigo-500"
+                    className="w-full text-xs p-2.5 bg-slate-50 dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700 focus:ring-1 focus:ring-sky-500"
                   />
                 </div>
               </div>
@@ -749,16 +749,16 @@ export default function ProformaForm({
             {/* LEFT COLUMN: ITEMS LIST DETAILS (SPAN 2) */}
             <div className="lg:col-span-2 space-y-6">
               
-              <div className="bg-white dark:bg-zinc-900 rounded-2xl p-5 border border-gray-150 dark:border-zinc-850 shadow-xs space-y-4">
+              <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-4">
                 
                 {/* Header of Item Management Panel */}
-                <div className="flex justify-between items-center border-b border-gray-100 dark:border-zinc-800 pb-3 flex-wrap gap-2">
+                <div className="flex justify-between items-center border-b border-slate-100 dark:border-zinc-800 pb-3 flex-wrap gap-2">
                   <div>
-                    <h3 className="font-extrabold text-xs uppercase text-gray-800 dark:text-zinc-200 tracking-wider flex items-center gap-2">
+                    <h3 className="font-extrabold text-xs uppercase text-slate-800 dark:text-zinc-200 tracking-wider flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-[#703bb0]" />
                       Catálogo de Productos y Servicios de Cotización
                     </h3>
-                    <p className="text-[10px] text-gray-550 mt-0.5">Busque un producto de su inventario o digite una descripción libre directamente en la casilla.</p>
+                    <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">Busque un producto de su inventario o digite una descripción libre directamente en la casilla.</p>
                   </div>
                   <button
                     type="button"
@@ -937,19 +937,19 @@ export default function ProformaForm({
             <div className="lg:col-span-1 space-y-6">
               
               {/* MATH AND BILLING SUMMARY BENTO CARD */}
-              <div className="bg-white dark:bg-zinc-900 rounded-2xl p-5 border border-gray-150 dark:border-zinc-850 shadow-xs space-y-4">
-                <h3 className="font-extrabold text-xs uppercase text-gray-800 dark:text-zinc-200 tracking-wider flex items-center gap-2 border-b border-gray-100 dark:border-zinc-800 pb-2">
+              <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-4">
+                <h3 className="font-extrabold text-xs uppercase text-slate-800 dark:text-zinc-200 tracking-wider flex items-center gap-2 border-b border-slate-100 dark:border-zinc-800 pb-2">
                   <span className="w-2 h-2 rounded-full bg-[#703bb0]" />
                   Resumen de Totales
                 </h3>
 
                 {/* Inline tax selector */}
                 <div className="space-y-1">
-                  <label className="block text-[9.5px] font-bold text-gray-400 dark:text-zinc-500 uppercase">Tarifa de IVA</label>
+                  <label className="block text-[9.5px] font-bold text-slate-400 dark:text-zinc-500 uppercase">Tarifa de IVA</label>
                   <select
                     value={ivaOption}
                     onChange={(e) => handleIvaOptionChange(e.target.value)}
-                    className="w-full text-xs p-2.5 bg-gray-50 dark:bg-zinc-850 rounded-xl border border-gray-200 dark:border-zinc-750 focus:ring-1 focus:ring-indigo-500 font-semibold text-gray-700 dark:text-zinc-300"
+                    className="w-full text-xs p-2.5 bg-slate-50 dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700 focus:ring-1 focus:ring-sky-500 font-semibold text-slate-750 dark:text-zinc-300"
                   >
                     <option value="15">15% (Nueva Tarifa Activa)</option>
                     <option value="12">12% (Tarifa Estándar)</option>
@@ -961,13 +961,13 @@ export default function ProformaForm({
                 </div>
 
                 {/* Mathematical matrix details */}
-                <div className="bg-gray-50 dark:bg-zinc-950 p-4 rounded-xl border border-gray-205 dark:border-zinc-850 text-xs space-y-2.5 font-mono">
+                <div className="bg-slate-50 dark:bg-zinc-950 p-4 rounded-xl border border-slate-200 dark:border-zinc-800 text-xs space-y-2.5 font-mono">
                   <div className="flex justify-between">
-                    <span className="text-gray-400 font-bold">SUBTOTAL</span>
-                    <span className="font-black text-gray-800 dark:text-zinc-200 text-xs">${subtotalSum.toFixed(2)}</span>
+                    <span className="text-slate-400 font-bold">SUBTOTAL</span>
+                    <span className="font-black text-slate-800 dark:text-zinc-200 text-xs">${subtotalSum.toFixed(2)}</span>
                   </div>
                   {ivaOption !== 'no_aplica' && (
-                    <div className="flex justify-between text-indigo-600 dark:text-indigo-400 font-bold">
+                    <div className="flex justify-between text-sky-600 dark:text-sky-400 font-bold">
                       <span>
                         {ivaOption === 'no_objeto' ? 'NO OBJETO IVA' : 
                          ivaOption === 'exento' ? 'EXENTO IVA' : 
@@ -976,7 +976,7 @@ export default function ProformaForm({
                       <span className="font-black">${ivaSum.toFixed(2)}</span>
                     </div>
                   )}
-                  <hr className="border-gray-200 dark:border-zinc-800" />
+                  <hr className="border-slate-200 dark:border-zinc-800" />
                   <div className="flex justify-between text-[#703bb0] text-sm font-black uppercase pt-1">
                     <span className="font-black">TOTAL</span>
                     <span className="text-sm font-black bg-purple-50 dark:bg-purple-950/30 px-2 py-0.5 rounded-lg">${totalSum.toFixed(2)}</span>
@@ -986,25 +986,25 @@ export default function ProformaForm({
                 {/* Payment Condition Terms */}
                 <div className="space-y-3">
                   <div className="space-y-1">
-                    <label className="block text-[9px] font-bold text-gray-400 dark:text-zinc-500 uppercase">Condiciones de pago / Plazos *</label>
+                    <label className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase">Condiciones de pago / Plazos *</label>
                     <textarea
                       required
                       rows={2}
                       value={informacionPago}
                       onChange={(e) => setInformacionPago(e.target.value)}
                       placeholder="e.g. 70% ANTICIPO Y 30% AL CIERRE DEL CONTRATO"
-                      className="w-full text-xs p-2.5 bg-gray-50 dark:bg-zinc-850 rounded-xl border border-gray-200 dark:border-zinc-750 focus:ring-1 focus:ring-indigo-500 font-medium"
+                      className="w-full text-xs p-2.5 bg-slate-50 dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700 focus:ring-1 focus:ring-sky-500 font-medium"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="block text-[9px] font-bold text-gray-400 dark:text-zinc-500 uppercase">Nota de dudas (Pie de Proforma)</label>
+                    <label className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase">Nota de dudas (Pie de Proforma)</label>
                     <input
                       type="text"
                       value={notaDudas}
                       onChange={(e) => setNotaDudas(e.target.value)}
                       placeholder="¿Tienes dudas? Envíanos un correo a..."
-                      className="w-full text-xs p-2.5 bg-gray-50 dark:bg-zinc-850 rounded-xl border border-gray-200 dark:border-zinc-750 focus:ring-1 focus:ring-indigo-500"
+                      className="w-full text-xs p-2.5 bg-slate-50 dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700 focus:ring-1 focus:ring-sky-500"
                     />
                   </div>
                 </div>
@@ -1047,7 +1047,7 @@ export default function ProformaForm({
                           setSecuencial('00000001');
                         }
                       }}
-                      className="w-full py-2 bg-gray-100 hover:bg-gray-150 text-gray-700 dark:bg-zinc-800 dark:text-zinc-300 font-extrabold text-xs rounded-xl cursor-pointer transition flex items-center justify-center gap-1 border border-gray-200 dark:border-zinc-700"
+                      className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300 font-extrabold text-xs rounded-xl cursor-pointer transition flex items-center justify-center gap-1 border border-slate-200 dark:border-zinc-700"
                     >
                       Cancelar Edición
                     </button>
@@ -1056,14 +1056,14 @@ export default function ProformaForm({
               </div>
 
               {/* MODELOS DE DISEÑO PROFESIONAL (PLANTILLAS) - MODELO ACORDEÓN */}
-              <div className="bg-white dark:bg-zinc-900 rounded-2xl p-5 border border-gray-150 dark:border-zinc-850 shadow-xs space-y-3">
+              <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-3">
                 <div 
                   onClick={() => setIsDesignAccordionOpen(!isDesignAccordionOpen)}
-                  className="flex justify-between items-center border-b border-gray-100 dark:border-zinc-800 pb-2.5 cursor-pointer select-none"
+                  className="flex justify-between items-center border-b border-slate-100 dark:border-zinc-800 pb-2.5 cursor-pointer select-none"
                 >
                   <div className="flex items-center gap-2">
                     <Palette className="w-4 h-4 text-purple-600" />
-                    <h3 className="font-extrabold text-xs uppercase text-gray-800 dark:text-zinc-200 tracking-wider">
+                    <h3 className="font-extrabold text-xs uppercase text-slate-800 dark:text-zinc-200 tracking-wider">
                       Modelo de Diseño
                     </h3>
                   </div>

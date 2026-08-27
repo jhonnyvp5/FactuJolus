@@ -534,8 +534,8 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
                     )}
                   </div>
 
-                  {/* ADMIN & DATES */}
-                  <div className="grid grid-cols-2 gap-2 text-xs py-2 border-t border-b border-gray-100 dark:border-zinc-800/80 my-3">
+                  {/* ADMIN, DATES & SIGNATURE STATUS */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs py-2.5 border-t border-b border-gray-100 dark:border-zinc-800/80 my-3">
                     <div>
                       <span className="text-gray-400 block text-[10px] uppercase font-bold">Admin Principal</span>
                       <span className="text-gray-700 dark:text-gray-200 font-medium truncate block" title={emp.adminCorreo}>
@@ -552,6 +552,20 @@ export default function TenantManagement({ currentUser, onCompanySelected }: Ten
                       ) : (
                         <span className={`font-medium ${isExpired ? 'text-rose-600 font-bold' : 'text-gray-700 dark:text-gray-200'}`}>
                           {emp.fechaExpiracion}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-gray-400 block text-[10px] uppercase font-bold">Firma Electrónica</span>
+                      {hasFirmaP12 ? (
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 truncate" title={configEmisor?.p12Nombre || 'Certificado P12 Registrado'}>
+                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                          <span>Certificado P12 Registrado</span>
+                        </span>
+                      ) : (
+                        <span className="font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                          <XCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                          <span>Sin Firma Electrónica Registrada</span>
                         </span>
                       )}
                     </div>

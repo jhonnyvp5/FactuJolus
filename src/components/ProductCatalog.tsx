@@ -34,7 +34,11 @@ export default function ProductCatalog({
   currentUser
 }: ProductCatalogProps) {
   const { settings } = usePlatformSettings();
-  const allowDemo = Boolean(settings?.modules?.showDemoButtons || settings?.allowDemoData);
+  const isSuperAdmin = 
+    currentUser?.role?.toUpperCase() === 'SUPERADMIN' || 
+    currentUser?.correo?.toLowerCase() === 'jhonnyvp5@gmail.com';
+
+  const allowDemo = isSuperAdmin || Boolean(settings?.modules?.showDemoButtons || settings?.allowDemoData);
 
   // Form states
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
