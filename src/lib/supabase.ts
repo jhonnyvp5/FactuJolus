@@ -647,13 +647,11 @@ export async function safeUpsert(
 
       const missingCol1 = extractMissingColumn(lastError);
       if (missingCol1 && missingCol1 in currentPayload) {
-        console.warn(`[Supabase safeUpsert]: Columna '${missingCol1}' no existe en la tabla '${tableName}'. Omitiendo y reintentando...`);
         delete currentPayload[missingCol1];
         continue;
       }
 
       if (isUuidError(lastError) && currentPayload.id !== undefined && !isValidUuid(currentPayload.id)) {
-        console.warn(`[Supabase safeUpsert]: 'id' ("${currentPayload.id}") no es un UUID válido. Omitiendo 'id' y reintentando...`);
         delete currentPayload.id;
         continue;
       }
@@ -671,13 +669,11 @@ export async function safeUpsert(
 
       const missingCol2 = extractMissingColumn(lastError);
       if (missingCol2 && missingCol2 in currentPayload) {
-        console.warn(`[Supabase safeUpsert]: Columna '${missingCol2}' no existe en la tabla '${tableName}'. Omitiendo y reintentando...`);
         delete currentPayload[missingCol2];
         continue;
       }
 
       if (isUuidError(lastError) && currentPayload.id !== undefined) {
-        console.warn(`[Supabase safeUpsert]: 'id' ("${currentPayload.id}") produjo error UUID. Omitiendo 'id' y reintentando...`);
         delete currentPayload.id;
         continue;
       }
@@ -714,13 +710,11 @@ export async function safeUpsert(
 
     const missingCol3 = extractMissingColumn(lastError);
     if (missingCol3 && missingCol3 in currentPayload) {
-      console.warn(`[Supabase safeUpsert]: Columna '${missingCol3}' no existe en la tabla '${tableName}'. Omitiendo y reintentando...`);
       delete currentPayload[missingCol3];
       continue;
     }
 
     if (isUuidError(lastError) && currentPayload.id !== undefined && !isValidUuid(currentPayload.id)) {
-      console.warn(`[Supabase safeUpsert]: 'id' ("${currentPayload.id}") no es un UUID válido. Omitiendo 'id' y reintentando...`);
       delete currentPayload.id;
       continue;
     }
